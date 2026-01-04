@@ -1,50 +1,48 @@
 # WoWSマップIDから日本語チャンネル名へのマッピング
 # 既存のDiscordチャンネル名に合わせて編集してください
 
-# ゲームタイプ別チャンネル設定
-# ゲームタイプに基づいてチャンネルを振り分ける場合はここに設定
-# 該当しない場合はマップベースのチャンネル振り分けが使用されます
-game_type_channels:
-  "ClanBattle": "clan_戦士の道"
-  # "RandomBattle": マップベースの振り分けを使用
-  # "RankBattle": マップベースの振り分けを使用
+# ゲームタイプ別prefix設定
+# チャンネル名 = prefix + 日本語マップ名
+game_type_prefixes:
+  "ClanBattle": "clan_"
+  "RandomBattle": "random_"
+  "RankBattle": "rank_"
 
-# マップID別チャンネル設定
-# RandomBattle、RankBattle等で使用されます
+# マップID → 日本語マップ名のマッピング
+# 全てのgameTypeで共通のマップ名を使用
 maps:
-  # clan戦用
-  "OC_prey": "clan_罠"
-  "solomon_islands": "clan_ソロモン諸島"
-  "island": "clan_諸島"
-  "Ring": "clan_リング"
-  "NE_passage": "clan_北極光"
-  "NE_ice_islands": "clan_氷の島々"
-  "OC_new_dawn": "clan_新たなる夜明け"
-  "Atlantic": "clan_大西洋"
-  "NE_north": "clan_北方"
-  "OC_bees_to_honey": "clan_ホットスポット"
-  "NA_fault_line": "clan_断層線"
-  "NE_ice_islands_winter": "clan_氷の島々(冬)"
-  "NE_two_brothers": "clan_二人の兄弟"
-  "tierra_del_fuego": "clan_火の地"
-  "Shards": "clan_破片"
-  "Greece": "clan_ギリシャ"
-  "naval_mission": "clan_海戦"
-  "new_tierra": "clan_新ティエラ"
-  "OC_islands": "clan_島嶼"
-  "NE_north_winter": "clan_北方(冬)"
-  "Ridge": "clan_海嶺"
-  "Canada": "clan_カナダ"
-  "Okinawa": "clan_沖縄"
-  "Conquest": "clan_征服"
-  "Neighbors": "clan_隣人"
-  "Path_warrior": "clan_戦士の道"
-  "Zigzag": "clan_ジグザグ"
-  "Estuary": "clan_河口"
-  "Sleeping_Giant": "clan_眠れる巨人"
-  "Gold_harbor": "clan_安息の地"
-  "Shoreside": "clan_北方海域"
-  "sea_hope": "clan_幸運の海"
+  "OC_prey": "罠"
+  "solomon_islands": "ソロモン諸島"
+  "island": "諸島"
+  "Ring": "リング"
+  "NE_passage": "北極光"
+  "NE_ice_islands": "氷の島々"
+  "OC_new_dawn": "新たなる夜明け"
+  "Atlantic": "大西洋"
+  "NE_north": "北方"
+  "OC_bees_to_honey": "ホットスポット"
+  "NA_fault_line": "断層線"
+  "NE_ice_islands_winter": "氷の島々(冬)"
+  "NE_two_brothers": "二人の兄弟"
+  "tierra_del_fuego": "火の地"
+  "Shards": "破片"
+  "Greece": "ギリシャ"
+  "naval_mission": "海戦"
+  "new_tierra": "新ティエラ"
+  "OC_islands": "島嶼"
+  "NE_north_winter": "北方(冬)"
+  "Ridge": "海嶺"
+  "Canada": "カナダ"
+  "Okinawa": "沖縄"
+  "Conquest": "征服"
+  "Neighbors": "隣人"
+  "Path_warrior": "戦士の道"
+  "Zigzag": "ジグザグ"
+  "Estuary": "河口"
+  "Sleeping_Giant": "眠れる巨人"
+  "Gold_harbor": "安息の地"
+  "Shoreside": "北方海域"
+  "sea_hope": "幸運の海"
 
 # 不明なマップIDの場合のデフォルト名
-default_channel: "clan_その他のマップ"
+default_map_name: "その他のマップ"

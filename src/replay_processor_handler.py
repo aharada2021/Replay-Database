@@ -20,8 +20,8 @@ DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 DISCORD_API_BASE = "https://discord.com/api/v10"
 
 
-def load_map_names() -> dict:
-    """マップ名マッピングを読み込む"""
+def load_map_config() -> tuple:
+    """マップ設定を読み込む"""
     import yaml
 
     map_file = Path(__file__).parent / "map_names.yaml"
@@ -29,12 +29,12 @@ def load_map_names() -> dict:
         with open(map_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
             maps = data.get('maps', {})
-            default_channel = data.get('default_channel', 'その他のマップ')
-            game_type_channels = data.get('game_type_channels', {})
-            return maps, default_channel, game_type_channels
+            game_type_prefixes = data.get('game_type_prefixes', {})
+            default_map_name = data.get('default_map_name', 'その他のマップ')
+            return maps, game_type_prefixes, default_map_name
     except Exception as e:
         logger.error(f"マップ名マッピングファイルの読み込みエラー: {e}")
-        return {}, 'その他のマップ', {}
+        return {}, {}, 'その他のマップ'
 
 
 def extract_map_id_from_filename(filename: str) -> Optional[str]:
@@ -198,8 +198,8 @@ def handle_replay_processing(event, context):
         filename = attachment['filename']
         file_url = attachment['url']
 
-        # マップ名マッピングを読み込み
-        MAP_NAMES, DEFAULT_CHANNEL_NAME, GAME_TYPE_CHANNELS = load_map_names()
+        # マップ設定を読み込み
+        MAPS, GAME_TYPE_PREFIXES, DEFAULT_MAP_NAME = load_map_config()
 
         # 一時ディレクトリでファイルを処理
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -221,26 +221,29 @@ def handle_replay_processing(event, context):
                 output_dir
             )
 
-            # ゲームタイプに基づいてチャンネルを決定
-            target_channel_name = None
+            # マップIDを取得
+            map_id = extract_map_id_from_filename(filename)
+            if not map_id:
+                send_followup_message(
+                    webhook_url,
+                    "❌ リプレイファイル名からマップ情報を取得できませんでした。"
+                )
+                return
 
-            if game_type and game_type in GAME_TYPE_CHANNELS:
-                # ゲームタイプ専用チャンネルが設定されている場合
-                target_channel_name = GAME_TYPE_CHANNELS[game_type]
-                logger.info(f"ゲームタイプ {game_type} → チャンネル: {target_channel_name}")
+            # 日本語マップ名を取得
+            japanese_map_name = MAPS.get(map_id, DEFAULT_MAP_NAME)
+
+            # ゲームタイプに基づいてprefixを取得
+            prefix = ""
+            if game_type and game_type in GAME_TYPE_PREFIXES:
+                prefix = GAME_TYPE_PREFIXES[game_type]
+                logger.info(f"ゲームタイプ: {game_type}, prefix: {prefix}")
             else:
-                # マップベースのチャンネル選択（従来の動作）
-                map_id = extract_map_id_from_filename(filename)
-                if not map_id:
-                    send_followup_message(
-                        webhook_url,
-                        "❌ リプレイファイル名からマップ情報を取得できませんでした。"
-                    )
-                    return
+                logger.warning(f"不明なゲームタイプ: {game_type}, prefixなしで投稿します")
 
-                # 日本語マップ名を取得
-                target_channel_name = MAP_NAMES.get(map_id, DEFAULT_CHANNEL_NAME)
-                logger.info(f"マップID: {map_id} → チャンネル: {target_channel_name}")
+            # チャンネル名を構築
+            target_channel_name = f"{prefix}{japanese_map_name}"
+            logger.info(f"マップID: {map_id} → 日本語名: {japanese_map_name} → チャンネル: {target_channel_name}")
 
             # チャンネルIDを取得
             target_channel_id = get_channel_by_name(guild_id, target_channel_name)
