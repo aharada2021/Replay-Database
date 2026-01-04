@@ -69,7 +69,7 @@ echo ""
 echo "🐳 Dockerイメージをビルド中..."
 echo "   これには数分かかる場合があります..."
 
-docker build -t $REPOSITORY_NAME:latest .
+docker build -f deploy/Dockerfile -t $REPOSITORY_NAME:latest .
 
 echo "✅ Dockerイメージのビルド完了"
 echo ""
@@ -104,9 +104,9 @@ echo "📝 serverless.ymlを更新中..."
 
 # macOSとLinuxの両方に対応
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "s|image: YOUR_ECR_URI:latest|image: $ECR_URI:latest|g" serverless.yml
+    sed -i '' "s|uri: .*\.dkr\.ecr\..*\.amazonaws\.com/wows-replay-bot:.*|uri: $ECR_URI:$STAGE|g" deploy/serverless.yml
 else
-    sed -i "s|image: YOUR_ECR_URI:latest|image: $ECR_URI:latest|g" serverless.yml
+    sed -i "s|uri: .*\.dkr\.ecr\..*\.amazonaws\.com/wows-replay-bot:.*|uri: $ECR_URI:$STAGE|g" deploy/serverless.yml
 fi
 
 echo "✅ serverless.ymlを更新しました"
@@ -117,7 +117,9 @@ echo ""
 # ======================================
 echo "🚀 Lambda関数をデプロイ中..."
 
+cd deploy
 npx serverless deploy --stage $STAGE
+cd ..
 
 echo ""
 echo "✅ デプロイが完了しました！"
@@ -132,11 +134,13 @@ echo "1. Discord Developer Portalで Interactions Endpoint URL を設定"
 echo "   https://discord.com/developers/applications"
 echo ""
 echo "   Interactions Endpoint URL:"
+cd deploy
 ENDPOINT=$(npx serverless info --stage $STAGE | grep "POST - " | awk '{print $3}')
+cd ..
 echo "   $ENDPOINT"
 echo ""
 echo "2. Slash Commandsを登録"
-echo "   python3 register_commands.py"
+echo "   python3 src/register_commands.py"
 echo ""
 echo "3. Discordで /upload_replay コマンドをテスト"
 echo ""
