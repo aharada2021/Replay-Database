@@ -59,15 +59,32 @@ def handle_interaction(event, context):
         API Gateway response
     """
     try:
-        # 署名検証
-        signature = event['headers'].get('x-signature-ed25519')
-        timestamp = event['headers'].get('x-signature-timestamp')
-        body = event['body']
+        # デバッグ用：イベント構造をログに出力
+        logger.info(f"Received event: {json.dumps(event)}")
+
+        # API Gateway HTTP API v2.0 ペイロード形式に対応
+        headers = event.get('headers', {})
+
+        # ヘッダー名は小文字で統一されている
+        signature = headers.get('x-signature-ed25519')
+        timestamp = headers.get('x-signature-timestamp')
+        body = event.get('body', '')
+
+        logger.info(f"Headers: signature={signature[:10] if signature else None}..., timestamp={timestamp}")
+
+        if not signature or not timestamp:
+            logger.error(f"Missing signature or timestamp. Headers: {headers}")
+            return {
+                'statusCode': 401,
+                'headers': {'Content-Type': 'application/json'},
+                'body': json.dumps({'error': 'Missing signature headers'})
+            }
 
         if not verify_discord_signature(signature, timestamp, body):
             logger.warning("Invalid signature")
             return {
                 'statusCode': 401,
+                'headers': {'Content-Type': 'application/json'},
                 'body': json.dumps({'error': 'Invalid signature'})
             }
 
@@ -77,8 +94,10 @@ def handle_interaction(event, context):
 
         # PING (type 1)
         if interaction_type == 1:
+            logger.info("Responding to PING")
             return {
                 'statusCode': 200,
+                'headers': {'Content-Type': 'application/json'},
                 'body': json.dumps({'type': 1})
             }
 
@@ -93,6 +112,7 @@ def handle_interaction(event, context):
                 if not attachments:
                     return {
                         'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json'},
                         'body': json.dumps({
                             "type": 4,
                             "data": {
@@ -127,6 +147,7 @@ def handle_interaction(event, context):
                     logger.error(f"Lambda呼び出しエラー: {e}", exc_info=True)
                     return {
                         'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json'},
                         'body': json.dumps({
                             "type": 4,
                             "data": {
@@ -139,6 +160,7 @@ def handle_interaction(event, context):
                 # すぐにDeferred Responseを返す（処理中...）
                 return {
                     'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json'},
                     'body': json.dumps({
                         "type": 5,  # Deferred response
                         "data": {
@@ -150,6 +172,7 @@ def handle_interaction(event, context):
         # その他のInteraction
         return {
             'statusCode': 200,
+            'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({
                 "type": 4,
                 "data": {
@@ -163,5 +186,6 @@ def handle_interaction(event, context):
         logger.error(f"エラーが発生しました: {e}", exc_info=True)
         return {
             'statusCode': 500,
+            'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({'error': str(e)})
         }
