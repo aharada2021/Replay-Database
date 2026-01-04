@@ -1,0 +1,119 @@
+service: wows-replay-bot
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  region: ap-northeast-1
+  runtime: python3.10
+  stage: ${opt:stage, 'dev'}
+
+  # Lambda関数の設定
+  timeout: 900  # 15分（MP4生成に時間がかかる可能性があるため）
+  memorySize: 3008  # 3GB（minimap_rendererとFFmpegのため）
+
+  # 環境変数
+  environment:
+    DISCORD_PUBLIC_KEY: ${env:DISCORD_PUBLIC_KEY}
+    DISCORD_APPLICATION_ID: ${env:DISCORD_APPLICATION_ID}
+    DISCORD_BOT_TOKEN: ${env:DISCORD_BOT_TOKEN}
+    INPUT_CHANNEL_ID: ${env:INPUT_CHANNEL_ID}
+    GUILD_ID: ${env:GUILD_ID}
+    STAGE: ${self:provider.stage}
+
+  # IAMロール
+  iam:
+    role:
+      statements:
+        # S3アクセス（一時ファイル保存用）
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+          Resource:
+            - arn:aws:s3:::${self:custom.bucketName}/*
+
+        # CloudWatch Logs
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: '*'
+
+        # Lambda呼び出し（interactions → processor）
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${self:provider.stage}-processor
+
+# カスタム変数
+custom:
+  bucketName: wows-replay-bot-${self:provider.stage}-temp
+  pythonRequirements:
+    dockerizePip: true
+    layer: true
+
+functions:
+  # Discord Interactions Endpoint
+  interactions:
+    # Container Imageを使用
+    # デプロイ前に YOUR_ECR_URI を実際のECR URIに置き換えてください
+    # 例: 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:latest
+    image:
+      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      command:
+        - lambda_handler.handle_interaction
+    architecture: arm64
+    timeout: 30  # 30秒（軽量な処理のみ）
+    memorySize: 256  # 256MB（コマンド受信と非同期呼び出しのみ）
+    events:
+      - http:
+          path: /interactions
+          method: post
+          cors: false
+    environment:
+      TEMP_BUCKET: ${self:custom.bucketName}
+      PROCESSOR_FUNCTION_NAME: ${self:service}-${self:provider.stage}-processor
+
+  # リプレイ処理用Lambda関数
+  processor:
+    image:
+      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      command:
+        - replay_processor_handler.handle_replay_processing
+    architecture: arm64
+    timeout: 900  # 15分
+    memorySize: 1024  # 1GB（実測値617MB + 余裕）
+    environment:
+      TEMP_BUCKET: ${self:custom.bucketName}
+
+resources:
+  Resources:
+    # S3バケット（一時ファイル保存用）
+    TempFilesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldFiles
+              Status: Enabled
+              ExpirationInDays: 1
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+plugins:
+  - serverless-python-requirements
+
+# Outputs
+outputs:
+  InteractionsEndpoint:
+    Description: Discord Interactions Webhook URL
+    Value:
+      Fn::Sub: https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${self:provider.stage}/interactions

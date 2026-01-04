@@ -1,0 +1,13 @@
+# Discord Interactions
+PyNaCl>=1.5.0
+requests>=2.31.0
+
+# YAML処理
+PyYAML>=6.0.1
+
+# 既存の依存関係
+python-dotenv>=1.0.0
+lxml>=4.9.3
+
+# AWS SDK
+boto3>=1.34.0

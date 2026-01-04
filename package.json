@@ -1,0 +1,26 @@
+{
+  "name": "wows-replay-bot",
+  "version": "1.0.0",
+  "description": "World of Warships Replay Classification Bot for AWS Lambda",
+  "main": "lambda_handler.py",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy:dev": "serverless deploy --stage dev",
+    "deploy:prod": "serverless deploy --stage prod",
+    "remove": "serverless remove",
+    "logs": "serverless logs -f interactions --tail"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "wows",
+    "lambda",
+    "serverless"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "serverless": "^3.38.0",
+    "serverless-python-requirements": "^6.1.0"
+  }
+}
