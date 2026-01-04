@@ -52,9 +52,10 @@ provider:
 # カスタム変数
 custom:
   bucketName: wows-replay-bot-${self:provider.stage}-temp
-  pythonRequirements:
-    dockerizePip: true
-    layer: true
+  # Dockerイメージを使用するため、pythonRequirementsは不要
+  # pythonRequirements:
+  #   dockerizePip: true
+  #   layer: true
 
 functions:
   # Discord Interactions Endpoint
@@ -108,8 +109,9 @@ resources:
           IgnorePublicAcls: true
           RestrictPublicBuckets: true
 
-plugins:
-  - serverless-python-requirements
+# Dockerイメージを使用するため、pluginsは不要
+# plugins:
+#   - serverless-python-requirements
 
 # Outputs
 outputs:
