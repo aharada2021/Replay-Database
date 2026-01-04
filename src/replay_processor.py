@@ -9,6 +9,7 @@ import urllib.request
 import urllib.parse
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # 艦船データのキャッシュ
 _SHIP_DATA_CACHE: Optional[Dict[str, dict]] = None

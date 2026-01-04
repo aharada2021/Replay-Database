@@ -5,10 +5,15 @@ World of Warships（WoWS）のリプレイファイルをマップ別に自動�
 ## 機能
 
 - リプレイファイル（.wowsreplay）の自動分類
+- **ゲームタイプの自動判定**（Clan Battle / Random Battle / Ranked Battle）
 - マップIDから日本語マップ名への変換
 - リプレイファイル内部から対戦時間を抽出
 - minimap_rendererを使用したミニマップ動画（MP4）の自動生成
-- マップ別のDiscordチャンネルへの自動投稿
+- **ゲームタイプとマップ別のDiscordチャンネルへの自動投稿**
+  - Clan Battle → `clan_<マップ名>` チャンネル
+  - Random Battle → `random_<マップ名>` チャンネル
+  - Ranked Battle → `rank_<マップ名>` チャンネル
+- **複数サーバー対応**（AWS Lambda版）
 
 ## 必要環境
 

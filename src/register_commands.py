@@ -1,11 +1,14 @@
 """
 Discord Slash Commandsを登録するスクリプト
 
-デプロイ後に一度実行してください：
-python register_commands.py
+使用方法：
+  python register_commands.py                    # グローバルに登録（全サーバー）
+  python register_commands.py <GUILD_ID>         # 特定のサーバーに登録
+  python register_commands.py --global           # グローバルに登録（明示的）
 """
 
 import os
+import sys
 import requests
 from dotenv import load_dotenv
 
@@ -14,7 +17,6 @@ load_dotenv()
 
 DISCORD_APPLICATION_ID = os.getenv('DISCORD_APPLICATION_ID')
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-GUILD_ID = os.getenv('GUILD_ID')  # オプション：特定のサーバーのみに登録する場合
 
 # Discord API Base URL
 DISCORD_API_BASE = "https://discord.com/api/v10"
@@ -94,17 +96,36 @@ def register_global_command(application_id: str, bot_token: str):
 if __name__ == '__main__':
     if not DISCORD_APPLICATION_ID or not DISCORD_BOT_TOKEN:
         print("❌ 環境変数 DISCORD_APPLICATION_ID と DISCORD_BOT_TOKEN を設定してください")
-        exit(1)
+        sys.exit(1)
 
     print("Discord Slash Commandsを登録します...")
     print(f"Application ID: {DISCORD_APPLICATION_ID}")
 
-    # GUILD_IDが設定されている場合は特定のサーバーに登録（即座に反映）
-    if GUILD_ID:
-        print(f"\n特定のサーバーに登録します（Guild ID: {GUILD_ID}）")
-        register_guild_command(DISCORD_APPLICATION_ID, GUILD_ID, DISCORD_BOT_TOKEN)
+    # コマンドライン引数からGUILD_IDを取得
+    guild_id = None
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--global':
+            # 明示的にグローバル登録
+            guild_id = None
+        elif sys.argv[1] in ['--help', '-h']:
+            print(__doc__)
+            sys.exit(0)
+        else:
+            # 引数をGUILD_IDとして使用
+            guild_id = sys.argv[1]
+
+    # 特定のサーバーまたはグローバルに登録
+    if guild_id:
+        print(f"\n特定のサーバーに登録します（Guild ID: {guild_id}）")
+        result = register_guild_command(DISCORD_APPLICATION_ID, guild_id, DISCORD_BOT_TOKEN)
+        if result:
+            print("\n✅ 登録が完了しました！")
+            print("コマンドは即座に使用可能です。")
     else:
         print("\nグローバルに登録します（全てのサーバー）")
-        register_global_command(DISCORD_APPLICATION_ID, DISCORD_BOT_TOKEN)
+        result = register_global_command(DISCORD_APPLICATION_ID, DISCORD_BOT_TOKEN)
+        if result:
+            print("\n✅ 登録が完了しました！")
+            print("⚠️  反映には最大1時間かかる場合があります。")
 
     print("\n完了しました！")

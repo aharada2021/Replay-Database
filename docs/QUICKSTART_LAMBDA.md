@@ -59,8 +59,8 @@ aws configure
 1. **APPLICATION_ID** - [Discord Developer Portal](https://discord.com/developers/applications) > General Information
 2. **PUBLIC_KEY** - 同上
 3. **BOT_TOKEN** - Bot タブ
-4. **GUILD_ID** - Discordサーバーを右クリック → IDをコピー
-5. **INPUT_CHANNEL_ID** - チャンネルを右クリック → IDをコピー
+
+⚠️ **注意**: Lambda版では`GUILD_ID`と`INPUT_CHANNEL_ID`は不要です（複数サーバー対応のため）
 
 ---
 
@@ -87,9 +87,13 @@ code .env
 DISCORD_APPLICATION_ID=あなたのアプリケーションID
 DISCORD_PUBLIC_KEY=あなたの公開鍵
 DISCORD_BOT_TOKEN=あなたのBotトークン
-GUILD_ID=あなたのサーバーID
-INPUT_CHANNEL_ID=あなたのチャンネルID
+
+# AWS設定（オプション）
+AWS_REGION=ap-northeast-1
+DEPLOY_STAGE=dev
 ```
+
+⚠️ `GUILD_ID`と`INPUT_CHANNEL_ID`は**不要**です（複数サーバー対応）
 
 ### セットアップスクリプトで確認
 
@@ -108,7 +112,7 @@ INPUT_CHANNEL_ID=あなたのチャンネルID
 ## ステップ4️⃣: AWS Lambdaにデプロイ
 
 ```bash
-./deploy_lambda.sh
+bash scripts/deploy_lambda.sh
 ```
 
 このスクリプトが自動的に以下を実行します：
@@ -145,11 +149,42 @@ Discordが自動的にエンドポイントを検証します（PINGリクエス
 
 ### 5-2. Slash Commandsの登録
 
+#### 特定のサーバーに登録（推奨：即座に反映）
+
 ```bash
-python3 register_commands.py
+# サーバーのGUILD_IDを確認（Discord開発者モードを有効にして、サーバー右クリック → IDをコピー）
+python3 src/register_commands.py <GUILD_ID>
+
+# 例
+python3 src/register_commands.py 1433102839651242140
+```
+
+#### グローバル登録（全サーバー：反映に最大1時間）
+
+```bash
+python3 src/register_commands.py --global
 ```
 
 「✅ Slash Commandを登録しました」と表示されればOK。
+
+### 5-3. チャンネルの作成
+
+各サーバーで必要なチャンネルを自動作成：
+
+```bash
+# カテゴリ付きで作成（推奨）
+python3 src/setup_channels.py <GUILD_ID>
+
+# カテゴリなしで作成
+python3 src/setup_channels.py <GUILD_ID> --no-categories
+```
+
+このスクリプトは以下のチャンネルを自動作成します：
+- **Clan Battle用**: `clan_罠`, `clan_戦士の道`, など（全33マップ）
+- **Random Battle用**: `random_罠`, `random_戦士の道`, など（全33マップ）
+- **Ranked Battle用**: `rank_罠`, `rank_戦士の道`, など（全33マップ）
+
+詳細は `docs/MULTI_SERVER_SETUP.md` を参照してください。
 
 ---
 
@@ -161,10 +196,14 @@ python3 register_commands.py
 
 Botが自動的に：
 - リプレイファイルを解析
+- **ゲームタイプを判定**（Clan Battle / Random Battle / Ranked Battle）
 - マップを判定
 - MP4動画を生成
 - クラン情報を取得
-- 該当するマップチャンネルに投稿
+- **該当するチャンネルに投稿**
+  - Clan Battle → `clan_<マップ名>` チャンネル
+  - Random Battle → `random_<マップ名>` チャンネル
+  - Ranked Battle → `rank_<マップ名>` チャンネル
 
 ---
 
@@ -185,15 +224,17 @@ cat .env | grep PUBLIC_KEY
 
 ### `/upload_replay`コマンドが表示されない
 
-**原因**: Slash Commandsの登録に失敗している
+**原因**: Slash Commandsの登録に失敗している、または反映待ち
 
 **解決方法**:
 ```bash
-# 再度登録を実行
-python3 register_commands.py
+# 特定のサーバーに登録（即座に反映）
+python3 src/register_commands.py <GUILD_ID>
 
-# グローバルコマンドの場合は最大1時間待つ
-# 特定のサーバー（GUILD_ID指定）なら即座に反映
+# グローバル登録（反映に最大1時間）
+python3 src/register_commands.py --global
+
+# Discordアプリを再起動してみる
 ```
 
 ### MP4生成が失敗する
@@ -201,10 +242,10 @@ python3 register_commands.py
 **原因**: Lambda関数のメモリまたはタイムアウト不足
 
 **解決方法**:
-- `serverless.yml`の設定を確認
-  - `memorySize: 3008` (3GB)
+- `deploy/serverless.yml`の`processor`関数の設定を確認
+  - `memorySize: 1024` (1GB) - 必要に応じて増やす
   - `timeout: 900` (15分)
-- 設定を変更したら再デプロイ: `./deploy_lambda.sh`
+- 設定を変更したら再デプロイ: `bash scripts/deploy_lambda.sh`
 
 ### ファイルサイズが大きすぎる
 
@@ -239,10 +280,16 @@ python3 register_commands.py
 コードを変更した場合：
 
 ```bash
-./deploy_lambda.sh
+bash scripts/deploy_lambda.sh
 ```
 
 自動的にDockerイメージを再ビルドしてデプロイします。
+
+### マップ名やチャンネル設定を変更した場合
+
+1. `config/map_names.yaml`を編集
+2. 再デプロイ: `bash scripts/deploy_lambda.sh`
+3. 各サーバーでチャンネルを更新（既存のチャンネルをリネーム、または新規作成）
 
 ---
 

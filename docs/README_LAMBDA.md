@@ -59,9 +59,13 @@ cp .env.example .env
 DISCORD_APPLICATION_ID=your_application_id
 DISCORD_PUBLIC_KEY=your_public_key
 DISCORD_BOT_TOKEN=your_bot_token
-GUILD_ID=your_guild_id
-INPUT_CHANNEL_ID=your_input_channel_id
+
+# AWS設定（オプション）
+AWS_REGION=ap-northeast-1
+DEPLOY_STAGE=dev
 ```
+
+⚠️ **注意**: `GUILD_ID`と`INPUT_CHANNEL_ID`は不要です（複数サーバー対応のため）
 
 **Discord設定の取得方法：**
 
@@ -73,9 +77,37 @@ INPUT_CHANNEL_ID=your_input_channel_id
 4. **Bot**タブ:
    - `TOKEN` → `DISCORD_BOT_TOKEN`
 
-### 4. ECRリポジトリの作成
+### 4. 自動デプロイ（推奨）
 
-Lambdaコンテナイメージ用のECRリポジトリを作成：
+自動デプロイスクリプトを使用すると、すべての手順が自動化されます：
+
+```bash
+bash scripts/deploy_lambda.sh
+```
+
+このスクリプトは以下を自動実行します：
+1. ECRリポジトリの作成（存在しない場合）
+2. Dockerイメージのビルド
+3. ECRへのプッシュ
+4. serverless.ymlの更新
+5. Lambda関数とAPI Gatewayのデプロイ
+
+デプロイが成功すると、Interactions Endpoint URLが表示されます：
+
+```
+https://xxxxxxxxxx.execute-api.ap-northeast-1.amazonaws.com/interactions
+```
+
+⚠️ **このURLをコピーしてください。次のステップで使用します。**
+
+---
+
+### 手動デプロイ（上級者向け）
+
+<details>
+<summary>手動でデプロイする場合はこちらをクリック</summary>
+
+#### 4.1. ECRリポジトリの作成
 
 ```bash
 aws ecr create-repository \
@@ -83,53 +115,34 @@ aws ecr create-repository \
   --region ap-northeast-1
 ```
 
-出力されたリポジトリURIをメモしてください（例: `123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot`）
-
-### 5. Dockerイメージのビルドとプッシュ
+#### 4.2. Dockerイメージのビルドとプッシュ
 
 ```bash
 # ECRにログイン
 aws ecr get-login-password --region ap-northeast-1 | \
-  docker login --username AWS --password-stdin YOUR_ECR_URI
+  docker login --username AWS --password-stdin <YOUR_ACCOUNT_ID>.dkr.ecr.ap-northeast-1.amazonaws.com
 
 # イメージをビルド
-docker build -t wows-replay-bot .
+docker build -f deploy/Dockerfile -t wows-replay-bot:latest .
 
 # タグ付け
-docker tag wows-replay-bot:latest YOUR_ECR_URI:latest
+docker tag wows-replay-bot:latest <YOUR_ACCOUNT_ID>.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
 
 # プッシュ
-docker push YOUR_ECR_URI:latest
+docker push <YOUR_ACCOUNT_ID>.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
 ```
 
-### 6. serverless.ymlの更新
-
-`serverless.yml`の`functions.interactions.image`セクションを更新：
-
-```yaml
-functions:
-  interactions:
-    image: YOUR_ECR_URI:latest
-```
-
-### 7. デプロイ
+#### 4.3. デプロイ
 
 ```bash
-# 開発環境にデプロイ
-serverless deploy --stage dev
-
-# 本番環境にデプロイ
-serverless deploy --stage prod
+cd deploy
+npx serverless deploy --stage dev --region ap-northeast-1
+cd ..
 ```
 
-デプロイが成功すると、Interactions Endpoint URLが出力されます：
+</details>
 
-```
-endpoints:
-  POST - https://xxxxxxxxxx.execute-api.ap-northeast-1.amazonaws.com/dev/interactions
-```
-
-### 8. Discord Interactions Endpointの設定
+### 5. Discord Interactions Endpointの設定
 
 1. [Discord Developer Portal](https://discord.com/developers/applications)にアクセス
 2. アプリケーションを選択
@@ -139,13 +152,42 @@ endpoints:
 
 Discordが自動的にエンドポイントを検証します（PINGリクエストを送信）。
 
-### 9. Slash Commandの登録
+### 6. Slash Commandの登録
+
+#### 特定のサーバーに登録（推奨：即座に反映）
 
 ```bash
-python register_commands.py
+# サーバーのGUILD_IDを確認（Discord開発者モードを有効にして、サーバー右クリック → IDをコピー）
+python3 src/register_commands.py <GUILD_ID>
+
+# 例
+python3 src/register_commands.py 1433102839651242140
 ```
 
-これにより、`/upload_replay`コマンドがDiscordに登録されます。
+#### グローバル登録（全サーバー：反映に最大1時間）
+
+```bash
+python3 src/register_commands.py --global
+```
+
+### 7. チャンネルの作成
+
+各サーバーで必要なチャンネルを自動作成：
+
+```bash
+# カテゴリ付きで作成（推奨）
+python3 src/setup_channels.py <GUILD_ID>
+
+# カテゴリなしで作成
+python3 src/setup_channels.py <GUILD_ID> --no-categories
+```
+
+このスクリプトは以下のチャンネルを自動作成します：
+- **Clan Battle用**: `clan_罠`, `clan_戦士の道`, など（全33マップ）
+- **Random Battle用**: `random_罠`, `random_戦士の道`, など（全33マップ）
+- **Ranked Battle用**: `rank_罠`, `rank_戦士の道`, など（全33マップ）
+
+詳細は `docs/MULTI_SERVER_SETUP.md` を参照してください。
 
 ## 📝 使い方
 
@@ -153,10 +195,24 @@ python register_commands.py
 2. `file` パラメータでリプレイファイル（.wowsreplay）を選択
 3. Botが自動的に:
    - ファイルを解析
+   - **ゲームタイプを判定**（Clan Battle / Random Battle / Ranked Battle）
    - マップを判定
    - MP4動画を生成
    - クラン情報を取得
-   - 該当するマップチャンネルに投稿
+   - **該当するチャンネルに投稿**
+     - Clan Battle → `clan_<マップ名>` チャンネル
+     - Random Battle → `random_<マップ名>` チャンネル
+     - Ranked Battle → `rank_<マップ名>` チャンネル
+
+## 🌐 複数サーバー対応
+
+このボットは複数のDiscordサーバーで同時に稼働できます。
+
+- すべてのサーバーで同じチャンネル名構造を使用
+- サーバーごとにチャンネルを自動作成可能
+- グローバルコマンド登録で全サーバー対応
+
+詳細は `docs/MULTI_SERVER_SETUP.md` を参照してください。
 
 ## 🔧 トラブルシューティング
 

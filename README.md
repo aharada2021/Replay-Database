@@ -11,7 +11,8 @@ project/
 │   ├── replay_processor_handler.py  # リプレイ処理用Lambda
 │   ├── replay_processor.py       # リプレイ処理ロジック
 │   ├── bot.py                    # Discord Bot（ローカル実行用）
-│   └── register_commands.py      # Discordスラッシュコマンド登録
+│   ├── register_commands.py      # Discordスラッシュコマンド登録
+│   └── setup_channels.py         # Discordチャンネル自動作成
 │
 ├── deploy/                       # デプロイ関連
 │   ├── Dockerfile                # Lambda用Dockerイメージ定義
@@ -22,6 +23,7 @@ project/
 │   ├── DISCORD_SETUP.md          # Discord Bot設定ガイド
 │   ├── QUICKSTART_LAMBDA.md      # Lambda クイックスタート
 │   ├── README_LAMBDA.md          # Lambda詳細ドキュメント
+│   ├── MULTI_SERVER_SETUP.md     # 複数サーバー対応ガイド
 │   └── specification.md          # 仕様書・残タスク
 │
 ├── config/                       # 設定ファイル
@@ -45,12 +47,17 @@ project/
 ## 機能
 
 - ✅ Discord `/upload_replay`コマンドでリプレイファイルをアップロード
+- ✅ **ゲームタイプの自動判定**（Clan Battle / Random Battle / Ranked Battle）
 - ✅ リプレイファイルからマップIDを自動抽出
-- ✅ マップ名に対応するDiscordチャンネルに自動投稿
+- ✅ **ゲームタイプとマップ名に対応するDiscordチャンネルに自動投稿**
+  - Clan Battle → `clan_<マップ名>` チャンネル
+  - Random Battle → `random_<マップ名>` チャンネル
+  - Ranked Battle → `rank_<マップ名>` チャンネル
 - ✅ minimap_rendererでMP4動画を自動生成
 - ✅ 対戦相手のクラン名、対戦時間を表示
 - ✅ プレイヤー情報（自分、味方、敵）を表示
 - ✅ AWS Lambda + Docker コンテナで実行（非同期処理対応）
+- ✅ **複数Discordサーバー対応**（Lambda版）
 
 ## デプロイ
 
@@ -94,8 +101,9 @@ python src/bot.py
    - 即座にDeferred Responseを返却
    - processor Lambdaを非同期呼び出し
 
-2. **processor** (3008MB, 15分)
+2. **processor** (1024MB, 15分)
    - リプレイファイルを処理
+   - ゲームタイプとマップを判定
    - MP4動画を生成
    - Discord Webhookで結果を通知
 
@@ -110,16 +118,26 @@ Discord /upload_replay
          ↓
 [processor Lambda]
   → リプレイ解析
+  → ゲームタイプ判定（Clan/Random/Ranked）
+  → マップ判定
   → MP4生成（minimap_renderer）
-  → マップ別チャンネルに投稿
+  → ゲームタイプ+マップ別チャンネルに投稿
+    (例: clan_罠, random_戦士の道)
   → Webhook で完了通知
 ```
 
 ## ドキュメント
 
-- [仕様書・残タスク](docs/specification.md)
-- [Discord Bot設定](docs/DISCORD_SETUP.md)
-- [Lambda デプロイガイド](docs/README_LAMBDA.md)
+- **クイックスタート**
+  - [Lambda クイックスタートガイド](docs/QUICKSTART_LAMBDA.md) - 初回セットアップ（推奨）
+
+- **詳細ガイド**
+  - [Lambda デプロイガイド](docs/README_LAMBDA.md) - 詳細な手順
+  - [複数サーバー対応ガイド](docs/MULTI_SERVER_SETUP.md) - 複数Discordサーバーでの運用
+  - [Discord Bot設定](docs/DISCORD_SETUP.md) - Discord側の設定
+
+- **その他**
+  - [仕様書・残タスク](docs/specification.md) - 技術仕様
 
 ## ライセンス
 

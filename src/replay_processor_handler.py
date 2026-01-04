@@ -14,6 +14,10 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# ルートロガーのレベルも明示的に設定
+logging.getLogger().setLevel(logging.INFO)
 
 # 環境変数
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -191,15 +195,19 @@ def handle_replay_processing(event, context):
         context: Lambda context
     """
     try:
+        logger.info(f"リプレイ処理を開始します: event={json.dumps(event, default=str)}")
+
         attachment = event['attachment']
         guild_id = event['guild_id']
         webhook_url = event['webhook_url']
 
         filename = attachment['filename']
         file_url = attachment['url']
+        logger.info(f"ファイル名: {filename}")
 
         # マップ設定を読み込み
         MAPS, GAME_TYPE_PREFIXES, DEFAULT_MAP_NAME = load_map_config()
+        logger.info(f"マップ設定を読み込みました: {len(MAPS)}個のマップ, {len(GAME_TYPE_PREFIXES)}個のゲームタイプprefix")
 
         # 一時ディレクトリでファイルを処理
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -220,9 +228,11 @@ def handle_replay_processing(event, context):
                 replay_path,
                 output_dir
             )
+            logger.info(f"リプレイ処理完了: battle_time={battle_time}, game_type={game_type}, mp4_path={mp4_path}")
 
             # マップIDを取得
             map_id = extract_map_id_from_filename(filename)
+            logger.info(f"ファイル名から抽出したマップID: {map_id}")
             if not map_id:
                 send_followup_message(
                     webhook_url,
