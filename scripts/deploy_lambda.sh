@@ -7,7 +7,12 @@ echo ""
 
 # 環境変数の読み込み
 if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+    set -a
+    source .env
+    set +a
+    echo "✅ .envファイルから環境変数を読み込みました"
+else
+    echo "⚠️  .envファイルが見つかりません"
 fi
 
 # AWSリージョン
@@ -117,8 +122,13 @@ echo ""
 # ======================================
 echo "🚀 Lambda関数をデプロイ中..."
 
+# AWS認証情報を環境変数として設定
+echo "   AWS認証情報を取得中..."
+eval $(aws configure export-credentials --format env)
+
 cd deploy
-npx serverless deploy --stage $STAGE
+# .envの環境変数はすでにexportされているので、直接deployを実行
+npx serverless deploy --stage $STAGE --region $REGION
 cd ..
 
 echo ""
