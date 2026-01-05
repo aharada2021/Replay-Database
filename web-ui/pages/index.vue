@@ -115,29 +115,29 @@
       >
         <!-- 日時 -->
         <template v-slot:item.dateTime="{ item }">
-          {{ formatDateTime(item.dateTime) }}
+          {{ formatDateTime(item.raw.dateTime) }}
         </template>
 
         <!-- ゲームタイプ -->
         <template v-slot:item.gameType="{ item }">
-          <v-chip :color="getGameTypeColor(item.gameType)" size="small">
-            {{ getGameTypeText(item.gameType) }}
+          <v-chip :color="getGameTypeColor(item.raw.gameType)" size="small">
+            {{ getGameTypeText(item.raw.gameType) }}
           </v-chip>
         </template>
 
         <!-- 勝敗 -->
         <template v-slot:item.winLoss="{ item }">
-          <v-chip :color="getWinLossColor(item.winLoss)" size="small">
-            {{ getWinLossText(item.winLoss) }}
+          <v-chip :color="getWinLossColor(item.raw.winLoss)" size="small">
+            {{ getWinLossText(item.raw.winLoss) }}
           </v-chip>
         </template>
 
         <!-- 自分 -->
         <template v-slot:item.ownPlayer="{ item }">
           <div>
-            <span v-if="item.ownPlayer.clanTag" class="text-primary">[{{ item.ownPlayer.clanTag }}]</span>
-            {{ item.ownPlayer.name }}
-            <div class="text-caption text-grey">{{ item.ownPlayer.shipName }}</div>
+            <span v-if="item.raw.ownPlayer?.clanTag" class="text-primary">[{{ item.raw.ownPlayer.clanTag }}]</span>
+            {{ item.raw.ownPlayer?.name || '-' }}
+            <div class="text-caption text-grey">{{ item.raw.ownPlayer?.shipName || '-' }}</div>
           </div>
         </template>
 
@@ -145,7 +145,7 @@
         <template v-slot:item.allies="{ item }">
           <v-chip-group>
             <v-chip
-              v-for="tag in getAllyClanTags(item.allies)"
+              v-for="tag in getAllyClanTags(item.raw.allies)"
               :key="tag"
               size="small"
             >
@@ -158,7 +158,7 @@
         <template v-slot:item.enemies="{ item }">
           <v-chip-group>
             <v-chip
-              v-for="tag in getEnemyClanTags(item.enemies)"
+              v-for="tag in getEnemyClanTags(item.raw.enemies)"
               :key="tag"
               size="small"
               color="error"
@@ -173,7 +173,7 @@
           <v-btn
             size="small"
             color="primary"
-            :to="`/match/${item.arenaUniqueID}-${item.playerID}`"
+            :to="`/match/${item.raw.arenaUniqueID}-${item.raw.playerID}`"
           >
             詳細
           </v-btn>
