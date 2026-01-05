@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
-from watchdog.events import FileSystemEventHandler, FileCreatedEvent
+from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent
 
 # ログ設定
 logging.basicConfig(
@@ -174,10 +174,17 @@ class ReplayUploader:
         return {'status': 'error', 'message': 'Upload failed after retries'}
 
 
-class ReplayFileHandler(FileSystemEventHandler):
+class ReplayFileHandler(PatternMatchingEventHandler):
     """リプレイファイル監視ハンドラー"""
 
     def __init__(self, uploader: ReplayUploader):
+        # *.wowsreplayファイルのみを監視、temp.wowsreplayは除外
+        super().__init__(
+            patterns=["*.wowsreplay"],
+            ignore_patterns=["temp.wowsreplay"],
+            ignore_directories=True,
+            case_sensitive=False
+        )
         self.uploader = uploader
         self.processing_files = set()  # 処理中のファイル
 
@@ -187,10 +194,6 @@ class ReplayFileHandler(FileSystemEventHandler):
             return
 
         file_path = Path(event.src_path)
-
-        # .wowsreplayファイルのみ処理
-        if not file_path.suffix == '.wowsreplay':
-            return
 
         # 既に処理中の場合はスキップ
         if str(file_path) in self.processing_files:
