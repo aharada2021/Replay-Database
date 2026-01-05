@@ -128,7 +128,10 @@ jobs:
           IMAGE_URI="${ECR_URI}:${STAGE}"
           echo "DEBUG: STAGE=${STAGE}"
           echo "DEBUG: IMAGE_URI=${IMAGE_URI}"
+          echo "DEBUG: Writing to GITHUB_OUTPUT: ecr_image_uri=${IMAGE_URI}"
           echo "ecr_image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+          echo "DEBUG: GITHUB_OUTPUT file contents:"
+          cat $GITHUB_OUTPUT
           echo "ECR Image URI: ${IMAGE_URI}"
 
   deploy-dev:
@@ -158,6 +161,12 @@ jobs:
 
       - name: Install Serverless Framework
         run: npm install -g serverless@3
+
+      - name: Debug - Check environment variables
+        run: |
+          echo "DEBUG: Checking ECR_IMAGE_URI from job output"
+          echo "ECR_IMAGE_URI from build-and-push job: ${{ needs.build-and-push.outputs.ecr_image_uri }}"
+          echo "This value will be set as env var in next step"
 
       - name: Deploy to Lambda (dev)
         env:
