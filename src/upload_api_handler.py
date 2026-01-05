@@ -51,8 +51,7 @@ def handle(event, context):
         if event.get('isBase64Encoded', False):
             body = base64.b64decode(body)
 
-        # マルチパートデータの解析（簡易実装）
-        # 本番環境ではpython-multipartなどを使用
+        # マルチパートデータの解析
         content_type = headers.get('content-type') or headers.get('Content-Type', '')
 
         if 'multipart/form-data' not in content_type:
@@ -61,21 +60,50 @@ def handle(event, context):
                 'body': json.dumps({'error': 'Content-Type must be multipart/form-data'})
             }
 
+        if not isinstance(body, bytes):
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Invalid request body'})
+            }
+
+        # バウンダリーを抽出
+        boundary_match = content_type.split('boundary=')
+        if len(boundary_match) < 2:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'No boundary in Content-Type'})
+            }
+
+        boundary = boundary_match[1].strip()
+        boundary_bytes = f'--{boundary}'.encode()
+
+        # マルチパートデータからファイル部分を抽出
+        parts = body.split(boundary_bytes)
+        file_data = None
+
+        for part in parts:
+            if b'Content-Disposition' in part and b'filename=' in part:
+                # ヘッダーとボディを分離
+                header_end = part.find(b'\r\n\r\n')
+                if header_end == -1:
+                    header_end = part.find(b'\n\n')
+
+                if header_end != -1:
+                    # ファイルデータを抽出
+                    file_start = header_end + 4 if b'\r\n\r\n' in part[:header_end+4] else header_end + 2
+                    file_data = part[file_start:].rstrip(b'\r\n').rstrip(b'--')
+                    break
+
+        if not file_data:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'No file found in multipart data'})
+            }
+
         # 一時ファイルに保存
         with tempfile.NamedTemporaryFile(suffix='.wowsreplay', delete=False) as tmp_file:
             tmp_path = Path(tmp_file.name)
-
-            # ファイルデータを抽出（簡易実装）
-            # 実際のマルチパートパーサーを使用する必要がある
-            if isinstance(body, bytes):
-                # バイナリデータから.wowsreplayファイルを抽出
-                # 実装の簡略化のため、bodyがファイルそのものと仮定
-                tmp_file.write(body)
-            else:
-                return {
-                    'statusCode': 400,
-                    'body': json.dumps({'error': 'Invalid file data'})
-                }
+            tmp_file.write(file_data)
 
         try:
             # メタデータ解析
