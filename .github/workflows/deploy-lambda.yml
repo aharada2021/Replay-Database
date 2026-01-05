@@ -1,0 +1,236 @@
+name: Deploy Lambda Backend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - development
+          - production
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      ecr_image_uri: ${{ steps.set-output.outputs.ecr_image_uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+
+      - name: Get AWS Account ID
+        id: aws-account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $ACCOUNT_ID"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} | \
+            docker login --username AWS --password-stdin ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION || 'ap-northeast-1' }}.amazonaws.com
+
+      - name: Create ECR repository if not exists
+        run: |
+          REPOSITORY_NAME="wows-replay-bot"
+          REGION="${{ secrets.AWS_REGION || 'ap-northeast-1' }}"
+
+          if ! aws ecr describe-repositories --repository-names $REPOSITORY_NAME --region $REGION &> /dev/null; then
+            echo "Creating ECR repository: $REPOSITORY_NAME"
+            aws ecr create-repository \
+              --repository-name $REPOSITORY_NAME \
+              --region $REGION \
+              --image-scanning-configuration scanOnPush=true
+          else
+            echo "ECR repository already exists: $REPOSITORY_NAME"
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        id: docker-build
+        run: |
+          ACCOUNT_ID="${{ steps.aws-account.outputs.account_id }}"
+          REGION="${{ secrets.AWS_REGION || 'ap-northeast-1' }}"
+          REPOSITORY_NAME="wows-replay-bot"
+          ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
+
+          # Determine stage based on trigger
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+              STAGE="prod"
+            else
+              STAGE="dev"
+            fi
+          else
+            STAGE="dev"
+          fi
+
+          echo "Building Docker image for stage: $STAGE"
+
+          # Build Docker image
+          docker build -f deploy/Dockerfile -t wows-replay-bot:latest .
+
+          # Tag images
+          docker tag wows-replay-bot:latest ${ECR_URI}:latest
+          docker tag wows-replay-bot:latest ${ECR_URI}:${STAGE}
+          docker tag wows-replay-bot:latest ${ECR_URI}:${GITHUB_SHA}
+
+          # Push to ECR
+          docker push ${ECR_URI}:latest
+          docker push ${ECR_URI}:${STAGE}
+          docker push ${ECR_URI}:${GITHUB_SHA}
+
+          echo "ecr_uri=${ECR_URI}" >> $GITHUB_OUTPUT
+          echo "stage=${STAGE}" >> $GITHUB_OUTPUT
+
+      - name: Set output for downstream jobs
+        id: set-output
+        run: |
+          ACCOUNT_ID="${{ steps.aws-account.outputs.account_id }}"
+          REGION="${{ secrets.AWS_REGION || 'ap-northeast-1' }}"
+          REPOSITORY_NAME="wows-replay-bot"
+          ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
+
+          # Determine stage
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+              STAGE="prod"
+            else
+              STAGE="dev"
+            fi
+          else
+            STAGE="dev"
+          fi
+
+          IMAGE_URI="${ECR_URI}:${STAGE}"
+          echo "ecr_image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+          echo "ECR Image URI: ${IMAGE_URI}"
+
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: development
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Serverless Framework
+        run: npm install -g serverless
+
+      - name: Deploy to Lambda (dev)
+        env:
+          ECR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_image_uri }}
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
+          GUILD_ID: ${{ secrets.GUILD_ID }}
+          UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
+        run: |
+          cd deploy
+          serverless deploy --stage dev --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} --verbose
+
+      - name: Get API endpoint
+        id: get-endpoint
+        run: |
+          cd deploy
+          ENDPOINT=$(serverless info --stage dev --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} | grep "POST - " | awk '{print $3}' | head -n 1)
+          echo "endpoint=${ENDPOINT}" >> $GITHUB_OUTPUT
+          echo "API Endpoint: ${ENDPOINT}"
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary (Development)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stage**: dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **ECR Image**: ${{ needs.build-and-push.outputs.ecr_image_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Endpoint**: ${{ steps.get-endpoint.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Serverless Framework
+        run: npm install -g serverless
+
+      - name: Deploy to Lambda (prod)
+        env:
+          ECR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_image_uri }}
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
+          GUILD_ID: ${{ secrets.GUILD_ID }}
+          UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
+        run: |
+          cd deploy
+          serverless deploy --stage prod --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} --verbose
+
+      - name: Get API endpoint
+        id: get-endpoint
+        run: |
+          cd deploy
+          ENDPOINT=$(serverless info --stage prod --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} | grep "POST - " | awk '{print $3}' | head -n 1)
+          echo "endpoint=${ENDPOINT}" >> $GITHUB_OUTPUT
+          echo "API Endpoint: ${ENDPOINT}"
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary (Production)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stage**: prod" >> $GITHUB_STEP_SUMMARY
+          echo "- **ECR Image**: ${{ needs.build-and-push.outputs.ecr_image_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Endpoint**: ${{ steps.get-endpoint.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
