@@ -11,6 +11,7 @@ import boto3
 import tempfile
 from pathlib import Path
 from typing import Dict, Any
+from decimal import Decimal
 
 from utils.battle_stats_extractor import (
     extract_battle_stats,
@@ -74,10 +75,11 @@ def handle(event, context):
 
                 print(f"Arena ID: {arena_unique_id}, Win/Loss: {win_loss}, Exp: {experience_earned}")
 
-                # S3キーからplayerIDを抽出
-                # S3キー形式: replays/{arenaUniqueID}/{playerID}/{filename}
+                # S3キーからtemp_arena_idとplayerIDを抽出
+                # S3キー形式: replays/{temp_arena_id}/{playerID}/{filename}
                 key_parts = key.split('/')
                 if len(key_parts) >= 3:
+                    temp_arena_id = key_parts[1]
                     try:
                         player_id = int(key_parts[2])
                     except ValueError:
@@ -87,15 +89,34 @@ def handle(event, context):
                     print(f"Invalid S3 key format: {key}")
                     continue
 
-                # DynamoDBを更新
-                dynamodb.update_battle_result(
-                    arena_unique_id=arena_unique_id,
-                    player_id=player_id,
-                    win_loss=win_loss,
-                    experience_earned=experience_earned
+                # 一時IDで保存されたレコードを取得
+                old_record = dynamodb.get_replay_record(temp_arena_id, player_id)
+
+                if not old_record:
+                    print(f"No record found for temp_arena_id: {temp_arena_id}, player_id: {player_id}")
+                    continue
+
+                # 正しいarenaUniqueIDで新しいレコードを作成
+                print(f"Migrating record from temp_id {temp_arena_id} to arena_id {arena_unique_id}")
+
+                # 既存データに勝敗情報を追加
+                old_record['arenaUniqueID'] = str(arena_unique_id)
+                old_record['winLoss'] = win_loss
+                old_record['experienceEarned'] = experience_earned
+
+                # 新しいレコードを作成
+                dynamodb_table = dynamodb.get_table()
+                dynamodb_table.put_item(Item=old_record)
+
+                # 古いレコード（一時ID）を削除
+                dynamodb_table.delete_item(
+                    Key={
+                        'arenaUniqueID': temp_arena_id,
+                        'playerID': player_id
+                    }
                 )
 
-                print(f"Successfully updated battle result for arena {arena_unique_id}, player {player_id}")
+                print(f"Successfully migrated and updated record: arena {arena_unique_id}, player {player_id}")
 
             finally:
                 # 一時ファイルを削除

@@ -14,7 +14,6 @@ from datetime import datetime
 import tempfile
 
 from replay_processor import ReplayProcessor
-from utils.arena_id_extractor import extract_arena_unique_id
 from utils import dynamodb
 
 # 環境変数
@@ -96,38 +95,17 @@ def handle(event, context):
             player_id = metadata.get('playerID', 0)
             player_name = metadata.get('playerName', 'Unknown')
 
-            # arenaUniqueIDを抽出
-            try:
-                arena_unique_id = extract_arena_unique_id(str(tmp_path))
-            except Exception as e:
-                print(f"arenaUniqueID extraction failed: {e}")
-                arena_unique_id = None
+            # 一時的なIDを生成（日時+プレイヤーID+マップ名のハッシュ）
+            # arenaUniqueIDはbattle-result-extractorで後から抽出して更新
+            import hashlib
+            temp_id_source = f"{metadata.get('dateTime', '')}_{player_id}_{metadata.get('mapName', '')}"
+            temp_arena_id = hashlib.md5(temp_id_source.encode()).hexdigest()[:16]
 
-            # arenaUniqueIDが取得できない場合はエラー
-            if not arena_unique_id:
-                return {
-                    'statusCode': 400,
-                    'body': json.dumps({'error': 'Failed to extract arenaUniqueID'})
-                }
+            print(f"一時的なID生成: {temp_arena_id} (後でarenaUniqueIDに更新されます)")
 
-            # 重複チェック
-            existing_record = dynamodb.check_duplicate_by_arena_id(arena_unique_id)
-
-            if existing_record:
-                # 重複している場合
-                return {
-                    'statusCode': 200,
-                    'body': json.dumps({
-                        'status': 'duplicate',
-                        'arenaUniqueID': arena_unique_id,
-                        'originalUploader': existing_record.get('uploadedBy', 'Unknown'),
-                        'uploadedAt': existing_record.get('uploadedAt', 'Unknown')
-                    })
-                }
-
-            # S3にアップロード
+            # S3にアップロード（一時IDを使用）
             file_name = f"{metadata.get('dateTime', 'unknown').replace(':', '-')}_{player_name}.wowsreplay"
-            s3_key = f"replays/{arena_unique_id}/{player_id}/{file_name}"
+            s3_key = f"replays/{temp_arena_id}/{player_id}/{file_name}"
 
             with open(tmp_path, 'rb') as f:
                 s3_client.put_object(
@@ -145,7 +123,7 @@ def handle(event, context):
             uploaded_by = headers.get('x-user-id', 'client-tool')
 
             dynamodb.put_replay_record(
-                arena_unique_id=arena_unique_id,
+                arena_unique_id=temp_arena_id,  # 一時ID、後でbattle-result-extractorが更新
                 player_id=player_id,
                 player_name=player_name,
                 uploaded_by=uploaded_by,
@@ -162,8 +140,8 @@ def handle(event, context):
                 'statusCode': 200,
                 'body': json.dumps({
                     'status': 'uploaded',
-                    'arenaUniqueID': arena_unique_id,
-                    'isDuplicate': False,
+                    'tempArenaID': temp_arena_id,
+                    'message': 'Uploaded successfully. ArenaUniqueID will be extracted asynchronously.',
                     's3Key': s3_key
                 })
             }
