@@ -71,7 +71,8 @@ jobs:
         id: docker-build
         run: |
           ACCOUNT_ID="${{ steps.aws-account.outputs.account_id }}"
-          REGION="${{ secrets.AWS_REGION || 'ap-northeast-1' }}"
+          # Use hardcoded region to avoid GitHub Actions secret masking in outputs
+          REGION="ap-northeast-1"
           REPOSITORY_NAME="wows-replay-bot"
           ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
 
@@ -108,7 +109,8 @@ jobs:
         id: set-output
         run: |
           ACCOUNT_ID="${{ steps.aws-account.outputs.account_id }}"
-          REGION="${{ secrets.AWS_REGION || 'ap-northeast-1' }}"
+          # Use hardcoded region to avoid GitHub Actions secret masking
+          REGION="ap-northeast-1"
           REPOSITORY_NAME="wows-replay-bot"
           ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
 
