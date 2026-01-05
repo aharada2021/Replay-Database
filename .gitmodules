@@ -1,0 +1,6 @@
+[submodule "minimap_renderer"]
+	path = minimap_renderer
+	url = https://github.com/WoWs-Builder-Team/minimap_renderer.git
+[submodule "replays_unpack_upstream"]
+	path = replays_unpack_upstream
+	url = https://github.com/Monstrofil/replays_unpack.git
