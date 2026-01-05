@@ -20,8 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ecr_image_uri: ${{ steps.set-output.outputs.ecr_image_uri }}
-      account_id: ${{ steps.aws-account.outputs.account_id }}
-      ecr_uri: ${{ steps.docker-build.outputs.ecr_uri }}
 
     steps:
       - name: Checkout code
@@ -34,7 +32,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+          aws-region: ap-northeast-1
 
       - name: Get AWS Account ID
         id: aws-account
@@ -46,13 +44,13 @@ jobs:
       - name: Login to Amazon ECR
         id: login-ecr
         run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} | \
-            docker login --username AWS --password-stdin ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.${{ secrets.AWS_REGION || 'ap-northeast-1' }}.amazonaws.com
+          aws ecr get-login-password --region ap-northeast-1 | \
+            docker login --username AWS --password-stdin ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com
 
       - name: Create ECR repository if not exists
         run: |
           REPOSITORY_NAME="wows-replay-bot"
-          REGION="${{ secrets.AWS_REGION || 'ap-northeast-1' }}"
+          REGION="ap-northeast-1"
 
           if ! aws ecr describe-repositories --repository-names $REPOSITORY_NAME --region $REGION &> /dev/null; then
             echo "Creating ECR repository: $REPOSITORY_NAME"
@@ -114,16 +112,6 @@ jobs:
           REPOSITORY_NAME="wows-replay-bot"
           ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
 
-          echo "DEBUG: ACCOUNT_ID from steps.aws-account.outputs.account_id: ${ACCOUNT_ID}"
-          echo "DEBUG: REGION=${REGION}"
-          echo "DEBUG: ECR_URI=${ECR_URI}"
-
-          # Verify we can access previous step outputs
-          if [ -z "${ACCOUNT_ID}" ]; then
-            echo "ERROR: ACCOUNT_ID is empty!"
-            exit 1
-          fi
-
           # Determine stage
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.environment }}" == "production" ]; then
@@ -136,12 +124,7 @@ jobs:
           fi
 
           IMAGE_URI="${ECR_URI}:${STAGE}"
-          echo "DEBUG: STAGE=${STAGE}"
-          echo "DEBUG: IMAGE_URI=${IMAGE_URI}"
-          echo "DEBUG: Writing to GITHUB_OUTPUT: ecr_image_uri=${IMAGE_URI}"
           echo "ecr_image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
-          echo "DEBUG: GITHUB_OUTPUT file contents:"
-          cat $GITHUB_OUTPUT
           echo "ECR Image URI: ${IMAGE_URI}"
 
   deploy-dev:
@@ -162,7 +145,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+          aws-region: ap-northeast-1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -171,15 +154,6 @@ jobs:
 
       - name: Install Serverless Framework
         run: npm install -g serverless@3
-
-      - name: Debug - Check environment variables
-        run: |
-          echo "DEBUG: Checking outputs from build-and-push job"
-          echo "ecr_image_uri: ${{ needs.build-and-push.outputs.ecr_image_uri }}"
-          echo "account_id: ${{ needs.build-and-push.outputs.account_id }}"
-          echo "ecr_uri: ${{ needs.build-and-push.outputs.ecr_uri }}"
-          echo "---"
-          echo "These values will be set as env vars in next step"
 
       - name: Deploy to Lambda (dev)
         env:
@@ -192,13 +166,13 @@ jobs:
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
         run: |
           cd deploy
-          serverless deploy --stage dev --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} --verbose
+          serverless deploy --stage dev --region ap-northeast-1
 
       - name: Get API endpoint
         id: get-endpoint
         run: |
           cd deploy
-          ENDPOINT=$(serverless info --stage dev --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} | grep "POST - " | awk '{print $3}' | head -n 1)
+          ENDPOINT=$(serverless info --stage dev --region ap-northeast-1 | grep "POST - " | awk '{print $3}' | head -n 1)
           echo "endpoint=${ENDPOINT}" >> $GITHUB_OUTPUT
           echo "API Endpoint: ${ENDPOINT}"
 
@@ -229,7 +203,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+          aws-region: ap-northeast-1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -250,13 +224,13 @@ jobs:
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
         run: |
           cd deploy
-          serverless deploy --stage prod --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} --verbose
+          serverless deploy --stage prod --region ap-northeast-1
 
       - name: Get API endpoint
         id: get-endpoint
         run: |
           cd deploy
-          ENDPOINT=$(serverless info --stage prod --region ${{ secrets.AWS_REGION || 'ap-northeast-1' }} | grep "POST - " | awk '{print $3}' | head -n 1)
+          ENDPOINT=$(serverless info --stage prod --region ap-northeast-1 | grep "POST - " | awk '{print $3}' | head -n 1)
           echo "endpoint=${ENDPOINT}" >> $GITHUB_OUTPUT
           echo "API Endpoint: ${ENDPOINT}"
 
