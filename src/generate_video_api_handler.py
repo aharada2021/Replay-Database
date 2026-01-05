@@ -60,7 +60,7 @@ def handle(event, context):
         arena_unique_id = params.get('arenaUniqueID')
         player_id = params.get('playerID')
 
-        if not arena_unique_id or not player_id:
+        if arena_unique_id is None or player_id is None:
             return {
                 'statusCode': 400,
                 'headers': cors_headers,
@@ -68,7 +68,7 @@ def handle(event, context):
             }
 
         # DynamoDBからレコードを取得
-        record = dynamodb.get_replay_record(int(arena_unique_id), int(player_id))
+        record = dynamodb.get_replay_record(str(arena_unique_id), int(player_id))
 
         if not record:
             return {
