@@ -8,14 +8,22 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 
-# DynamoDBクライアント
-dynamodb = boto3.resource("dynamodb")
+# DynamoDBクライアント（遅延初期化）
+_dynamodb = None
 REPLAYS_TABLE_NAME = os.environ.get("REPLAYS_TABLE", "wows-replays-dev")
+
+
+def get_dynamodb_resource():
+    """DynamoDBリソースを取得（遅延初期化）"""
+    global _dynamodb
+    if _dynamodb is None:
+        _dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "ap-northeast-1"))
+    return _dynamodb
 
 
 def get_table():
     """DynamoDBテーブルを取得"""
-    return dynamodb.Table(REPLAYS_TABLE_NAME)
+    return get_dynamodb_resource().Table(REPLAYS_TABLE_NAME)
 
 
 def put_replay_record(
