@@ -40,7 +40,8 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        if event.get('requestContext', {}).get('http', {}).get('method') == 'OPTIONS':
+        http_method = event.get('httpMethod') or event.get('requestContext', {}).get('http', {}).get('method')
+        if http_method == 'OPTIONS':
             return {
                 'statusCode': 200,
                 'headers': cors_headers,

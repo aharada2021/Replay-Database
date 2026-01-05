@@ -8,6 +8,23 @@ provider:
   # Dockerイメージを使用する場合、runtimeは不要（個別関数で指定）
   stage: ${opt:stage, 'dev'}
 
+  # HTTP API CORS設定
+  httpApi:
+    cors:
+      allowedOrigins:
+        - '*'
+      allowedHeaders:
+        - Content-Type
+        - X-Api-Key
+        - X-User-Id
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowCredentials: false
+
   # 環境変数
   environment:
     DISCORD_PUBLIC_KEY: ${env:DISCORD_PUBLIC_KEY}

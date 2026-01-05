@@ -47,7 +47,8 @@ maps:
   "Seychelles": "セーシェル"
   "CO_ocean": "大海原"
   "big_race": "ビッグレース"
-  "Archipelago": "列島" 
+  "Archipelago": "列島"
+  "AngelWings": "夕暮れの島々"
 
 # 不明なマップIDの場合のデフォルト名
 default_map_name: "その他のマップ"
