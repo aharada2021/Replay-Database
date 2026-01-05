@@ -15,12 +15,12 @@ RUN yum update -y && \
     xz \
     && yum clean all
 
-# FFmpegのインストール (ARM64用)
+# FFmpegのインストール (ARM64用 - BtbN/FFmpeg-Builds)
 RUN cd /tmp && \
-    wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz && \
-    tar xvf ffmpeg-release-arm64-static.tar.xz && \
-    mv ffmpeg-*-arm64-static/ffmpeg /usr/local/bin/ && \
-    mv ffmpeg-*-arm64-static/ffprobe /usr/local/bin/ && \
+    wget -O ffmpeg-linuxarm64.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz" && \
+    tar xf ffmpeg-linuxarm64.tar.xz && \
+    mv ffmpeg-master-latest-linuxarm64-gpl/bin/ffmpeg /usr/local/bin/ && \
+    mv ffmpeg-master-latest-linuxarm64-gpl/bin/ffprobe /usr/local/bin/ && \
     rm -rf ffmpeg-* && \
     chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
 
