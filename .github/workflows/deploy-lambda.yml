@@ -151,7 +151,7 @@ jobs:
           node-version: '18'
 
       - name: Install Serverless Framework
-        run: npm install -g serverless
+        run: npm install -g serverless@3
 
       - name: Deploy to Lambda (dev)
         env:
@@ -209,7 +209,7 @@ jobs:
           node-version: '18'
 
       - name: Install Serverless Framework
-        run: npm install -g serverless
+        run: npm install -g serverless@3
 
       - name: Deploy to Lambda (prod)
         env:
