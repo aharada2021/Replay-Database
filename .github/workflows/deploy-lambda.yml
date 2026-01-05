@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ecr_image_uri: ${{ steps.set-output.outputs.ecr_image_uri }}
+      account_id: ${{ steps.aws-account.outputs.account_id }}
+      ecr_uri: ${{ steps.docker-build.outputs.ecr_uri }}
 
     steps:
       - name: Checkout code
@@ -110,9 +112,15 @@ jobs:
           REPOSITORY_NAME="wows-replay-bot"
           ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
 
-          echo "DEBUG: ACCOUNT_ID=${ACCOUNT_ID}"
+          echo "DEBUG: ACCOUNT_ID from steps.aws-account.outputs.account_id: ${ACCOUNT_ID}"
           echo "DEBUG: REGION=${REGION}"
           echo "DEBUG: ECR_URI=${ECR_URI}"
+
+          # Verify we can access previous step outputs
+          if [ -z "${ACCOUNT_ID}" ]; then
+            echo "ERROR: ACCOUNT_ID is empty!"
+            exit 1
+          fi
 
           # Determine stage
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
@@ -164,9 +172,12 @@ jobs:
 
       - name: Debug - Check environment variables
         run: |
-          echo "DEBUG: Checking ECR_IMAGE_URI from job output"
-          echo "ECR_IMAGE_URI from build-and-push job: ${{ needs.build-and-push.outputs.ecr_image_uri }}"
-          echo "This value will be set as env var in next step"
+          echo "DEBUG: Checking outputs from build-and-push job"
+          echo "ecr_image_uri: ${{ needs.build-and-push.outputs.ecr_image_uri }}"
+          echo "account_id: ${{ needs.build-and-push.outputs.account_id }}"
+          echo "ecr_uri: ${{ needs.build-and-push.outputs.ecr_uri }}"
+          echo "---"
+          echo "These values will be set as env vars in next step"
 
       - name: Deploy to Lambda (dev)
         env:
