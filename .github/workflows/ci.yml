@@ -40,14 +40,14 @@ jobs:
 
       - name: Run flake8
         run: |
-          flake8 src/ minimap_renderer/src/ replays_unpack_upstream/ \
+          flake8 src/ \
             --max-line-length=120 \
             --exclude=venv,node_modules,.git,__pycache__,build,dist \
             --extend-ignore=E203,W503
 
       - name: Check formatting with black
         run: |
-          black --check --line-length=120 src/ minimap_renderer/src/ replays_unpack_upstream/
+          black --check --line-length=120 src/
 
   test:
     name: Run Tests

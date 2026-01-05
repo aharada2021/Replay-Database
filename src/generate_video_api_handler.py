@@ -9,16 +9,15 @@ import os
 import boto3
 import tempfile
 from pathlib import Path
-from typing import Dict, Any
 
 from replay_processor import ReplayProcessor
 from utils import dynamodb
 
 # 環境変数
-REPLAYS_BUCKET = os.environ.get('REPLAYS_BUCKET', 'wows-replay-bot-dev-temp')
+REPLAYS_BUCKET = os.environ.get("REPLAYS_BUCKET", "wows-replay-bot-dev-temp")
 
 # S3クライアント
-s3_client = boto3.client('s3')
+s3_client = boto3.client("s3")
 
 
 def handle(event, context):
@@ -35,75 +34,60 @@ def handle(event, context):
     try:
         # CORS headers
         cors_headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS'
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get('httpMethod') or event.get('requestContext', {}).get('http', {}).get('method')
-        if http_method == 'OPTIONS':
-            return {
-                'statusCode': 200,
-                'headers': cors_headers,
-                'body': ''
-            }
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        if http_method == "OPTIONS":
+            return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
         # リクエストボディ解析
-        body = event.get('body', '{}')
+        body = event.get("body", "{}")
         if isinstance(body, str):
             params = json.loads(body)
         else:
             params = body
 
         # パラメータ
-        arena_unique_id = params.get('arenaUniqueID')
-        player_id = params.get('playerID')
+        arena_unique_id = params.get("arenaUniqueID")
+        player_id = params.get("playerID")
 
         if arena_unique_id is None or player_id is None:
             return {
-                'statusCode': 400,
-                'headers': cors_headers,
-                'body': json.dumps({'error': 'arenaUniqueID and playerID are required'})
+                "statusCode": 400,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "arenaUniqueID and playerID are required"}),
             }
 
         # DynamoDBからレコードを取得
         record = dynamodb.get_replay_record(str(arena_unique_id), int(player_id))
 
         if not record:
-            return {
-                'statusCode': 404,
-                'headers': cors_headers,
-                'body': json.dumps({'error': 'Record not found'})
-            }
+            return {"statusCode": 404, "headers": cors_headers, "body": json.dumps({"error": "Record not found"})}
 
         # 既にMP4が生成されているかチェック
-        if record.get('mp4S3Key'):
+        if record.get("mp4S3Key"):
             # 既に存在する場合は署名付きURLを返す
             presigned_url = s3_client.generate_presigned_url(
-                'get_object',
-                Params={
-                    'Bucket': REPLAYS_BUCKET,
-                    'Key': record['mp4S3Key']
-                },
-                ExpiresIn=86400  # 24時間
+                "get_object", Params={"Bucket": REPLAYS_BUCKET, "Key": record["mp4S3Key"]}, ExpiresIn=86400  # 24時間
             )
 
             return {
-                'statusCode': 200,
-                'headers': cors_headers,
-                'body': json.dumps({
-                    'status': 'already_exists',
-                    'mp4Url': presigned_url,
-                    'mp4S3Key': record['mp4S3Key']
-                })
+                "statusCode": 200,
+                "headers": cors_headers,
+                "body": json.dumps(
+                    {"status": "already_exists", "mp4Url": presigned_url, "mp4S3Key": record["mp4S3Key"]}
+                ),
             }
 
         # S3からリプレイファイルをダウンロード
-        s3_key = record['s3Key']
+        s3_key = record["s3Key"]
         print(f"Downloading replay from s3://{REPLAYS_BUCKET}/{s3_key}")
 
-        with tempfile.NamedTemporaryFile(suffix='.wowsreplay', delete=False) as tmp_replay:
+        with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_replay:
             replay_path = Path(tmp_replay.name)
             s3_client.download_fileobj(REPLAYS_BUCKET, s3_key, tmp_replay)
 
@@ -114,10 +98,7 @@ def handle(event, context):
 
                 # MP4を生成
                 print(f"Generating MP4 for {replay_path.name}")
-                _, _, mp4_path, _ = ReplayProcessor.process_replay(
-                    replay_path,
-                    output_dir
-                )
+                _, _, mp4_path, _ = ReplayProcessor.process_replay(replay_path, output_dir)
 
                 if not mp4_path or not mp4_path.exists():
                     raise Exception("MP4 generation failed")
@@ -126,39 +107,23 @@ def handle(event, context):
                 mp4_s3_key = f"videos/{arena_unique_id}/{player_id}/{replay_path.stem}.mp4"
                 print(f"Uploading MP4 to s3://{REPLAYS_BUCKET}/{mp4_s3_key}")
 
-                with open(mp4_path, 'rb') as f:
-                    s3_client.put_object(
-                        Bucket=REPLAYS_BUCKET,
-                        Key=mp4_s3_key,
-                        Body=f.read(),
-                        ContentType='video/mp4'
-                    )
+                with open(mp4_path, "rb") as f:
+                    s3_client.put_object(Bucket=REPLAYS_BUCKET, Key=mp4_s3_key, Body=f.read(), ContentType="video/mp4")
 
                 # DynamoDBを更新
                 dynamodb.update_video_info(
-                    arena_unique_id=int(arena_unique_id),
-                    player_id=int(player_id),
-                    mp4_s3_key=mp4_s3_key
+                    arena_unique_id=int(arena_unique_id), player_id=int(player_id), mp4_s3_key=mp4_s3_key
                 )
 
                 # 署名付きURLを生成
                 presigned_url = s3_client.generate_presigned_url(
-                    'get_object',
-                    Params={
-                        'Bucket': REPLAYS_BUCKET,
-                        'Key': mp4_s3_key
-                    },
-                    ExpiresIn=86400  # 24時間
+                    "get_object", Params={"Bucket": REPLAYS_BUCKET, "Key": mp4_s3_key}, ExpiresIn=86400  # 24時間
                 )
 
                 return {
-                    'statusCode': 200,
-                    'headers': cors_headers,
-                    'body': json.dumps({
-                        'status': 'generated',
-                        'mp4Url': presigned_url,
-                        'mp4S3Key': mp4_s3_key
-                    })
+                    "statusCode": 200,
+                    "headers": cors_headers,
+                    "body": json.dumps({"status": "generated", "mp4Url": presigned_url, "mp4S3Key": mp4_s3_key}),
                 }
 
         finally:
@@ -169,12 +134,11 @@ def handle(event, context):
     except Exception as e:
         print(f"Error in generate_video_api_handler: {e}")
         import traceback
+
         traceback.print_exc()
 
         return {
-            'statusCode': 500,
-            'headers': {
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps({'error': str(e)})
+            "statusCode": 500,
+            "headers": {"Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"error": str(e)}),
         }

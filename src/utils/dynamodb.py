@@ -4,14 +4,13 @@ DynamoDB操作ヘルパーモジュール
 
 import os
 import boto3
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime
-from decimal import Decimal
 
 
 # DynamoDBクライアント
-dynamodb = boto3.resource('dynamodb')
-REPLAYS_TABLE_NAME = os.environ.get('REPLAYS_TABLE', 'wows-replays-dev')
+dynamodb = boto3.resource("dynamodb")
+REPLAYS_TABLE_NAME = os.environ.get("REPLAYS_TABLE", "wows-replays-dev")
 
 
 def get_table():
@@ -29,7 +28,7 @@ def put_replay_record(
     s3_key: str,
     file_name: str,
     file_size: int,
-    game_type: Optional[str] = None
+    game_type: Optional[str] = None,
 ) -> None:
     """
     リプレイレコードをDynamoDBに保存
@@ -56,47 +55,37 @@ def put_replay_record(
 
     # レコード作成
     item = {
-        'arenaUniqueID': str(arena_unique_id),
-        'playerID': player_id,
-        'playerName': player_name,
-        'uploadedBy': uploaded_by,
-        'uploadedAt': uploaded_at,
-
+        "arenaUniqueID": str(arena_unique_id),
+        "playerID": player_id,
+        "playerName": player_name,
+        "uploadedBy": uploaded_by,
+        "uploadedAt": uploaded_at,
         # 試合情報
-        'dateTime': metadata.get('dateTime', ''),
-        'mapId': metadata.get('mapName', ''),
-        'mapDisplayName': metadata.get('mapDisplayName', ''),
-        'gameType': game_type or metadata.get('matchGroup', 'unknown'),
-        'clientVersion': metadata.get('clientVersionFromXml', ''),
-
+        "dateTime": metadata.get("dateTime", ""),
+        "mapId": metadata.get("mapName", ""),
+        "mapDisplayName": metadata.get("mapDisplayName", ""),
+        "gameType": game_type or metadata.get("matchGroup", "unknown"),
+        "clientVersion": metadata.get("clientVersionFromXml", ""),
         # プレイヤー情報
-        'ownPlayer': players_info.get('own', [{}])[0] if players_info.get('own') else {},
-        'allies': players_info.get('allies', []),
-        'enemies': players_info.get('enemies', []),
-
+        "ownPlayer": players_info.get("own", [{}])[0] if players_info.get("own") else {},
+        "allies": players_info.get("allies", []),
+        "enemies": players_info.get("enemies", []),
         # ファイル情報
-        's3Key': s3_key,
-        'fileName': file_name,
-        'fileSize': file_size,
-
+        "s3Key": s3_key,
+        "fileName": file_name,
+        "fileSize": file_size,
         # 勝敗情報（後で更新される）
-        'winLoss': 'unknown',
-        'experienceEarned': None,
-
+        "winLoss": "unknown",
+        "experienceEarned": None,
         # 動画情報
-        'mp4GeneratedAt': None,
-        'mp4S3Key': None,
+        "mp4GeneratedAt": None,
+        "mp4S3Key": None,
     }
 
     table.put_item(Item=item)
 
 
-def update_battle_result(
-    arena_unique_id: int,
-    player_id: int,
-    win_loss: str,
-    experience_earned: Optional[int]
-) -> None:
+def update_battle_result(arena_unique_id: int, player_id: int, win_loss: str, experience_earned: Optional[int]) -> None:
     """
     バトル結果（勝敗・経験値）を更新
 
@@ -112,23 +101,13 @@ def update_battle_result(
     table = get_table()
 
     table.update_item(
-        Key={
-            'arenaUniqueID': str(arena_unique_id),
-            'playerID': player_id
-        },
-        UpdateExpression='SET winLoss = :wl, experienceEarned = :exp',
-        ExpressionAttributeValues={
-            ':wl': win_loss,
-            ':exp': experience_earned
-        }
+        Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id},
+        UpdateExpression="SET winLoss = :wl, experienceEarned = :exp",
+        ExpressionAttributeValues={":wl": win_loss, ":exp": experience_earned},
     )
 
 
-def update_video_info(
-    arena_unique_id: int,
-    player_id: int,
-    mp4_s3_key: str
-) -> None:
+def update_video_info(arena_unique_id: int, player_id: int, mp4_s3_key: str) -> None:
     """
     動画情報を更新
 
@@ -145,22 +124,13 @@ def update_video_info(
     mp4_generated_at = datetime.utcnow().isoformat()
 
     table.update_item(
-        Key={
-            'arenaUniqueID': str(arena_unique_id),
-            'playerID': player_id
-        },
-        UpdateExpression='SET mp4S3Key = :s3key, mp4GeneratedAt = :generated',
-        ExpressionAttributeValues={
-            ':s3key': mp4_s3_key,
-            ':generated': mp4_generated_at
-        }
+        Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id},
+        UpdateExpression="SET mp4S3Key = :s3key, mp4GeneratedAt = :generated",
+        ExpressionAttributeValues={":s3key": mp4_s3_key, ":generated": mp4_generated_at},
     )
 
 
-def get_replay_record(
-    arena_unique_id: int,
-    player_id: int
-) -> Optional[Dict[str, Any]]:
+def get_replay_record(arena_unique_id: int, player_id: int) -> Optional[Dict[str, Any]]:
     """
     リプレイレコードを取得
 
@@ -176,14 +146,9 @@ def get_replay_record(
     """
     table = get_table()
 
-    response = table.get_item(
-        Key={
-            'arenaUniqueID': str(arena_unique_id),
-            'playerID': player_id
-        }
-    )
+    response = table.get_item(Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id})
 
-    return response.get('Item')
+    return response.get("Item")
 
 
 def check_duplicate_by_arena_id(arena_unique_id: int) -> Optional[Dict[str, Any]]:
@@ -202,14 +167,10 @@ def check_duplicate_by_arena_id(arena_unique_id: int) -> Optional[Dict[str, Any]
     table = get_table()
 
     response = table.query(
-        KeyConditionExpression='arenaUniqueID = :aid',
-        ExpressionAttributeValues={
-            ':aid': str(arena_unique_id)
-        },
-        Limit=1
+        KeyConditionExpression="arenaUniqueID = :aid", ExpressionAttributeValues={":aid": str(arena_unique_id)}, Limit=1
     )
 
-    items = response.get('Items', [])
+    items = response.get("Items", [])
     return items[0] if items else None
 
 
@@ -221,7 +182,7 @@ def search_replays(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     limit: int = 50,
-    last_evaluated_key: Optional[Dict] = None
+    last_evaluated_key: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """
     リプレイを検索
@@ -250,96 +211,91 @@ def search_replays(
     # GSIを使用した検索
     if game_type:
         # GameTypeIndexを使用
-        key_condition = 'gameType = :gt'
-        expression_values = {':gt': game_type}
+        key_condition = "gameType = :gt"
+        expression_values = {":gt": game_type}
 
         if date_from:
-            key_condition += ' AND dateTime >= :df'
-            expression_values[':df'] = date_from
+            key_condition += " AND dateTime >= :df"
+            expression_values[":df"] = date_from
         if date_to:
-            key_condition += ' AND dateTime <= :dt'
-            expression_values[':dt'] = date_to
+            key_condition += " AND dateTime <= :dt"
+            expression_values[":dt"] = date_to
 
         query_params = {
-            'IndexName': 'GameTypeIndex',
-            'KeyConditionExpression': key_condition,
-            'ExpressionAttributeValues': expression_values,
-            'Limit': limit,
-            'ScanIndexForward': False  # 降順（新しい順）
+            "IndexName": "GameTypeIndex",
+            "KeyConditionExpression": key_condition,
+            "ExpressionAttributeValues": expression_values,
+            "Limit": limit,
+            "ScanIndexForward": False,  # 降順（新しい順）
         }
 
         if last_evaluated_key:
-            query_params['ExclusiveStartKey'] = last_evaluated_key
+            query_params["ExclusiveStartKey"] = last_evaluated_key
 
         response = table.query(**query_params)
 
     elif player_name:
         # PlayerNameIndexを使用
-        key_condition = 'playerName = :pn'
-        expression_values = {':pn': player_name}
+        key_condition = "playerName = :pn"
+        expression_values = {":pn": player_name}
 
         if date_from:
-            key_condition += ' AND dateTime >= :df'
-            expression_values[':df'] = date_from
+            key_condition += " AND dateTime >= :df"
+            expression_values[":df"] = date_from
         if date_to:
-            key_condition += ' AND dateTime <= :dt'
-            expression_values[':dt'] = date_to
+            key_condition += " AND dateTime <= :dt"
+            expression_values[":dt"] = date_to
 
         query_params = {
-            'IndexName': 'PlayerNameIndex',
-            'KeyConditionExpression': key_condition,
-            'ExpressionAttributeValues': expression_values,
-            'Limit': limit,
-            'ScanIndexForward': False
+            "IndexName": "PlayerNameIndex",
+            "KeyConditionExpression": key_condition,
+            "ExpressionAttributeValues": expression_values,
+            "Limit": limit,
+            "ScanIndexForward": False,
         }
 
         if last_evaluated_key:
-            query_params['ExclusiveStartKey'] = last_evaluated_key
+            query_params["ExclusiveStartKey"] = last_evaluated_key
 
         response = table.query(**query_params)
 
     elif map_id:
         # MapIdIndexを使用
-        key_condition = 'mapId = :mid'
-        expression_values = {':mid': map_id}
+        key_condition = "mapId = :mid"
+        expression_values = {":mid": map_id}
 
         if date_from:
-            key_condition += ' AND dateTime >= :df'
-            expression_values[':df'] = date_from
+            key_condition += " AND dateTime >= :df"
+            expression_values[":df"] = date_from
         if date_to:
-            key_condition += ' AND dateTime <= :dt'
-            expression_values[':dt'] = date_to
+            key_condition += " AND dateTime <= :dt"
+            expression_values[":dt"] = date_to
 
         query_params = {
-            'IndexName': 'MapIdIndex',
-            'KeyConditionExpression': key_condition,
-            'ExpressionAttributeValues': expression_values,
-            'Limit': limit,
-            'ScanIndexForward': False
+            "IndexName": "MapIdIndex",
+            "KeyConditionExpression": key_condition,
+            "ExpressionAttributeValues": expression_values,
+            "Limit": limit,
+            "ScanIndexForward": False,
         }
 
         if last_evaluated_key:
-            query_params['ExclusiveStartKey'] = last_evaluated_key
+            query_params["ExclusiveStartKey"] = last_evaluated_key
 
         response = table.query(**query_params)
 
     else:
         # フィルタなしの場合はScan
-        scan_params = {
-            'Limit': limit
-        }
+        scan_params = {"Limit": limit}
 
         if last_evaluated_key:
-            scan_params['ExclusiveStartKey'] = last_evaluated_key
+            scan_params["ExclusiveStartKey"] = last_evaluated_key
 
         response = table.scan(**scan_params)
 
     # 勝敗フィルタ（クライアント側フィルタ）
-    items = response.get('Items', [])
+    items = response.get("Items", [])
     if win_loss:
-        items = [item for item in items if item.get('winLoss') == win_loss]
+        items = [item for item in items if item.get("winLoss") == win_loss]
 
-    return {
-        'items': items,
-        'last_evaluated_key': response.get('LastEvaluatedKey')
-    }
+    return {"items": items, "last_evaluated_key": response.get("LastEvaluatedKey")}
