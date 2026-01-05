@@ -9,10 +9,7 @@ import requests
 from replay_processor import ReplayProcessor
 
 # ログ設定
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -20,7 +17,7 @@ logger.setLevel(logging.INFO)
 logging.getLogger().setLevel(logging.INFO)
 
 # 環境変数
-DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_API_BASE = "https://discord.com/api/v10"
 
 
@@ -30,30 +27,30 @@ def load_map_config() -> tuple:
 
     map_file = Path(__file__).parent / "map_names.yaml"
     try:
-        with open(map_file, 'r', encoding='utf-8') as f:
+        with open(map_file, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-            maps = data.get('maps', {})
-            game_type_prefixes = data.get('game_type_prefixes', {})
-            default_map_name = data.get('default_map_name', 'その他のマップ')
+            maps = data.get("maps", {})
+            game_type_prefixes = data.get("game_type_prefixes", {})
+            default_map_name = data.get("default_map_name", "その他のマップ")
             return maps, game_type_prefixes, default_map_name
     except Exception as e:
         logger.error(f"マップ名マッピングファイルの読み込みエラー: {e}")
-        return {}, {}, 'その他のマップ'
+        return {}, {}, "その他のマップ"
 
 
 def extract_map_id_from_filename(filename: str) -> Optional[str]:
     """リプレイファイル名からマップIDを抽出"""
-    if not filename.endswith('.wowsreplay'):
+    if not filename.endswith(".wowsreplay"):
         return None
 
-    name_without_ext = filename.replace('.wowsreplay', '')
-    parts = name_without_ext.split('_')
+    name_without_ext = filename.replace(".wowsreplay", "")
+    parts = name_without_ext.split("_")
 
     if len(parts) >= 4:
         for i in range(len(parts) - 1, -1, -1):
             if parts[i].isdigit():
                 if i + 1 < len(parts):
-                    map_id = '_'.join(parts[i + 1:])
+                    map_id = "_".join(parts[i + 1 :])
                     return map_id
                 break
 
@@ -62,14 +59,14 @@ def extract_map_id_from_filename(filename: str) -> Optional[str]:
 
 def get_opponent_clan(players_info: dict) -> str:
     """敵プレイヤーの過半数のクランタグを取得"""
-    enemies = players_info.get('enemies', [])
+    enemies = players_info.get("enemies", [])
 
     if not enemies:
         return "不明"
 
     clan_counts = {}
     for player in enemies:
-        clan_tag = player.get('clanTag')
+        clan_tag = player.get("clanTag")
         if clan_tag:
             clan_counts[clan_tag] = clan_counts.get(clan_tag, 0) + 1
 
@@ -92,7 +89,7 @@ def download_file(url: str, dest_path: Path) -> bool:
         response = requests.get(url, timeout=30)
         response.raise_for_status()
 
-        with open(dest_path, 'wb') as f:
+        with open(dest_path, "wb") as f:
             f.write(response.content)
 
         logger.info(f"ファイルをダウンロード: {dest_path}")
@@ -105,34 +102,28 @@ def download_file(url: str, dest_path: Path) -> bool:
 def send_channel_message(channel_id: str, content: str = None, embed: dict = None, files: list = None) -> bool:
     """Discordチャンネルにメッセージを送信"""
     url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
-    headers = {
-        "Authorization": f"Bot {DISCORD_BOT_TOKEN}"
-    }
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
 
     payload = {}
     if content:
-        payload['content'] = content
+        payload["content"] = content
     if embed:
-        payload['embeds'] = [embed]
+        payload["embeds"] = [embed]
 
     try:
         if files:
             # ファイル添付付きの場合
             files_payload = []
             for i, file_path in enumerate(files):
-                with open(file_path, 'rb') as f:
-                    files_payload.append((f'files[{i}]', (Path(file_path).name, f.read())))
+                with open(file_path, "rb") as f:
+                    files_payload.append((f"files[{i}]", (Path(file_path).name, f.read())))
 
             response = requests.post(
-                url,
-                headers=headers,
-                data={'payload_json': json.dumps(payload)},
-                files=files_payload,
-                timeout=60
+                url, headers=headers, data={"payload_json": json.dumps(payload)}, files=files_payload, timeout=60
             )
         else:
             # テキストのみ
-            headers['Content-Type'] = 'application/json'
+            headers["Content-Type"] = "application/json"
             response = requests.post(url, headers=headers, json=payload, timeout=30)
 
         response.raise_for_status()
@@ -146,9 +137,7 @@ def send_channel_message(channel_id: str, content: str = None, embed: dict = Non
 def get_channel_by_name(guild_id: str, channel_name: str) -> Optional[str]:
     """チャンネル名からチャンネルIDを取得"""
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/channels"
-    headers = {
-        "Authorization": f"Bot {DISCORD_BOT_TOKEN}"
-    }
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
 
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -156,8 +145,8 @@ def get_channel_by_name(guild_id: str, channel_name: str) -> Optional[str]:
         channels = response.json()
 
         for channel in channels:
-            if channel.get('name') == channel_name and channel.get('type') == 0:  # Text channel
-                return channel['id']
+            if channel.get("name") == channel_name and channel.get("type") == 0:  # Text channel
+                return channel["id"]
 
         return None
     except Exception as e:
@@ -168,14 +157,7 @@ def get_channel_by_name(guild_id: str, channel_name: str) -> Optional[str]:
 def send_followup_message(webhook_url: str, content: str, flags: int = 64):
     """Discord Webhookでフォローアップメッセージを送信"""
     try:
-        response = requests.post(
-            webhook_url,
-            json={
-                "content": content,
-                "flags": flags
-            },
-            timeout=30
-        )
+        response = requests.post(webhook_url, json={"content": content, "flags": flags}, timeout=30)
         response.raise_for_status()
         logger.info("フォローアップメッセージを送信しました")
     except Exception as e:
@@ -197,17 +179,19 @@ def handle_replay_processing(event, context):
     try:
         logger.info(f"リプレイ処理を開始します: event={json.dumps(event, default=str)}")
 
-        attachment = event['attachment']
-        guild_id = event['guild_id']
-        webhook_url = event['webhook_url']
+        attachment = event["attachment"]
+        guild_id = event["guild_id"]
+        webhook_url = event["webhook_url"]
 
-        filename = attachment['filename']
-        file_url = attachment['url']
+        filename = attachment["filename"]
+        file_url = attachment["url"]
         logger.info(f"ファイル名: {filename}")
 
         # マップ設定を読み込み
         MAPS, GAME_TYPE_PREFIXES, DEFAULT_MAP_NAME = load_map_config()
-        logger.info(f"マップ設定を読み込みました: {len(MAPS)}個のマップ, {len(GAME_TYPE_PREFIXES)}個のゲームタイプprefix")
+        logger.info(
+            f"マップ設定を読み込みました: {len(MAPS)}個のマップ, {len(GAME_TYPE_PREFIXES)}個のゲームタイプprefix"
+        )
 
         # 一時ディレクトリでファイルを処理
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -216,28 +200,19 @@ def handle_replay_processing(event, context):
 
             # ファイルをダウンロード
             if not download_file(file_url, replay_path):
-                send_followup_message(
-                    webhook_url,
-                    "❌ ファイルのダウンロードに失敗しました。"
-                )
+                send_followup_message(webhook_url, "❌ ファイルのダウンロードに失敗しました。")
                 return
 
             # リプレイファイルを処理
             output_dir = temp_path / "videos"
-            battle_time, game_type, mp4_path, players_info = ReplayProcessor.process_replay(
-                replay_path,
-                output_dir
-            )
+            battle_time, game_type, mp4_path, players_info = ReplayProcessor.process_replay(replay_path, output_dir)
             logger.info(f"リプレイ処理完了: battle_time={battle_time}, game_type={game_type}, mp4_path={mp4_path}")
 
             # マップIDを取得
             map_id = extract_map_id_from_filename(filename)
             logger.info(f"ファイル名から抽出したマップID: {map_id}")
             if not map_id:
-                send_followup_message(
-                    webhook_url,
-                    "❌ リプレイファイル名からマップ情報を取得できませんでした。"
-                )
+                send_followup_message(webhook_url, "❌ リプレイファイル名からマップ情報を取得できませんでした。")
                 return
 
             # 日本語マップ名を取得
@@ -258,10 +233,7 @@ def handle_replay_processing(event, context):
             # チャンネルIDを取得
             target_channel_id = get_channel_by_name(guild_id, target_channel_name)
             if not target_channel_id:
-                send_followup_message(
-                    webhook_url,
-                    f"❌ チャンネル「{target_channel_name}」が見つかりませんでした。"
-                )
+                send_followup_message(webhook_url, f"❌ チャンネル「{target_channel_name}」が見つかりませんでした。")
                 return
 
             if not battle_time:
@@ -277,7 +249,7 @@ def handle_replay_processing(event, context):
                 "fields": [
                     {"name": "🏴 対戦クラン", "value": clan_name, "inline": True},
                     {"name": "⏰ 対戦時間", "value": battle_time, "inline": True},
-                ]
+                ],
             }
 
             # ゲームタイプを表示
@@ -289,35 +261,46 @@ def handle_replay_processing(event, context):
 
             # プレイヤー情報を追加
             if players_info:
-                if players_info['own']:
-                    own_text = '\n'.join([
-                        f"• [{p['clanTag']}] {p['name']} ({p['shipName']})" if p['clanTag']
-                        else f"• {p['name']} ({p['shipName']})"
-                        for p in players_info['own']
-                    ])
-                    embed['fields'].append({"name": "👤 自分", "value": own_text, "inline": False})
+                if players_info["own"]:
+                    own_text = "\n".join(
+                        [
+                            (
+                                f"• [{p['clanTag']}] {p['name']} ({p['shipName']})"
+                                if p["clanTag"]
+                                else f"• {p['name']} ({p['shipName']})"
+                            )
+                            for p in players_info["own"]
+                        ]
+                    )
+                    embed["fields"].append({"name": "👤 自分", "value": own_text, "inline": False})
 
-                if players_info['allies']:
+                if players_info["allies"]:
                     allies_list = [
-                        f"• [{p['clanTag']}] {p['name']} ({p['shipName']})" if p['clanTag']
-                        else f"• {p['name']} ({p['shipName']})"
-                        for p in players_info['allies']
+                        (
+                            f"• [{p['clanTag']}] {p['name']} ({p['shipName']})"
+                            if p["clanTag"]
+                            else f"• {p['name']} ({p['shipName']})"
+                        )
+                        for p in players_info["allies"]
                     ]
-                    allies_text = '\n'.join(allies_list)
+                    allies_text = "\n".join(allies_list)
                     if len(allies_text) > 1024:
-                        allies_text = '\n'.join(allies_list[:15]) + f"\n... 他 {len(allies_list) - 15} 名"
-                    embed['fields'].append({"name": "🤝 味方", "value": allies_text, "inline": True})
+                        allies_text = "\n".join(allies_list[:15]) + f"\n... 他 {len(allies_list) - 15} 名"
+                    embed["fields"].append({"name": "🤝 味方", "value": allies_text, "inline": True})
 
-                if players_info['enemies']:
+                if players_info["enemies"]:
                     enemies_list = [
-                        f"• [{p['clanTag']}] {p['name']} ({p['shipName']})" if p['clanTag']
-                        else f"• {p['name']} ({p['shipName']})"
-                        for p in players_info['enemies']
+                        (
+                            f"• [{p['clanTag']}] {p['name']} ({p['shipName']})"
+                            if p["clanTag"]
+                            else f"• {p['name']} ({p['shipName']})"
+                        )
+                        for p in players_info["enemies"]
                     ]
-                    enemies_text = '\n'.join(enemies_list)
+                    enemies_text = "\n".join(enemies_list)
                     if len(enemies_text) > 1024:
-                        enemies_text = '\n'.join(enemies_list[:15]) + f"\n... 他 {len(enemies_list) - 15} 名"
-                    embed['fields'].append({"name": "⚔️ 敵", "value": enemies_text, "inline": True})
+                        enemies_text = "\n".join(enemies_list[:15]) + f"\n... 他 {len(enemies_list) - 15} 名"
+                    embed["fields"].append({"name": "⚔️ 敵", "value": enemies_text, "inline": True})
 
             # ファイルを準備
             files = []
@@ -330,22 +313,13 @@ def handle_replay_processing(event, context):
             success = send_channel_message(target_channel_id, embed=embed, files=files)
 
             if success:
-                send_followup_message(
-                    webhook_url,
-                    f"✅ リプレイファイルを <#{target_channel_id}> に投稿しました！"
-                )
+                send_followup_message(webhook_url, f"✅ リプレイファイルを <#{target_channel_id}> に投稿しました！")
             else:
-                send_followup_message(
-                    webhook_url,
-                    "❌ メッセージの投稿に失敗しました。"
-                )
+                send_followup_message(webhook_url, "❌ メッセージの投稿に失敗しました。")
 
     except Exception as e:
         logger.error(f"リプレイ処理エラー: {e}", exc_info=True)
         try:
-            send_followup_message(
-                event.get('webhook_url'),
-                f"❌ 処理中にエラーが発生しました: {str(e)}"
-            )
-        except:
+            send_followup_message(event.get("webhook_url"), f"❌ 処理中にエラーが発生しました: {str(e)}")
+        except Exception:
             pass

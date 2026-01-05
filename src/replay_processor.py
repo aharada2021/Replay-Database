@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple, Dict
-import subprocess
 import urllib.request
 import urllib.parse
 
@@ -45,7 +44,7 @@ class ReplayProcessor:
 
             try:
                 # renderer.resourcesパッケージからships.jsonを読み込む
-                ships_json = files('renderer.resources').joinpath('ships.json').read_text(encoding='utf-8')
+                ships_json = files("renderer.resources").joinpath("ships.json").read_text(encoding="utf-8")
                 _SHIP_DATA_CACHE = json.loads(ships_json)
                 logger.info(f"艦船データを読み込みました: {len(_SHIP_DATA_CACHE)}隻")
                 return _SHIP_DATA_CACHE
@@ -73,22 +72,25 @@ class ReplayProcessor:
         try:
             # WoWS Asia API
             application_id = "a3045a196f55957db04b72a1b747f8e0"
-            url = f"https://api.worldofwarships.asia/wows/encyclopedia/ships/?application_id={application_id}&ship_id={ship_id}&fields=name"
+            url = (
+                f"https://api.worldofwarships.asia/wows/encyclopedia/ships/"
+                f"?application_id={application_id}&ship_id={ship_id}&fields=name"
+            )
 
             with urllib.request.urlopen(url, timeout=5) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = json.loads(response.read().decode("utf-8"))
 
-                if data.get('status') == 'ok' and 'data' in data:
-                    ship_data = data['data'].get(str(ship_id))
-                    if ship_data and 'name' in ship_data:
-                        ship_name = ship_data['name']
+                if data.get("status") == "ok" and "data" in data:
+                    ship_data = data["data"].get(str(ship_id))
+                    if ship_data and "name" in ship_data:
+                        ship_name = ship_data["name"]
                         logger.info(f"APIから艦船名を取得: {ship_id} -> {ship_name}")
 
                         # キャッシュに保存
                         global _SHIP_DATA_CACHE
                         if _SHIP_DATA_CACHE is None:
                             _SHIP_DATA_CACHE = {}
-                        _SHIP_DATA_CACHE[str(ship_id)] = {'name': ship_name}
+                        _SHIP_DATA_CACHE[str(ship_id)] = {"name": ship_name}
 
                         return ship_name
 
@@ -113,7 +115,7 @@ class ReplayProcessor:
 
         # まずローカルデータから検索
         if ship_id_str in ship_data:
-            return ship_data[ship_id_str].get('name', 'Unknown Ship')
+            return ship_data[ship_id_str].get("name", "Unknown Ship")
 
         # ローカルにない場合、APIから取得
         api_name = ReplayProcessor.fetch_ship_name_from_api(ship_id)
@@ -134,8 +136,6 @@ class ReplayProcessor:
         Returns:
             account_id（取得できない場合は None）
         """
-        global _PLAYER_ACCOUNT_CACHE
-
         # キャッシュから検索
         if player_name in _PLAYER_ACCOUNT_CACHE:
             return _PLAYER_ACCOUNT_CACHE[player_name]
@@ -143,24 +143,27 @@ class ReplayProcessor:
         try:
             application_id = "a3045a196f55957db04b72a1b747f8e0"
             encoded_name = urllib.parse.quote(player_name)
-            url = f"https://api.worldofwarships.asia/wows/account/list/?application_id={application_id}&search={encoded_name}"
+            url = (
+                f"https://api.worldofwarships.asia/wows/account/list/"
+                f"?application_id={application_id}&search={encoded_name}"
+            )
 
             with urllib.request.urlopen(url, timeout=5) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = json.loads(response.read().decode("utf-8"))
 
-                if data.get('status') == 'ok' and 'data' in data:
-                    players = data['data']
+                if data.get("status") == "ok" and "data" in data:
+                    players = data["data"]
                     if players and len(players) > 0:
                         # 完全一致を探す
                         for player in players:
-                            if player.get('nickname') == player_name:
-                                account_id = player.get('account_id')
+                            if player.get("nickname") == player_name:
+                                account_id = player.get("account_id")
                                 logger.info(f"APIからアカウントIDを取得: {player_name} -> {account_id}")
                                 _PLAYER_ACCOUNT_CACHE[player_name] = account_id
                                 return account_id
 
                         # 完全一致がない場合は最初の結果を使用
-                        account_id = players[0].get('account_id')
+                        account_id = players[0].get("account_id")
                         logger.info(f"APIからアカウントIDを取得（部分一致）: {player_name} -> {account_id}")
                         _PLAYER_ACCOUNT_CACHE[player_name] = account_id
                         return account_id
@@ -182,8 +185,6 @@ class ReplayProcessor:
         Returns:
             {'clan_id': int, 'tag': str} または None
         """
-        global _CLAN_INFO_CACHE
-
         # キャッシュから検索
         if account_id in _CLAN_INFO_CACHE:
             return _CLAN_INFO_CACHE[account_id]
@@ -191,27 +192,33 @@ class ReplayProcessor:
         try:
             # Step 1: account_idからclan_idを取得
             application_id = "a3045a196f55957db04b72a1b747f8e0"
-            url = f"https://api.worldofwarships.asia/wows/clans/accountinfo/?application_id={application_id}&account_id={account_id}"
+            url = (
+                f"https://api.worldofwarships.asia/wows/clans/accountinfo/"
+                f"?application_id={application_id}&account_id={account_id}"
+            )
 
             with urllib.request.urlopen(url, timeout=5) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = json.loads(response.read().decode("utf-8"))
 
-                if data.get('status') == 'ok' and 'data' in data:
-                    account_data = data['data'].get(str(account_id))
-                    if account_data and account_data.get('clan_id'):
-                        clan_id = account_data['clan_id']
+                if data.get("status") == "ok" and "data" in data:
+                    account_data = data["data"].get(str(account_id))
+                    if account_data and account_data.get("clan_id"):
+                        clan_id = account_data["clan_id"]
 
                         # Step 2: clan_idからtagを取得
-                        clan_url = f"https://api.worldofwarships.asia/wows/clans/info/?application_id={application_id}&clan_id={clan_id}"
+                        clan_url = (
+                            f"https://api.worldofwarships.asia/wows/clans/info/"
+                            f"?application_id={application_id}&clan_id={clan_id}"
+                        )
 
                         with urllib.request.urlopen(clan_url, timeout=5) as clan_response:
-                            clan_data = json.loads(clan_response.read().decode('utf-8'))
+                            clan_data = json.loads(clan_response.read().decode("utf-8"))
 
-                            if clan_data.get('status') == 'ok' and 'data' in clan_data:
-                                clan_info = clan_data['data'].get(str(clan_id))
-                                if clan_info and 'tag' in clan_info:
-                                    tag = clan_info['tag']
-                                    result = {'clan_id': clan_id, 'tag': tag}
+                            if clan_data.get("status") == "ok" and "data" in clan_data:
+                                clan_info = clan_data["data"].get(str(clan_id))
+                                if clan_info and "tag" in clan_info:
+                                    tag = clan_info["tag"]
+                                    result = {"clan_id": clan_id, "tag": tag}
                                     logger.info(f"APIからクラン情報を取得: account_id={account_id} -> [{tag}]")
                                     _CLAN_INFO_CACHE[account_id] = result
                                     return result
@@ -240,8 +247,8 @@ class ReplayProcessor:
 
         # Step 2: account_idからクラン情報を取得
         clan_info = ReplayProcessor.fetch_clan_info_from_api(account_id)
-        if clan_info and 'tag' in clan_info:
-            return clan_info['tag']
+        if clan_info and "tag" in clan_info:
+            return clan_info["tag"]
 
         return None
 
@@ -265,7 +272,7 @@ class ReplayProcessor:
             メタデータの辞書 または None
         """
         try:
-            with open(replay_path, 'rb') as f:
+            with open(replay_path, "rb") as f:
                 # 最初の12バイトのヘッダーを読み取り
                 header = f.read(12)
                 if len(header) < 12:
@@ -273,9 +280,9 @@ class ReplayProcessor:
                     return None
 
                 # ヘッダーを解析
-                magic = struct.unpack('<I', header[0:4])[0]
-                block1_size = struct.unpack('<I', header[4:8])[0]
-                json_size = struct.unpack('<I', header[8:12])[0]
+                magic = struct.unpack("<I", header[0:4])[0]
+                _block1_size = struct.unpack("<I", header[4:8])[0]  # noqa: F841
+                json_size = struct.unpack("<I", header[8:12])[0]
 
                 # Magic numberの確認（任意）
                 if magic != 0x11343212:
@@ -285,11 +292,13 @@ class ReplayProcessor:
                 json_data = f.read(json_size)
 
                 if len(json_data) < json_size:
-                    logger.error(f"リプレイファイルが不正です: JSONデータが不完全です（期待: {json_size}, 実際: {len(json_data)}）")
+                    logger.error(
+                        f"リプレイファイルが不正です: JSONデータが不完全です（期待: {json_size}, 実際: {len(json_data)}）"
+                    )
                     return None
 
                 # JSONをパース
-                metadata = json.loads(json_data.decode('utf-8'))
+                metadata = json.loads(json_data.decode("utf-8"))
                 logger.info("リプレイメタデータの解析に成功しました")
 
                 return metadata
@@ -311,7 +320,7 @@ class ReplayProcessor:
         """
         try:
             # dateTimeキーから対戦時間を取得
-            date_time_str = metadata.get('dateTime')
+            date_time_str = metadata.get("dateTime")
 
             if not date_time_str:
                 logger.warning("メタデータにdateTime情報がありません")
@@ -347,20 +356,20 @@ class ReplayProcessor:
         """
         try:
             # matchGroupキーからゲームタイプを取得
-            match_group = metadata.get('matchGroup')
+            match_group = metadata.get("matchGroup")
 
             if match_group:
                 logger.info(f"ゲームタイプ (matchGroup): {match_group}")
                 return match_group
 
             # gameLogicキーから取得を試みる
-            game_logic = metadata.get('gameLogic')
+            game_logic = metadata.get("gameLogic")
             if game_logic:
                 logger.info(f"ゲームタイプ (gameLogic): {game_logic}")
                 return game_logic
 
             # battleTypeキーから取得を試みる
-            battle_type = metadata.get('battleType')
+            battle_type = metadata.get("battleType")
             if battle_type:
                 logger.info(f"ゲームタイプ (battleType): {battle_type}")
                 return battle_type
@@ -388,43 +397,37 @@ class ReplayProcessor:
                 'enemies': [{'name': str, 'shipId': int, 'shipName': str, 'clanTag': str or None}, ...]
             }
         """
-        players_info = {
-            'own': [],
-            'allies': [],
-            'enemies': []
-        }
+        players_info = {"own": [], "allies": [], "enemies": []}
 
         try:
-            vehicles = metadata.get('vehicles', [])
+            vehicles = metadata.get("vehicles", [])
 
             for player in vehicles:
-                ship_id = player.get('shipId', 0)
+                ship_id = player.get("shipId", 0)
                 ship_name = ReplayProcessor.get_ship_name(ship_id)
-                player_name = player.get('name', 'Unknown')
+                player_name = player.get("name", "Unknown")
 
                 # クランタグを取得
                 clan_tag = ReplayProcessor.get_player_clan_tag(player_name)
 
-                player_data = {
-                    'name': player_name,
-                    'shipId': ship_id,
-                    'shipName': ship_name,
-                    'clanTag': clan_tag
-                }
+                player_data = {"name": player_name, "shipId": ship_id, "shipName": ship_name, "clanTag": clan_tag}
 
-                relation = player.get('relation', 2)
+                relation = player.get("relation", 2)
 
                 if relation == 0:
                     # 自分
-                    players_info['own'].append(player_data)
+                    players_info["own"].append(player_data)
                 elif relation == 1:
                     # 味方
-                    players_info['allies'].append(player_data)
+                    players_info["allies"].append(player_data)
                 else:
                     # 敵（relation == 2 または不明）
-                    players_info['enemies'].append(player_data)
+                    players_info["enemies"].append(player_data)
 
-            logger.info(f"プレイヤー情報を抽出: 自分={len(players_info['own'])}, 味方={len(players_info['allies'])}, 敵={len(players_info['enemies'])}")
+            logger.info(
+                f"プレイヤー情報を抽出: 自分={len(players_info['own'])}, "
+                f"味方={len(players_info['allies'])}, 敵={len(players_info['enemies'])}"
+            )
 
             return players_info
 
@@ -434,9 +437,7 @@ class ReplayProcessor:
 
     @staticmethod
     def generate_minimap_video(
-        replay_path: Path,
-        output_path: Path,
-        minimap_renderer_path: Optional[str] = None
+        replay_path: Path, output_path: Path, minimap_renderer_path: Optional[str] = None
     ) -> bool:
         """
         minimap_rendererを使用してMP4動画を生成
@@ -459,9 +460,7 @@ class ReplayProcessor:
             # リプレイファイルをパース
             logger.info("リプレイファイルをパース中...")
             with open(replay_path, "rb") as f:
-                replay_info = ReplayParser(
-                    f, strict=True, raw_data_output=False
-                ).get_info()
+                replay_info = ReplayParser(f, strict=True, raw_data_output=False).get_info()
 
             logger.info(f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}")
 
@@ -475,7 +474,7 @@ class ReplayProcessor:
             )
 
             # 一時的にデフォルト出力先に生成
-            default_output = replay_path.with_suffix('.mp4')
+            default_output = replay_path.with_suffix(".mp4")
             renderer.start(str(default_output))
 
             # プレイヤービルド情報をJSONで保存
@@ -487,6 +486,7 @@ class ReplayProcessor:
             if default_output.exists():
                 if default_output != output_path:
                     import shutil
+
                     shutil.move(str(default_output), str(output_path))
                 logger.info(f"MP4動画の生成に成功しました: {output_path}")
                 return True
@@ -503,10 +503,7 @@ class ReplayProcessor:
 
     @classmethod
     def process_replay(
-        cls,
-        replay_path: Path,
-        output_dir: Path,
-        minimap_renderer_path: Optional[str] = None
+        cls, replay_path: Path, output_dir: Path, minimap_renderer_path: Optional[str] = None
     ) -> Tuple[Optional[str], Optional[str], Optional[Path], dict]:
         """
         リプレイファイルを処理して対戦時間、ゲームタイプ、MP4、プレイヤー情報を生成
@@ -524,7 +521,7 @@ class ReplayProcessor:
 
         battle_time = None
         game_type = None
-        players_info = {'own': [], 'allies': [], 'enemies': []}
+        players_info = {"own": [], "allies": [], "enemies": []}
 
         if metadata:
             battle_time = cls.extract_battle_time(metadata)
@@ -535,11 +532,7 @@ class ReplayProcessor:
         output_dir.mkdir(parents=True, exist_ok=True)
         mp4_path = output_dir / f"{replay_path.stem}.mp4"
 
-        success = cls.generate_minimap_video(
-            replay_path,
-            mp4_path,
-            minimap_renderer_path
-        )
+        success = cls.generate_minimap_video(replay_path, mp4_path, minimap_renderer_path)
 
         if success and mp4_path.exists():
             logger.info(f"MP4ファイルを生成しました: {mp4_path}")

@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 # replays_unpackライブラリのパスを追加
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'replays_unpack_upstream'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "replays_unpack_upstream"))
 
-from replay_unpack.replay_reader import ReplayReader
-from replay_unpack.clients.wows.network.packets import BattleStats
-from replay_unpack.clients.wows.player import ReplayPlayer as WoWSReplayPlayer
+from replay_unpack.replay_reader import ReplayReader  # noqa: E402
+from replay_unpack.clients.wows.network.packets import BattleStats  # noqa: E402
+from replay_unpack.clients.wows.player import ReplayPlayer as WoWSReplayPlayer  # noqa: E402
 
 
 class BattleResultExtractor(WoWSReplayPlayer):
@@ -54,7 +54,7 @@ def extract_battle_stats(replay_path: str) -> Optional[Dict[str, Any]]:
         metadata = replay.engine_data
 
         # バージョン
-        version = metadata.get('clientVersionFromXml', '').replace(' ', '').split(',')
+        version = metadata.get("clientVersionFromXml", "").replace(" ", "").split(",")
 
         # バトル結果抽出プレイヤーを作成
         extractor = BattleResultExtractor(version)
@@ -86,7 +86,7 @@ def get_win_loss_clan_battle(battle_results: Dict[str, Any]) -> str:
     if not battle_results:
         return "unknown"
 
-    private_data = battle_results.get('privateDataList', [])
+    private_data = battle_results.get("privateDataList", [])
 
     # privateDataList[7]が経験値の配列
     if len(private_data) > 7 and isinstance(private_data[7], list) and len(private_data[7]) > 0:
@@ -113,7 +113,7 @@ def get_experience_earned(battle_results: Dict[str, Any]) -> Optional[int]:
     if not battle_results:
         return None
 
-    private_data = battle_results.get('privateDataList', [])
+    private_data = battle_results.get("privateDataList", [])
 
     if len(private_data) > 7 and isinstance(private_data[7], list) and len(private_data[7]) > 0:
         exp_raw = private_data[7][0]  # 10倍された値
@@ -135,4 +135,4 @@ def get_arena_unique_id(battle_results: Dict[str, Any]) -> Optional[int]:
     if not battle_results:
         return None
 
-    return battle_results.get('arenaUniqueID')
+    return battle_results.get("arenaUniqueID")

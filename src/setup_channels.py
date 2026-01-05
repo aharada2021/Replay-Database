@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # .envファイルから環境変数を読み込み
 load_dotenv()
 
-DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_API_BASE = "https://discord.com/api/v10"
 
 
@@ -24,10 +24,10 @@ def load_map_config() -> tuple:
     """マップ設定を読み込む"""
     map_file = Path(__file__).parent.parent / "config" / "map_names.yaml"
     try:
-        with open(map_file, 'r', encoding='utf-8') as f:
+        with open(map_file, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-            maps = data.get('maps', {})
-            game_type_prefixes = data.get('game_type_prefixes', {})
+            maps = data.get("maps", {})
+            game_type_prefixes = data.get("game_type_prefixes", {})
             return maps, game_type_prefixes
     except Exception as e:
         print(f"❌ マップ設定の読み込みエラー: {e}")
@@ -37,9 +37,7 @@ def load_map_config() -> tuple:
 def get_existing_channels(guild_id: str) -> dict:
     """サーバーの既存チャンネルを取得"""
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/channels"
-    headers = {
-        "Authorization": f"Bot {DISCORD_BOT_TOKEN}"
-    }
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
 
     try:
         response = requests.get(url, headers=headers, timeout=30)
@@ -47,7 +45,7 @@ def get_existing_channels(guild_id: str) -> dict:
         channels = response.json()
 
         # テキストチャンネル（type=0）のみを名前でマッピング
-        return {ch['name']: ch for ch in channels if ch.get('type') == 0}
+        return {ch["name"]: ch for ch in channels if ch.get("type") == 0}
     except Exception as e:
         print(f"❌ チャンネル取得エラー: {e}")
         return {}
@@ -56,15 +54,9 @@ def get_existing_channels(guild_id: str) -> dict:
 def create_channel(guild_id: str, channel_name: str, category_id: str = None) -> bool:
     """チャンネルを作成"""
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/channels"
-    headers = {
-        "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}", "Content-Type": "application/json"}
 
-    payload = {
-        "name": channel_name,
-        "type": 0  # テキストチャンネル
-    }
+    payload = {"name": channel_name, "type": 0}  # テキストチャンネル
 
     if category_id:
         payload["parent_id"] = category_id
@@ -82,22 +74,16 @@ def create_channel(guild_id: str, channel_name: str, category_id: str = None) ->
 def create_category(guild_id: str, category_name: str) -> str:
     """カテゴリを作成"""
     url = f"{DISCORD_API_BASE}/guilds/{guild_id}/channels"
-    headers = {
-        "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}", "Content-Type": "application/json"}
 
-    payload = {
-        "name": category_name,
-        "type": 4  # カテゴリ
-    }
+    payload = {"name": category_name, "type": 4}  # カテゴリ
 
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=30)
         response.raise_for_status()
         category = response.json()
         print(f"✅ カテゴリ作成: {category_name}")
-        return category['id']
+        return category["id"]
     except Exception as e:
         print(f"❌ カテゴリ作成失敗: {category_name} - {e}")
         return None
@@ -172,7 +158,7 @@ def setup_channels(guild_id: str, create_categories: bool = True):
     print("\n✅ チャンネルセットアップが完了しました！")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if not DISCORD_BOT_TOKEN:
         print("❌ 環境変数 DISCORD_BOT_TOKEN を設定してください")
         sys.exit(1)

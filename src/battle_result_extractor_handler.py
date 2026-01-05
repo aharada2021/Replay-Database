@@ -6,23 +6,20 @@ BattleStatsパケットから勝敗情報を抽出してDynamoDBを更新
 """
 
 import json
-import os
 import boto3
 import tempfile
 from pathlib import Path
-from typing import Dict, Any
-from decimal import Decimal
 
 from utils.battle_stats_extractor import (
     extract_battle_stats,
     get_win_loss_clan_battle,
     get_experience_earned,
-    get_arena_unique_id
+    get_arena_unique_id,
 )
 from utils import dynamodb
 
 # S3クライアント
-s3_client = boto3.client('s3')
+s3_client = boto3.client("s3")
 
 
 def handle(event, context):
@@ -38,19 +35,19 @@ def handle(event, context):
     """
     try:
         # S3イベントから情報を取得
-        for record in event.get('Records', []):
-            bucket = record['s3']['bucket']['name']
-            key = record['s3']['object']['key']
+        for record in event.get("Records", []):
+            bucket = record["s3"]["bucket"]["name"]
+            key = record["s3"]["object"]["key"]
 
             print(f"Processing: s3://{bucket}/{key}")
 
             # .wowsreplayファイルのみ処理
-            if not key.endswith('.wowsreplay'):
+            if not key.endswith(".wowsreplay"):
                 print(f"Skipping non-replay file: {key}")
                 continue
 
             # S3からファイルをダウンロード
-            with tempfile.NamedTemporaryFile(suffix='.wowsreplay', delete=False) as tmp_file:
+            with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_file:
                 tmp_path = Path(tmp_file.name)
                 s3_client.download_fileobj(bucket, key, tmp_file)
 
@@ -77,7 +74,7 @@ def handle(event, context):
 
                 # S3キーからtemp_arena_idとplayerIDを抽出
                 # S3キー形式: replays/{temp_arena_id}/{playerID}/{filename}
-                key_parts = key.split('/')
+                key_parts = key.split("/")
                 if len(key_parts) >= 3:
                     temp_arena_id = key_parts[1]
                     try:
@@ -100,21 +97,16 @@ def handle(event, context):
                 print(f"Migrating record from temp_id {temp_arena_id} to arena_id {arena_unique_id}")
 
                 # 既存データに勝敗情報を追加
-                old_record['arenaUniqueID'] = str(arena_unique_id)
-                old_record['winLoss'] = win_loss
-                old_record['experienceEarned'] = experience_earned
+                old_record["arenaUniqueID"] = str(arena_unique_id)
+                old_record["winLoss"] = win_loss
+                old_record["experienceEarned"] = experience_earned
 
                 # 新しいレコードを作成
                 dynamodb_table = dynamodb.get_table()
                 dynamodb_table.put_item(Item=old_record)
 
                 # 古いレコード（一時ID）を削除
-                dynamodb_table.delete_item(
-                    Key={
-                        'arenaUniqueID': temp_arena_id,
-                        'playerID': player_id
-                    }
-                )
+                dynamodb_table.delete_item(Key={"arenaUniqueID": temp_arena_id, "playerID": player_id})
 
                 print(f"Successfully migrated and updated record: arena {arena_unique_id}, player {player_id}")
 
@@ -123,17 +115,12 @@ def handle(event, context):
                 if tmp_path.exists():
                     tmp_path.unlink()
 
-        return {
-            'statusCode': 200,
-            'body': json.dumps({'message': 'Battle results extracted successfully'})
-        }
+        return {"statusCode": 200, "body": json.dumps({"message": "Battle results extracted successfully"})}
 
     except Exception as e:
         print(f"Error in battle_result_extractor_handler: {e}")
         import traceback
+
         traceback.print_exc()
 
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': str(e)})
-        }
+        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}

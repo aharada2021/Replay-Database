@@ -15,8 +15,8 @@ from dotenv import load_dotenv
 # .envファイルから環境変数を読み込み
 load_dotenv()
 
-DISCORD_APPLICATION_ID = os.getenv('DISCORD_APPLICATION_ID')
-DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+DISCORD_APPLICATION_ID = os.getenv("DISCORD_APPLICATION_ID")
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 # Discord API Base URL
 DISCORD_API_BASE = "https://discord.com/api/v10"
@@ -25,10 +25,7 @@ DISCORD_API_BASE = "https://discord.com/api/v10"
 def register_guild_command(application_id: str, guild_id: str, bot_token: str):
     """特定のサーバーにSlash Commandを登録（即座に反映）"""
     url = f"{DISCORD_API_BASE}/applications/{application_id}/guilds/{guild_id}/commands"
-    headers = {
-        "Authorization": f"Bot {bot_token}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bot {bot_token}", "Content-Type": "application/json"}
 
     # コマンド定義
     command = {
@@ -39,9 +36,9 @@ def register_guild_command(application_id: str, guild_id: str, bot_token: str):
                 "name": "file",
                 "description": "リプレイファイル (.wowsreplay)",
                 "type": 11,  # ATTACHMENT type
-                "required": True
+                "required": True,
             }
-        ]
+        ],
     }
 
     try:
@@ -52,7 +49,7 @@ def register_guild_command(application_id: str, guild_id: str, bot_token: str):
         return response.json()
     except Exception as e:
         print(f"❌ エラー: {e}")
-        if hasattr(e, 'response'):
+        if hasattr(e, "response"):
             print(f"レスポンス: {e.response.text}")
         return None
 
@@ -60,10 +57,7 @@ def register_guild_command(application_id: str, guild_id: str, bot_token: str):
 def register_global_command(application_id: str, bot_token: str):
     """グローバルにSlash Commandを登録（反映に最大1時間かかる）"""
     url = f"{DISCORD_API_BASE}/applications/{application_id}/commands"
-    headers = {
-        "Authorization": f"Bot {bot_token}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bot {bot_token}", "Content-Type": "application/json"}
 
     # コマンド定義
     command = {
@@ -74,9 +68,9 @@ def register_global_command(application_id: str, bot_token: str):
                 "name": "file",
                 "description": "リプレイファイル (.wowsreplay)",
                 "type": 11,  # ATTACHMENT type
-                "required": True
+                "required": True,
             }
-        ]
+        ],
     }
 
     try:
@@ -88,12 +82,12 @@ def register_global_command(application_id: str, bot_token: str):
         return response.json()
     except Exception as e:
         print(f"❌ エラー: {e}")
-        if hasattr(e, 'response'):
+        if hasattr(e, "response"):
             print(f"レスポンス: {e.response.text}")
         return None
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if not DISCORD_APPLICATION_ID or not DISCORD_BOT_TOKEN:
         print("❌ 環境変数 DISCORD_APPLICATION_ID と DISCORD_BOT_TOKEN を設定してください")
         sys.exit(1)
@@ -104,10 +98,10 @@ if __name__ == '__main__':
     # コマンドライン引数からGUILD_IDを取得
     guild_id = None
     if len(sys.argv) > 1:
-        if sys.argv[1] == '--global':
+        if sys.argv[1] == "--global":
             # 明示的にグローバル登録
             guild_id = None
-        elif sys.argv[1] in ['--help', '-h']:
+        elif sys.argv[1] in ["--help", "-h"]:
             print(__doc__)
             sys.exit(0)
         else:

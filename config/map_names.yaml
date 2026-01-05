@@ -49,6 +49,7 @@ maps:
   "big_race": "ビッグレース"
   "Archipelago": "列島"
   "AngelWings": "夕暮れの島々"
+  "military_navigation": "反撃"
 
 # 不明なマップIDの場合のデフォルト名
 default_map_name: "その他のマップ"
