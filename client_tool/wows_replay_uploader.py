@@ -12,10 +12,12 @@ import yaml
 import json
 import logging
 import requests
+import multiprocessing
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any
 from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 from watchdog.events import FileSystemEventHandler, FileCreatedEvent
 
 # ログ設定
@@ -40,7 +42,8 @@ class Config:
         'auto_start': True,
         'discord_user_id': '',
         'retry_count': 3,
-        'retry_delay': 5
+        'retry_delay': 5,
+        'use_polling': True  # PollingObserverを使用（安定性向上）
     }
 
     def __init__(self, config_path: str = 'config.yaml'):
@@ -275,9 +278,17 @@ class ReplayMonitor:
         logger.info(f"リプレイフォルダを監視開始: {self.replays_folder}")
         logger.info(f"API URL: {self.config.get('api_url')}")
 
+        # Observerの選択（PollingObserverの方が安定）
+        use_polling = self.config.get('use_polling', True)
+        if use_polling:
+            logger.info("PollingObserverを使用します（安定性重視）")
+            self.observer = PollingObserver()
+        else:
+            logger.info("標準Observerを使用します")
+            self.observer = Observer()
+
         # ファイル監視を開始
         event_handler = ReplayFileHandler(self.uploader)
-        self.observer = Observer()
         self.observer.schedule(event_handler, self.replays_folder, recursive=False)
         self.observer.start()
 
@@ -300,6 +311,9 @@ class ReplayMonitor:
 
 def main():
     """メイン関数"""
+    # PyInstallerでのマルチプロセシング対応
+    multiprocessing.freeze_support()
+
     logger.info("=" * 60)
     logger.info("WoWS Replay Auto Uploader")
     logger.info("=" * 60)

@@ -10,7 +10,14 @@ a = Analysis(
     datas=[
         ('config.yaml.template', '.'),
     ],
-    hiddenimports=[],
+    hiddenimports=[
+        'watchdog.observers',
+        'watchdog.observers.polling',
+        'watchdog.observers.winapi',
+        'watchdog.observers.read_directory_changes',
+        'watchdog.events',
+        'multiprocessing',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
