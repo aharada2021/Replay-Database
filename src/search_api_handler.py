@@ -77,14 +77,20 @@ def handle(event, context):
             last_evaluated_key=last_evaluated_key
         )
 
+        # 既存レコードのownPlayerが配列の場合、単一オブジェクトに変換
+        items = result['items']
+        for item in items:
+            if 'ownPlayer' in item and isinstance(item['ownPlayer'], list):
+                item['ownPlayer'] = item['ownPlayer'][0] if item['ownPlayer'] else {}
+
         # レスポンス
         return {
             'statusCode': 200,
             'headers': cors_headers,
             'body': json.dumps({
-                'items': result['items'],
+                'items': items,
                 'lastEvaluatedKey': result['last_evaluated_key'],
-                'count': len(result['items'])
+                'count': len(items)
             }, cls=DecimalEncoder)
         }
 

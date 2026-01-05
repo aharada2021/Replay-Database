@@ -70,7 +70,7 @@ def put_replay_record(
         'clientVersion': metadata.get('clientVersionFromXml', ''),
 
         # プレイヤー情報
-        'ownPlayer': players_info.get('own', []),
+        'ownPlayer': players_info.get('own', [{}])[0] if players_info.get('own') else {},
         'allies': players_info.get('allies', []),
         'enemies': players_info.get('enemies', []),
 

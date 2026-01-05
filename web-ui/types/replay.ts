@@ -19,9 +19,9 @@ export interface ReplayRecord {
 
   // 試合情報
   dateTime: string
-  mapId: number
+  mapId: string
   mapDisplayName: string
-  gameType: 'clan' | 'pvp' | 'ranked'
+  gameType: 'clan' | 'pvp' | 'ranked' | 'brawl' | string
   clientVersion: string
 
   // 勝敗情報
