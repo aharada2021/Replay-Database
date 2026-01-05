@@ -110,6 +110,10 @@ jobs:
           REPOSITORY_NAME="wows-replay-bot"
           ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
 
+          echo "DEBUG: ACCOUNT_ID=${ACCOUNT_ID}"
+          echo "DEBUG: REGION=${REGION}"
+          echo "DEBUG: ECR_URI=${ECR_URI}"
+
           # Determine stage
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.environment }}" == "production" ]; then
@@ -122,6 +126,8 @@ jobs:
           fi
 
           IMAGE_URI="${ECR_URI}:${STAGE}"
+          echo "DEBUG: STAGE=${STAGE}"
+          echo "DEBUG: IMAGE_URI=${IMAGE_URI}"
           echo "ecr_image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
           echo "ECR Image URI: ${IMAGE_URI}"
 
