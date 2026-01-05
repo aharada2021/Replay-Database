@@ -90,7 +90,7 @@ functions:
     # デプロイ前に YOUR_ECR_URI を実際のECR URIに置き換えてください
     # 例: 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:latest
     image:
-      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      uri: ${env:ECR_IMAGE_URI}
       command:
         - lambda_handler.handle_interaction
     architecture: arm64
@@ -107,7 +107,7 @@ functions:
   # リプレイ処理用Lambda関数
   processor:
     image:
-      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      uri: ${env:ECR_IMAGE_URI}
       command:
         - replay_processor_handler.handle_replay_processing
     architecture: arm64
@@ -119,7 +119,7 @@ functions:
   # リプレイアップロードAPI
   upload-api:
     image:
-      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      uri: ${env:ECR_IMAGE_URI}
       command:
         - upload_api_handler.handle
     architecture: arm64
@@ -137,7 +137,7 @@ functions:
   # バトル結果抽出（S3トリガー）
   battle-result-extractor:
     image:
-      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      uri: ${env:ECR_IMAGE_URI}
       command:
         - battle_result_extractor_handler.handle
     architecture: arm64
@@ -149,7 +149,7 @@ functions:
   # 検索API
   search-api:
     image:
-      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      uri: ${env:ECR_IMAGE_URI}
       command:
         - search_api_handler.handle
     architecture: arm64
@@ -165,7 +165,7 @@ functions:
   # 動画生成API
   generate-video-api:
     image:
-      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      uri: ${env:ECR_IMAGE_URI}
       command:
         - generate_video_api_handler.handle
     architecture: arm64

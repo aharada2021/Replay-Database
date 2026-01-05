@@ -98,6 +98,16 @@
       {{ searchStore.error }}
     </v-alert>
 
+    <!-- デバッグ情報 -->
+    <v-alert type="info" class="mb-4">
+      <div>Loading: {{ searchStore?.loading }}</div>
+      <div>Results count: {{ searchStore?.results?.length ?? 'undefined' }}</div>
+      <div>Total count: {{ searchStore?.totalCount }}</div>
+      <div>Error: {{ searchStore?.error }}</div>
+      <div>Results type: {{ typeof searchStore?.results }}</div>
+      <div>Store: {{ searchStore ? 'exists' : 'undefined' }}</div>
+    </v-alert>
+
     <!-- 検索結果 -->
     <v-card>
       <v-card-title>
@@ -108,36 +118,36 @@
 
       <v-data-table
         :headers="headers"
-        :items="searchStore.results"
-        :loading="searchStore.loading"
-        :items-per-page="searchStore.query.limit"
+        :items="searchStore.results || []"
+        :loading="searchStore.loading || false"
+        :items-per-page="searchStore.query?.limit || 50"
         hide-default-footer
       >
         <!-- 日時 -->
         <template v-slot:item.dateTime="{ item }">
-          {{ formatDateTime(item.raw.dateTime) }}
+          {{ formatDateTime(item?.dateTime || item?.raw?.dateTime) }}
         </template>
 
         <!-- ゲームタイプ -->
         <template v-slot:item.gameType="{ item }">
-          <v-chip :color="getGameTypeColor(item.raw.gameType)" size="small">
-            {{ getGameTypeText(item.raw.gameType) }}
+          <v-chip :color="getGameTypeColor(item?.gameType || item?.raw?.gameType)" size="small">
+            {{ getGameTypeText(item?.gameType || item?.raw?.gameType) }}
           </v-chip>
         </template>
 
         <!-- 勝敗 -->
         <template v-slot:item.winLoss="{ item }">
-          <v-chip :color="getWinLossColor(item.raw.winLoss)" size="small">
-            {{ getWinLossText(item.raw.winLoss) }}
+          <v-chip :color="getWinLossColor(item?.winLoss || item?.raw?.winLoss)" size="small">
+            {{ getWinLossText(item?.winLoss || item?.raw?.winLoss) }}
           </v-chip>
         </template>
 
         <!-- 自分 -->
         <template v-slot:item.ownPlayer="{ item }">
-          <div>
-            <span v-if="item.raw.ownPlayer?.clanTag" class="text-primary">[{{ item.raw.ownPlayer.clanTag }}]</span>
-            {{ item.raw.ownPlayer?.name || '-' }}
-            <div class="text-caption text-grey">{{ item.raw.ownPlayer?.shipName || '-' }}</div>
+          <div v-if="item?.ownPlayer || item?.raw?.ownPlayer">
+            <span v-if="(item?.ownPlayer || item?.raw?.ownPlayer)?.clanTag" class="text-primary">[{{ (item?.ownPlayer || item?.raw?.ownPlayer).clanTag }}]</span>
+            {{ (item?.ownPlayer || item?.raw?.ownPlayer)?.name || '-' }}
+            <div class="text-caption text-grey">{{ (item?.ownPlayer || item?.raw?.ownPlayer)?.shipName || '-' }}</div>
           </div>
         </template>
 
@@ -145,7 +155,7 @@
         <template v-slot:item.allies="{ item }">
           <v-chip-group>
             <v-chip
-              v-for="tag in getAllyClanTags(item.raw.allies)"
+              v-for="tag in getAllyClanTags(item?.allies || item?.raw?.allies || [])"
               :key="tag"
               size="small"
             >
@@ -158,7 +168,7 @@
         <template v-slot:item.enemies="{ item }">
           <v-chip-group>
             <v-chip
-              v-for="tag in getEnemyClanTags(item.raw.enemies)"
+              v-for="tag in getEnemyClanTags(item?.enemies || item?.raw?.enemies || [])"
               :key="tag"
               size="small"
               color="error"
@@ -173,7 +183,7 @@
           <v-btn
             size="small"
             color="primary"
-            :to="`/match/${item.raw.arenaUniqueID}-${item.raw.playerID}`"
+            :to="`/match/${item?.arenaUniqueID ?? item?.raw?.arenaUniqueID}-${item?.playerID ?? item?.raw?.playerID}`"
           >
             詳細
           </v-btn>
@@ -212,9 +222,35 @@ import type { PlayerInfo } from '~/types/replay'
 
 const searchStore = useSearchStore()
 
+// Store初期化確認
+console.log('SearchStore initialized:', searchStore)
+console.log('Initial state - results:', searchStore.results)
+console.log('Initial state - loading:', searchStore.loading)
+console.log('Initial state - error:', searchStore.error)
+
 // 初回検索
-onMounted(() => {
-  searchStore.search()
+onMounted(async () => {
+  console.log('Mounted, starting search...')
+  console.log('Store before search:', {
+    results: searchStore.results,
+    loading: searchStore.loading,
+    error: searchStore.error
+  })
+
+  await searchStore.search()
+
+  console.log('Search completed')
+  console.log('Store after search:', {
+    results: searchStore.results,
+    resultsLength: searchStore.results?.length,
+    loading: searchStore.loading,
+    totalCount: searchStore.totalCount,
+    error: searchStore.error
+  })
+
+  if (searchStore.results && searchStore.results.length > 0) {
+    console.log('First item:', searchStore.results[0])
+  }
 })
 
 // フォーム選択肢

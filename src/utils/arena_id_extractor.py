@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Optional
 
 # replays_unpackライブラリのパスを追加
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'replays_unpack_upstream'))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "replays_unpack_upstream"))
 
-from replay_unpack.replay_reader import ReplayReader
-from replay_unpack.clients.wows.network.packets import BattleStats
-from replay_unpack.clients.wows.player import ReplayPlayer as WoWSReplayPlayer
+from replay_unpack.replay_reader import ReplayReader  # noqa: E402
+from replay_unpack.clients.wows.network.packets import BattleStats  # noqa: E402
+from replay_unpack.clients.wows.player import ReplayPlayer as WoWSReplayPlayer  # noqa: E402
 
 
 class ArenaIDExtractor(WoWSReplayPlayer):
@@ -53,7 +53,7 @@ def extract_arena_unique_id(replay_path: str) -> Optional[int]:
         metadata = replay.engine_data
 
         # バージョン
-        version = metadata.get('clientVersionFromXml', '').replace(' ', '').split(',')
+        version = metadata.get("clientVersionFromXml", "").replace(" ", "").split(",")
 
         # arenaUniqueID抽出プレイヤーを作成
         extractor = ArenaIDExtractor(version)
@@ -63,7 +63,7 @@ def extract_arena_unique_id(replay_path: str) -> Optional[int]:
 
         # arenaUniqueIDを返す
         if extractor.battle_results:
-            return extractor.battle_results.get('arenaUniqueID')
+            return extractor.battle_results.get("arenaUniqueID")
 
         return None
 

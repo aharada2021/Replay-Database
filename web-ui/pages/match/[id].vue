@@ -185,18 +185,39 @@ const videoUrl = ref<string | null>(null)
 
 // URLパラメータから arena ID と player ID を抽出
 const parseId = (id: string) => {
+  console.log('[Detail] Parsing ID:', id)
   const parts = id.split('-')
-  if (parts.length !== 2) {
+  console.log('[Detail] Split parts:', parts)
+
+  if (parts.length < 2) {
+    console.error('[Detail] Invalid ID format, expected at least 2 parts')
     return null
   }
+
+  // arenaUniqueIDは最後のパート以外をすべて結合
+  const playerIdPart = parts[parts.length - 1]
+  const arenaIdParts = parts.slice(0, -1)
+  const arenaUniqueID = arenaIdParts.join('-')
+  const playerID = parseInt(playerIdPart, 10)
+
+  console.log('[Detail] Parsed:', { arenaUniqueID, playerID })
+
+  if (isNaN(playerID)) {
+    console.error('[Detail] PlayerID is NaN')
+    return null
+  }
+
   return {
-    arenaUniqueID: parts[0],
-    playerID: parseInt(parts[1], 10),
+    arenaUniqueID,
+    playerID,
   }
 }
 
 onMounted(async () => {
   const id = route.params.id as string
+  console.log('[Detail] Route params:', route.params)
+  console.log('[Detail] ID from route:', id)
+
   const parsed = parseId(id)
 
   if (!parsed) {
