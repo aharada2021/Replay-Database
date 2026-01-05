@@ -45,9 +45,22 @@ provider:
           Resource:
             - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${self:provider.stage}-processor
 
+        # DynamoDB アクセス
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}/index/*
+
 # カスタム変数
 custom:
   bucketName: wows-replay-bot-${self:provider.stage}-temp
+  replaysTable: wows-replays-${self:provider.stage}
   # Dockerイメージを使用するため、pythonRequirementsは不要
   # pythonRequirements:
   #   dockerizePip: true
@@ -86,24 +99,121 @@ functions:
     environment:
       TEMP_BUCKET: ${self:custom.bucketName}
 
+  # リプレイアップロードAPI
+  upload-api:
+    image:
+      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      command:
+        - upload_api_handler.handle
+    architecture: arm64
+    timeout: 60
+    memorySize: 512
+    events:
+      - httpApi:
+          path: /api/upload
+          method: post
+    environment:
+      REPLAYS_BUCKET: ${self:custom.bucketName}
+      REPLAYS_TABLE: ${self:custom.replaysTable}
+      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
+
+  # バトル結果抽出（S3トリガー）
+  battle-result-extractor:
+    image:
+      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      command:
+        - battle_result_extractor_handler.handle
+    architecture: arm64
+    timeout: 300  # 5分
+    memorySize: 512
+    environment:
+      REPLAYS_TABLE: ${self:custom.replaysTable}
+
+  # 検索API
+  search-api:
+    image:
+      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      command:
+        - search_api_handler.handle
+    architecture: arm64
+    timeout: 30
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/search
+          method: post
+    environment:
+      REPLAYS_TABLE: ${self:custom.replaysTable}
+
+  # 動画生成API
+  generate-video-api:
+    image:
+      uri: 811755557932.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:dev
+      command:
+        - generate_video_api_handler.handle
+    architecture: arm64
+    timeout: 900  # 15分
+    memorySize: 1024
+    events:
+      - httpApi:
+          path: /api/generate-video
+          method: post
+    environment:
+      REPLAYS_BUCKET: ${self:custom.bucketName}
+      REPLAYS_TABLE: ${self:custom.replaysTable}
+
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
-# resources:
-#   Resources:
-#     # S3バケット（一時ファイル保存用）
-#     TempFilesBucket:
-#       Type: AWS::S3::Bucket
-#       Properties:
-#         BucketName: ${self:custom.bucketName}
-#         LifecycleConfiguration:
-#           Rules:
-#             - Id: DeleteOldFiles
-#               Status: Enabled
-#               ExpirationInDays: 1
-#         PublicAccessBlockConfiguration:
-#           BlockPublicAcls: true
-#           BlockPublicPolicy: true
-#           IgnorePublicAcls: true
-#           RestrictPublicBuckets: true
+resources:
+  Resources:
+    # DynamoDBテーブル（リプレイデータ保存用）
+    ReplaysTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.replaysTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: arenaUniqueID
+            AttributeType: S
+          - AttributeName: playerID
+            AttributeType: N
+          - AttributeName: gameType
+            AttributeType: S
+          - AttributeName: playerName
+            AttributeType: S
+          - AttributeName: mapId
+            AttributeType: S
+          - AttributeName: dateTime
+            AttributeType: S
+        KeySchema:
+          - AttributeName: arenaUniqueID
+            KeyType: HASH
+          - AttributeName: playerID
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: GameTypeIndex
+            KeySchema:
+              - AttributeName: gameType
+                KeyType: HASH
+              - AttributeName: dateTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: PlayerNameIndex
+            KeySchema:
+              - AttributeName: playerName
+                KeyType: HASH
+              - AttributeName: dateTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: MapIdIndex
+            KeySchema:
+              - AttributeName: mapId
+                KeyType: HASH
+              - AttributeName: dateTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
 
 # Dockerイメージを使用するため、pluginsは不要
 # plugins:

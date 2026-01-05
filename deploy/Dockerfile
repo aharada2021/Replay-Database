@@ -35,10 +35,18 @@ RUN pip install --no-cache-dir -r requirements_lambda.txt
 COPY minimap_renderer/ ./minimap_renderer/
 RUN pip install --no-cache-dir ./minimap_renderer/
 
+# replays_unpack_upstreamをコピー
+COPY replays_unpack_upstream/ ./replays_unpack_upstream/
+
 # アプリケーションコードをコピー
 COPY src/replay_processor.py .
 COPY src/lambda_handler.py .
 COPY src/replay_processor_handler.py .
+COPY src/upload_api_handler.py .
+COPY src/battle_result_extractor_handler.py .
+COPY src/search_api_handler.py .
+COPY src/generate_video_api_handler.py .
+COPY src/utils/ ./utils/
 COPY config/map_names.yaml .
 
 # ファイルのパーミッションを設定（Lambda runtimeが読めるようにする）
