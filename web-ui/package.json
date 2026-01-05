@@ -1,0 +1,30 @@
+{
+  "name": "wows-replay-web-ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "deploy:dev": "./deploy.sh dev",
+    "deploy:prod": "./deploy.sh prod"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.5.1",
+    "nuxt": "^3.13.0",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.0",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0",
+    "vuetify": "^3.5.0",
+    "@mdi/font": "^7.4.0",
+    "vite-plugin-vuetify": "^2.0.0"
+  }
+}
