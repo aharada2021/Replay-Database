@@ -114,7 +114,7 @@ def handle(event, context):
 
                 # MP4を生成
                 print(f"Generating MP4 for {replay_path.name}")
-                _, mp4_path, _ = ReplayProcessor.process_replay(
+                _, _, mp4_path, _ = ReplayProcessor.process_replay(
                     replay_path,
                     output_dir
                 )
