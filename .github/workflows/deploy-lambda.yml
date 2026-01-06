@@ -205,6 +205,8 @@ jobs:
           INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
           GUILD_ID: ${{ secrets.GUILD_ID }}
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          FRONTEND_URL: https://wows-replay.mirage0926.com
         run: |
           cd deploy
           serverless deploy --stage dev --region ap-northeast-1
@@ -265,6 +267,8 @@ jobs:
           INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
           GUILD_ID: ${{ secrets.GUILD_ID }}
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          FRONTEND_URL: https://wows-replay.mirage0926.com
         run: |
           cd deploy
           serverless deploy --stage prod --region ap-northeast-1
