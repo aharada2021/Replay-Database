@@ -457,51 +457,63 @@ class ReplayProcessor:
         Returns:
             成功した場合True、失敗した場合False
         """
+        import sys
+        import os
+
+        # 最初にstdout/stderrをリダイレクト（バイナリデータ出力を防ぐため）
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+
+        # バイナリモードで/dev/nullを開く
         try:
-            # minimap_rendererのモジュールを直接インポートして実行
-            logger.info(f"minimap_rendererでMP4を生成: {replay_path}")
+            devnull_fd = os.open(os.devnull, os.O_WRONLY)
+            # ファイルディスクリプタを複製してstdout/stderrと置き換え
+            original_stdout_fd = os.dup(sys.stdout.fileno())
+            original_stderr_fd = os.dup(sys.stderr.fileno())
+            os.dup2(devnull_fd, sys.stdout.fileno())
+            os.dup2(devnull_fd, sys.stderr.fileno())
+        except Exception as e:
+            logger.error(f"stdout/stderrのリダイレクトに失敗: {e}")
+            # フォールバック: 通常のファイルオブジェクトを使用
+            devnull = open(os.devnull, "w", encoding="utf-8", errors="ignore")
+            sys.stdout = devnull
+            sys.stderr = devnull
+            original_stdout_fd = None
+            original_stderr_fd = None
+            devnull_fd = None
+
+        try:
+            # ログはoriginal_stdoutに直接書き込む
+            original_stdout.write(f"[INFO] minimap_rendererでMP4を生成: {replay_path}\n")
+            original_stdout.flush()
 
             from renderer.render import Renderer
             from replay_parser import ReplayParser
 
-            # stdout/stderrを/dev/nullにリダイレクト
-            # （ReplayParserとRenderer内部でバイナリデータが出力されるのを防ぐ）
-            import sys
-            import os
+            # リプレイファイルをパース
+            original_stdout.write("[INFO] リプレイファイルをパース中...\n")
+            original_stdout.flush()
 
-            original_stdout = sys.stdout
-            original_stderr = sys.stderr
-            devnull = open(os.devnull, "w")
+            with open(replay_path, "rb") as f:
+                replay_info = ReplayParser(f, strict=True, raw_data_output=True).get_info()
 
-            try:
-                sys.stdout = devnull
-                sys.stderr = devnull
+            original_stdout.write(f"[INFO] リプレイバージョン: {replay_info['open']['clientVersionFromExe']}\n")
+            original_stdout.flush()
 
-                # リプレイファイルをパース
-                logger.info("リプレイファイルをパース中...")
-                with open(replay_path, "rb") as f:
-                    replay_info = ReplayParser(f, strict=True, raw_data_output=True).get_info()
+            # レンダラーでMP4を生成
+            original_stdout.write("[INFO] MP4動画をレンダリング中...\n")
+            original_stdout.flush()
 
-                logger.info(f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}")
+            renderer = Renderer(
+                replay_info["hidden"]["replay_data"],
+                logs=False,  # Lambda環境ではログ出力を無効化（バイナリデータの出力を防ぐ）
+                enable_chat=True,
+                use_tqdm=False,  # Lambda環境ではtqdmを無効化
+            )
 
-                # レンダラーでMP4を生成
-                logger.info("MP4動画をレンダリング中...")
-
-                renderer = Renderer(
-                    replay_info["hidden"]["replay_data"],
-                    logs=False,  # Lambda環境ではログ出力を無効化（バイナリデータの出力を防ぐ）
-                    enable_chat=True,
-                    use_tqdm=False,  # Lambda環境ではtqdmを無効化
-                )
-
-                # 一時的にデフォルト出力先に生成
-                default_output = replay_path.with_suffix(".mp4")
-                renderer.start(str(default_output))
-            finally:
-                # stdout/stderrを復元
-                sys.stdout = original_stdout
-                sys.stderr = original_stderr
-                devnull.close()
+            # 一時的にデフォルト出力先に生成
+            default_output = replay_path.with_suffix(".mp4")
+            renderer.start(str(default_output))
 
             # プレイヤービルド情報をJSONで保存
             builds_path = replay_path.parent / f"{replay_path.stem}-builds.json"
@@ -514,18 +526,47 @@ class ReplayProcessor:
                     import shutil
 
                     shutil.move(str(default_output), str(output_path))
-                logger.info(f"MP4動画の生成に成功しました: {output_path}")
+                original_stdout.write(f"[INFO] MP4動画の生成に成功しました: {output_path}\n")
+                original_stdout.flush()
                 return True
             else:
-                logger.error(f"MP4ファイルが見つかりません: {default_output}")
+                original_stdout.write(f"[ERROR] MP4ファイルが見つかりません: {default_output}\n")
+                original_stdout.flush()
                 return False
 
         except ImportError as e:
-            logger.error(f"minimap_rendererのインポートに失敗: {e}", exc_info=True)
+            original_stdout.write(f"[ERROR] minimap_rendererのインポートに失敗: {e}\n")
+            original_stdout.flush()
             return False
         except Exception as e:
-            logger.error(f"MP4生成エラー: {e}", exc_info=True)
+            original_stdout.write(f"[ERROR] MP4生成エラー: {e}\n")
+            original_stdout.flush()
+            import traceback
+            traceback.print_exc(file=original_stdout)
             return False
+        finally:
+            # stdout/stderrを復元
+            try:
+                if original_stdout_fd is not None and original_stderr_fd is not None:
+                    # ファイルディスクリプタベースのリダイレクトを復元
+                    os.dup2(original_stdout_fd, sys.stdout.fileno())
+                    os.dup2(original_stderr_fd, sys.stderr.fileno())
+                    os.close(original_stdout_fd)
+                    os.close(original_stderr_fd)
+                    if devnull_fd is not None:
+                        os.close(devnull_fd)
+                else:
+                    # ファイルオブジェクトベースのリダイレクトを復元
+                    sys.stdout = original_stdout
+                    sys.stderr = original_stderr
+                    if 'devnull' in locals():
+                        devnull.close()
+            except Exception as e:
+                # 復元に失敗した場合はoriginalを直接設定
+                sys.stdout = original_stdout
+                sys.stderr = original_stderr
+                original_stdout.write(f"[WARNING] stdout/stderrの復元に失敗: {e}\n")
+                original_stdout.flush()
 
     @classmethod
     def process_replay(
