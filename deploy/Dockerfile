@@ -28,6 +28,9 @@ RUN cd /tmp && \
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
 
+# pipとsetuptoolsをアップグレード
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
 # Python依存関係をコピーしてインストール
 COPY config/requirements_lambda.txt .
 RUN pip install --no-cache-dir -r requirements_lambda.txt
