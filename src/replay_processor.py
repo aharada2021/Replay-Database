@@ -474,13 +474,19 @@ class ReplayProcessor:
             # レンダラーでMP4を生成
             logger.info("MP4動画をレンダリング中...")
 
-            # stdout/stderrを保護（Rendererがファイルディスクリプタを閉じる問題の回避）
+            # stdout/stderrを/dev/nullにリダイレクト
+            # （Renderer内部のFFmpegサブプロセスがバイナリデータを出力するのを防ぐ）
             import sys
+            import os
 
             original_stdout = sys.stdout
             original_stderr = sys.stderr
+            devnull = open(os.devnull, "w")
 
             try:
+                sys.stdout = devnull
+                sys.stderr = devnull
+
                 renderer = Renderer(
                     replay_info["hidden"]["replay_data"],
                     logs=False,  # Lambda環境ではログ出力を無効化（バイナリデータの出力を防ぐ）
@@ -495,6 +501,7 @@ class ReplayProcessor:
                 # stdout/stderrを復元
                 sys.stdout = original_stdout
                 sys.stderr = original_stderr
+                devnull.close()
 
             # プレイヤービルド情報をJSONで保存
             builds_path = replay_path.parent / f"{replay_path.stem}-builds.json"
