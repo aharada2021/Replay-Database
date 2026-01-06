@@ -11,7 +11,18 @@ RUN yum update -y && \
     libxml2-devel \
     libxslt-devel \
     python3-devel \
+    wget \
+    unzip \
     && yum clean all
+
+# FFmpegのインストール (ARM64用 - Martin Riedl's FFmpeg Builds)
+# 自動リダイレクトURLで最新の安定版を取得
+RUN cd /tmp && \
+    wget -O ffmpeg.zip "https://ffmpeg.martin-riedl.de/redirect/latest/linux/arm64/release/ffmpeg.zip" && \
+    unzip ffmpeg.zip && \
+    chmod +x ffmpeg && \
+    mv ffmpeg /usr/local/bin/ && \
+    rm -rf ffmpeg.zip
 
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
@@ -48,6 +59,9 @@ COPY config/map_names.yaml .
 
 # ファイルのパーミッションを設定（Lambda runtimeが読めるようにする）
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
+
+# FFmpegのパスを環境変数に設定
+ENV IMAGEIO_FFMPEG_EXE=/usr/local/bin/ffmpeg
 
 # Lambda関数のハンドラーを指定
 CMD ["lambda_handler.handle_interaction"]
