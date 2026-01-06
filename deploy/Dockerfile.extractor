@@ -4,43 +4,31 @@ FROM public.ecr.aws/lambda/python:3.10
 # システムパッケージのインストール（軽量版）
 RUN yum update -y && \
     yum install -y \
-    gcc \
-    gcc-c++ \
-    make \
-    libxml2-devel \
-    libxslt-devel \
-    python3-devel \
+    gcc gcc-c++ make \
+    libxml2-devel libxslt-devel python3-devel \
     && yum clean all
 
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-# pipとsetuptoolsをアップグレード
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-
-# 軽量な依存関係のみインストール
+# pipとsetuptoolsをアップグレード、依存関係をインストール
 COPY config/requirements_lambda.txt .
-RUN pip install --no-cache-dir -r requirements_lambda.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements_lambda.txt
 
 # replays_unpack_upstreamをコピーしてパッチ適用
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
-
-# BattleStatsを__all__にエクスポートするパッチを適用
 RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
     ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
 
-# extractor関連のアプリケーションコードをコピー
-COPY src/battle_result_extractor_handler.py .
-COPY src/upload_api_handler.py .
-COPY src/search_api_handler.py .
-COPY src/match_detail_api_handler.py .
-COPY src/utils/battle_stats_extractor.py ./utils/
-COPY src/utils/dynamodb.py ./utils/
-COPY src/utils/match_key.py ./utils/
-COPY src/utils/__init__.py ./utils/
+# アプリケーションコードをまとめてコピー
+COPY src/handlers/ ./handlers/
+COPY src/core/ ./core/
+COPY src/parsers/ ./parsers/
+COPY src/utils/ ./utils/
+COPY config/map_names.yaml ./config/
 
-# ファイルのパーミッションを設定（Lambda runtimeが読めるようにする）
+# パーミッション設定
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
 
-# Lambda関数のハンドラーを指定（デフォルト: battle-result-extractor）
-CMD ["battle_result_extractor_handler.handle"]
+CMD ["handlers.processing.battle_result_extractor.handle"]
