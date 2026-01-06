@@ -1,0 +1,61 @@
+# Git
+.git/
+.github/
+.gitignore
+
+# Web UI
+web-ui/
+node_modules/
+
+# Client tool
+client_tool/
+
+# Documentation
+*.md
+README.md
+docs/
+
+# Environment files
+.env
+.env.*
+.env.bak
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+tmp/
+temp/
+
+# Plan files
+.claude/
