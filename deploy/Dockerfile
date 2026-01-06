@@ -12,16 +12,15 @@ RUN yum update -y && \
     libxslt-devel \
     python3-devel \
     wget \
-    unzip \
+    tar \
+    xz \
     && yum clean all
 
-# FFmpegのインストール (ARM64用 - Martin Riedl's FFmpeg Builds)
-# 自動リダイレクトURLで最新の安定版を取得
+# FFmpegのインストール (ARM64用 - John Van Sickle's static builds)
+# たまに応答がない場合があるが、リビルドすれば確実に動作する
 RUN cd /tmp && \
-    wget -O ffmpeg.zip "https://ffmpeg.martin-riedl.de/redirect/latest/linux/arm64/release/ffmpeg.zip" && \
-    unzip -l ffmpeg.zip && \
-    unzip ffmpeg.zip && \
-    ls -la && \
+    wget -O ffmpeg-release-arm64-static.tar.xz "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz" && \
+    tar xf ffmpeg-release-arm64-static.tar.xz && \
     FFMPEG_BIN=$(find . -type f -name "ffmpeg" | head -n 1) && \
     echo "Found FFmpeg binary: $FFMPEG_BIN" && \
     chmod +x "$FFMPEG_BIN" && \
