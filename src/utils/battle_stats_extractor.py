@@ -5,6 +5,8 @@ scripts/extract_battle_result.pyからロジックを流用し、Lambda関数で
 """
 
 import sys
+import json
+import struct
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -12,8 +14,21 @@ from typing import Optional, Dict, Any
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "replays_unpack_upstream"))
 
 from replay_unpack.replay_reader import ReplayReader  # noqa: E402
-from replay_unpack.clients.wows.network.packets.BattleStats import BattleStats  # noqa: E402
 from replay_unpack.clients.wows.player import ReplayPlayer as WoWSReplayPlayer  # noqa: E402
+
+
+# BattleStatsクラスをローカルに定義（Lambda環境でのインポート競合を回避）
+class BattleStats:
+    """
+    BattleStatsパケットを表すクラス
+
+    replays_unpack_upstream/replay_unpack/clients/wows/network/packets/BattleStats.py
+    からコピーして、インポート競合を回避
+    """
+
+    def __init__(self, stream):
+        self.payloadSize, = struct.unpack('i', stream.read(4))
+        self.serverData = json.loads(stream.read(self.payloadSize))
 
 
 class BattleResultExtractor(WoWSReplayPlayer):
