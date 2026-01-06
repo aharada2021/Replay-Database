@@ -11,20 +11,7 @@ RUN yum update -y && \
     libxml2-devel \
     libxslt-devel \
     python3-devel \
-    wget \
-    tar \
-    xz \
     && yum clean all
-
-# FFmpegのインストール (ARM64用 - BtbN/FFmpeg-Builds n7.1)
-# imageio_ffmpegとの互換性のため、安定版のn7.1を使用
-RUN cd /tmp && \
-    wget -O ffmpeg-linuxarm64.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2024-11-21-12-47/ffmpeg-n7.1-latest-linuxarm64-gpl-7.1.tar.xz" && \
-    tar xf ffmpeg-linuxarm64.tar.xz && \
-    mv ffmpeg-n7.1-latest-linuxarm64-gpl-7.1/bin/ffmpeg /usr/local/bin/ && \
-    mv ffmpeg-n7.1-latest-linuxarm64-gpl-7.1/bin/ffprobe /usr/local/bin/ && \
-    rm -rf ffmpeg-* && \
-    chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
 
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
@@ -61,9 +48,6 @@ COPY config/map_names.yaml .
 
 # ファイルのパーミッションを設定（Lambda runtimeが読めるようにする）
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
-
-# FFmpegのパスを環境変数に設定
-ENV IMAGEIO_FFMPEG_EXE=/usr/local/bin/ffmpeg
 
 # Lambda関数のハンドラーを指定
 CMD ["lambda_handler.handle_interaction"]
