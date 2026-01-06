@@ -39,8 +39,14 @@ RUN pip install --no-cache-dir ./minimap_renderer/
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
 
 # BattleStatsを__all__にエクスポートするパッチを適用
+# PACKETS_MAPPING_12_6_0エイリアスも追加（minimap_renderer互換性のため）
 RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
-    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
+    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
+    sed -i "s/'PACKETS_MAPPING_12_6'/'PACKETS_MAPPING_12_6',\n    'PACKETS_MAPPING_12_6_0'/" \
+    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
+    echo "" >> ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
+    echo "# Alias for backward compatibility with minimap_renderer" >> ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
+    echo "PACKETS_MAPPING_12_6_0 = PACKETS_MAPPING_12_6" >> ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
 
 # パッチ適用後にreplays_unpackをインストール
 RUN pip install --no-cache-dir ./replays_unpack_upstream/
