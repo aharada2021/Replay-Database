@@ -65,16 +65,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
-        id: docker-build
+      - name: Determine stage
+        id: determine-stage
         run: |
-          ACCOUNT_ID="${{ steps.aws-account.outputs.account_id }}"
-          # Use hardcoded region to avoid GitHub Actions secret masking in outputs
-          REGION="ap-northeast-1"
-          REPOSITORY_NAME="wows-replay-bot"
-          ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
-
-          # Determine stage based on trigger
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.environment }}" == "production" ]; then
               STAGE="prod"
@@ -84,24 +77,33 @@ jobs:
           else
             STAGE="dev"
           fi
-
-          echo "Building Docker image for stage: $STAGE (ARM64)"
-
-          # Build Docker image for ARM64
-          docker buildx build --platform linux/arm64 -f deploy/Dockerfile -t wows-replay-bot:latest --load .
-
-          # Tag images
-          docker tag wows-replay-bot:latest ${ECR_URI}:latest
-          docker tag wows-replay-bot:latest ${ECR_URI}:${STAGE}
-          docker tag wows-replay-bot:latest ${ECR_URI}:${GITHUB_SHA}
-
-          # Push to ECR
-          docker push ${ECR_URI}:latest
-          docker push ${ECR_URI}:${STAGE}
-          docker push ${ECR_URI}:${GITHUB_SHA}
-
-          echo "ecr_uri=${ECR_URI}" >> $GITHUB_OUTPUT
           echo "stage=${STAGE}" >> $GITHUB_OUTPUT
+          echo "Building for stage: ${STAGE}"
+
+      - name: Build and push Docker image with cache
+        id: docker-build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:latest
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ steps.determine-stage.outputs.stage }}
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ github.sha }}
+          cache-from: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:buildcache
+          cache-to: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:buildcache,mode=max
+
+      - name: Set ECR URI output
+        id: set-ecr-uri
+        run: |
+          ACCOUNT_ID="${{ steps.aws-account.outputs.account_id }}"
+          REGION="ap-northeast-1"
+          REPOSITORY_NAME="wows-replay-bot"
+          ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
+          echo "ecr_uri=${ECR_URI}" >> $GITHUB_OUTPUT
+          echo "stage=${{ steps.determine-stage.outputs.stage }}" >> $GITHUB_OUTPUT
 
       - name: Set output for downstream jobs
         id: set-output
@@ -139,8 +141,62 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 2  # Fetch current and previous commit for diff
+
+      - name: Detect changed files
+        id: detect-changes
+        run: |
+          echo "Detecting changed files..."
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD || echo "")
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Initialize deploy mode
+          DEPLOY_MODE="full"
+          DEPLOY_FUNCTIONS=""
+
+          # Check if only specific handler files changed
+          if echo "$CHANGED_FILES" | grep -qE "(src/replay_processor.py|src/utils/|config/|deploy/Dockerfile|config/requirements)"; then
+            echo "Core files changed - full deployment required"
+            DEPLOY_MODE="full"
+          elif echo "$CHANGED_FILES" | grep -qE "src/.*_handler\.py"; then
+            echo "Handler files changed - selective deployment possible"
+            DEPLOY_MODE="selective"
+
+            # Detect which handlers changed
+            if echo "$CHANGED_FILES" | grep -q "src/generate_video_api_handler.py"; then
+              DEPLOY_FUNCTIONS="${DEPLOY_FUNCTIONS} generate-video-api"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "src/search_api_handler.py"; then
+              DEPLOY_FUNCTIONS="${DEPLOY_FUNCTIONS} search-api"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "src/upload_api_handler.py"; then
+              DEPLOY_FUNCTIONS="${DEPLOY_FUNCTIONS} upload-api"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "src/battle_result_extractor_handler.py"; then
+              DEPLOY_FUNCTIONS="${DEPLOY_FUNCTIONS} battle-result-extractor"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "src/lambda_handler.py"; then
+              DEPLOY_FUNCTIONS="${DEPLOY_FUNCTIONS} interactions"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "src/replay_processor_handler.py"; then
+              DEPLOY_FUNCTIONS="${DEPLOY_FUNCTIONS} processor"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "src/match_detail_api_handler.py"; then
+              DEPLOY_FUNCTIONS="${DEPLOY_FUNCTIONS} match-detail-api"
+            fi
+          else
+            echo "No Lambda-related files changed - skipping deployment"
+            DEPLOY_MODE="skip"
+          fi
+
+          echo "deploy_mode=${DEPLOY_MODE}" >> $GITHUB_OUTPUT
+          echo "deploy_functions=${DEPLOY_FUNCTIONS}" >> $GITHUB_OUTPUT
+          echo "Deploy mode: ${DEPLOY_MODE}"
+          echo "Functions to deploy:${DEPLOY_FUNCTIONS}"
 
       - name: Configure AWS credentials
+        if: steps.detect-changes.outputs.deploy_mode != 'skip'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -148,14 +204,17 @@ jobs:
           aws-region: ap-northeast-1
 
       - name: Set up Node.js
+        if: steps.detect-changes.outputs.deploy_mode != 'skip'
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
       - name: Install Serverless Framework
+        if: steps.detect-changes.outputs.deploy_mode != 'skip'
         run: npm install -g serverless@3
 
-      - name: Deploy to Lambda (dev)
+      - name: Deploy to Lambda (full deployment)
+        if: steps.detect-changes.outputs.deploy_mode == 'full'
         env:
           ECR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_image_uri }}
           DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
@@ -166,9 +225,30 @@ jobs:
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
         run: |
           cd deploy
+          echo "Performing full stack deployment..."
           serverless deploy --stage dev --region ap-northeast-1
 
+      - name: Deploy to Lambda (selective deployment)
+        if: steps.detect-changes.outputs.deploy_mode == 'selective'
+        env:
+          ECR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_image_uri }}
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
+          GUILD_ID: ${{ secrets.GUILD_ID }}
+          UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
+        run: |
+          cd deploy
+          FUNCTIONS="${{ steps.detect-changes.outputs.deploy_functions }}"
+          echo "Performing selective deployment for:${FUNCTIONS}"
+          for func in ${FUNCTIONS}; do
+            echo "Deploying function: ${func}"
+            serverless deploy function -f ${func} --stage dev --region ap-northeast-1 --force
+          done
+
       - name: Get API endpoint
+        if: steps.detect-changes.outputs.deploy_mode != 'skip'
         id: get-endpoint
         run: |
           cd deploy
@@ -176,13 +256,25 @@ jobs:
           echo "endpoint=${ENDPOINT}" >> $GITHUB_OUTPUT
           echo "API Endpoint: ${ENDPOINT}"
 
-      - name: Deployment summary
+      - name: Deployment summary (deployed)
+        if: steps.detect-changes.outputs.deploy_mode != 'skip'
         run: |
           echo "## Deployment Summary (Development)" >> $GITHUB_STEP_SUMMARY
           echo "- **Stage**: dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy Mode**: ${{ steps.detect-changes.outputs.deploy_mode }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.detect-changes.outputs.deploy_mode }}" == "selective" ]; then
+            echo "- **Deployed Functions**:${{ steps.detect-changes.outputs.deploy_functions }}" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **ECR Image**: ${{ needs.build-and-push.outputs.ecr_image_uri }}" >> $GITHUB_STEP_SUMMARY
           echo "- **API Endpoint**: ${{ steps.get-endpoint.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deployment summary (skipped)
+        if: steps.detect-changes.outputs.deploy_mode == 'skip'
+        run: |
+          echo "## Deployment Summary (Development)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: Deployment skipped - no Lambda-related files changed" >> $GITHUB_STEP_SUMMARY
           echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
   deploy-prod:
