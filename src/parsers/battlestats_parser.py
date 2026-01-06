@@ -80,7 +80,10 @@ class BattleStatsParser:
                 # データ型変換
                 if key == "potential_damage" and isinstance(value, float):
                     stats[key] = int(value)
-                elif key in ["player_id", "account_db_id", "clan_id"] and value is not None:
+                elif (
+                    key in ["player_id", "account_db_id", "clan_id"]
+                    and value is not None
+                ):
                     stats[key] = int(value)
                 elif key in ["player_name", "clan_tag", "realm"] and value is not None:
                     stats[key] = str(value)
@@ -94,7 +97,9 @@ class BattleStatsParser:
         return stats
 
     @classmethod
-    def parse_all_players(cls, players_public_info: Dict[str, List[Any]]) -> Dict[str, Dict[str, Any]]:
+    def parse_all_players(
+        cls, players_public_info: Dict[str, List[Any]]
+    ) -> Dict[str, Dict[str, Any]]:
         """
         全プレイヤーの統計情報を抽出
 
@@ -117,7 +122,9 @@ class BattleStatsParser:
         return result
 
     @classmethod
-    def get_team_stats(cls, players_public_info: Dict[str, List[Any]], team_id: int) -> List[Dict[str, Any]]:
+    def get_team_stats(
+        cls, players_public_info: Dict[str, List[Any]], team_id: int
+    ) -> List[Dict[str, Any]]:
         """
         特定チームのプレイヤー統計を取得
 
@@ -183,15 +190,28 @@ class BattleStatsParser:
         return {
             "playerName": stats.get("player_name", "Unknown"),
             "clanTag": stats.get("clan_tag", ""),
+            # 基本統計
             "damage": stats.get("damage", 0),
             "receivedDamage": stats.get("received_damage", 0),
             "spottingDamage": stats.get("spotting_damage", 0),
             "potentialDamage": stats.get("potential_damage", 0),
             "kills": stats.get("kills", 0),
-            "hits": stats.get("hits", 0),
             "fires": stats.get("fires", 0),
             "floods": stats.get("floods", 0),
             "baseXP": stats.get("base_xp", 0),
+            # 命中数内訳
+            "hitsAP": stats.get("hits_ap", 0),
+            "hitsHE": stats.get("hits_he", 0),
+            "hitsSecondaries": stats.get("hits_secondaries", 0),
+            # ダメージ内訳
+            "damageAP": stats.get("damage_ap", 0),
+            "damageHE": stats.get("damage_he", 0),
+            "damageHESecondaries": stats.get("damage_he_secondaries", 0),
+            "damageTorps": stats.get("damage_torps", 0),
+            "damageDeepWaterTorps": stats.get("damage_deep_water_torps", 0),
+            "damageOther": stats.get("damage_other", 0),
+            "damageFire": stats.get("damage_fire", 0),
+            "damageFlooding": stats.get("damage_flooding", 0),
         }
 
 
@@ -218,10 +238,14 @@ if __name__ == "__main__":
     print(f"\n全プレイヤーの統計 ({len(all_stats)}名):\n")
 
     # ダメージ順にソート
-    sorted_players = sorted(all_stats.values(), key=lambda x: x.get("damage", 0), reverse=True)
+    sorted_players = sorted(
+        all_stats.values(), key=lambda x: x.get("damage", 0), reverse=True
+    )
 
     for stats in sorted_players:
-        print(f"{stats['player_name']:<30} | ダメージ: {stats['damage']:>8,} | 撃沈: {stats['kills']}")
+        print(
+            f"{stats['player_name']:<30} | ダメージ: {stats['damage']:>8,} | 撃沈: {stats['kills']}"
+        )
 
     print("\n詳細（トッププレイヤー）:")
     if sorted_players:

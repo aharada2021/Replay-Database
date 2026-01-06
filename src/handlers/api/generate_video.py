@@ -10,7 +10,7 @@ import boto3
 import tempfile
 from pathlib import Path
 
-from replay_processor import ReplayProcessor
+from core.replay_processor import ReplayProcessor
 from utils import dynamodb
 
 # 環境変数
@@ -95,12 +95,14 @@ def handle(event, context):
             # 一時出力ディレクトリ
             with tempfile.TemporaryDirectory() as tmp_output_dir:
                 output_dir = Path(tmp_output_dir)
+                output_dir.mkdir(parents=True, exist_ok=True)
 
                 # MP4を生成
                 print(f"Generating MP4 for {replay_path.name}")
-                _, _, mp4_path, _ = ReplayProcessor.process_replay(replay_path, output_dir)
+                mp4_path = output_dir / f"{replay_path.stem}.mp4"
+                success = ReplayProcessor.generate_minimap_video(replay_path, mp4_path)
 
-                if not mp4_path or not mp4_path.exists():
+                if not success or not mp4_path.exists():
                     raise Exception("MP4 generation failed")
 
                 # S3にアップロード

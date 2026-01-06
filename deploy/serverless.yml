@@ -55,12 +55,15 @@ provider:
             - logs:PutLogEvents
           Resource: '*'
 
-        # Lambda呼び出し（interactions → processor, battle-result-extractor → generate-video-api）
+        # Lambda呼び出し
+        # interactions → replay-analyzer → video-generator
+        # battle-result-extractor → generate-video-api
         - Effect: Allow
           Action:
             - lambda:InvokeFunction
           Resource:
-            - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${self:provider.stage}-processor
+            - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${self:provider.stage}-replay-analyzer
+            - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${self:provider.stage}-video-generator
             - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${self:provider.stage}-generate-video-api
 
         # DynamoDB アクセス
@@ -87,15 +90,15 @@ custom:
 
 functions:
   # ========================================
-  # Processorイメージを使用する関数群
+  # Extractorイメージを使用する関数群（メタデータ解析など）
   # ========================================
 
   # Discord Interactions Endpoint
   interactions:
     image:
-      uri: ${env:ECR_PROCESSOR_IMAGE_URI}
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
       command:
-        - lambda_handler.handle_interaction
+        - handlers.discord.interactions.handle_interaction
     architecture: arm64
     timeout: 30  # 30秒（軽量な処理のみ）
     memorySize: 256  # 256MB（コマンド受信と非同期呼び出しのみ）
@@ -105,26 +108,43 @@ functions:
           method: post
     environment:
       TEMP_BUCKET: ${self:custom.bucketName}
-      PROCESSOR_FUNCTION_NAME: ${self:service}-${self:provider.stage}-processor
+      REPLAY_ANALYZER_FUNCTION_NAME: ${self:service}-${self:provider.stage}-replay-analyzer
 
-  # リプレイ処理用Lambda関数
-  processor:
+  # リプレイ解析用Lambda関数（extractor環境）
+  replay-analyzer:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.processing.replay_analyzer.handle
+    architecture: arm64
+    timeout: 300  # 5分（メタデータ解析のみ）
+    memorySize: 512
+    environment:
+      TEMP_BUCKET: ${self:custom.bucketName}
+      VIDEO_GENERATOR_FUNCTION_NAME: ${self:service}-${self:provider.stage}-video-generator
+
+  # ========================================
+  # Processorイメージを使用する関数群（renderer依存）
+  # ========================================
+
+  # 動画生成用Lambda関数（processor環境）
+  video-generator:
     image:
       uri: ${env:ECR_PROCESSOR_IMAGE_URI}
       command:
-        - replay_processor_handler.handle_replay_processing
+        - handlers.processing.video_generator.handle
     architecture: arm64
     timeout: 900  # 15分
     memorySize: 1024  # 1GB（実測値617MB + 余裕）
     environment:
       TEMP_BUCKET: ${self:custom.bucketName}
 
-  # 動画生成API
+  # 動画生成API（Web UI用）
   generate-video-api:
     image:
       uri: ${env:ECR_PROCESSOR_IMAGE_URI}
       command:
-        - generate_video_api_handler.handle
+        - handlers.api.generate_video.handle
     architecture: arm64
     timeout: 900  # 15分
     memorySize: 1024
@@ -136,16 +156,12 @@ functions:
       REPLAYS_BUCKET: ${self:custom.bucketName}
       REPLAYS_TABLE: ${self:custom.replaysTable}
 
-  # ========================================
-  # Extractorイメージを使用する関数群
-  # ========================================
-
   # リプレイアップロードAPI
   upload-api:
     image:
       uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
       command:
-        - upload_api_handler.handle
+        - handlers.api.upload.handle
     architecture: arm64
     timeout: 60
     memorySize: 512
@@ -163,7 +179,7 @@ functions:
     image:
       uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
       command:
-        - battle_result_extractor_handler.handle
+        - handlers.processing.battle_result_extractor.handle
     architecture: arm64
     timeout: 300  # 5分
     memorySize: 512
@@ -175,7 +191,7 @@ functions:
     image:
       uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
       command:
-        - search_api_handler.handle
+        - handlers.api.search.handle
     architecture: arm64
     timeout: 30
     memorySize: 256
@@ -191,7 +207,7 @@ functions:
     image:
       uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
       command:
-        - match_detail_api_handler.handle
+        - handlers.api.match_detail.handle
     architecture: arm64
     timeout: 30
     memorySize: 256

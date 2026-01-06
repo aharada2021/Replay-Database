@@ -11,7 +11,7 @@ import boto3
 from pathlib import Path
 import tempfile
 
-from replay_processor import ReplayProcessor
+from core.replay_metadata import ReplayMetadataParser
 from utils import dynamodb
 
 # 環境変数
@@ -90,14 +90,14 @@ def handle(event, context):
 
         try:
             # メタデータ解析
-            metadata = ReplayProcessor.parse_replay_metadata(tmp_path)
+            metadata = ReplayMetadataParser.parse_replay_metadata(tmp_path)
 
             if not metadata:
                 return {"statusCode": 400, "body": json.dumps({"error": "Invalid replay file"})}
 
             # プレイヤー情報取得
-            players_info = ReplayProcessor.extract_players_info(metadata)
-            game_type = ReplayProcessor.extract_game_type(metadata)
+            players_info = ReplayMetadataParser.extract_players_info(metadata)
+            game_type = ReplayMetadataParser.extract_game_type(metadata)
 
             # プレイヤーIDとプレイヤー名を取得
             player_id = metadata.get("playerID", 0)
