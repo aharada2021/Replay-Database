@@ -137,7 +137,6 @@ def handle(event, context):
         result = dynamodb.search_replays(
             game_type=game_type,
             map_id=map_id,
-            player_name=player_name,
             win_loss=win_loss,
             date_from=date_from,
             date_to=date_to,
