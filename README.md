@@ -18,6 +18,11 @@ project/
 │   ├── Dockerfile                # Lambda用Dockerイメージ定義
 │   └── serverless.yml            # Serverless Framework設定
 │
+├── .github/workflows/            # GitHub Actions
+│   ├── ci.yml                    # Linting
+│   ├── deploy-lambda.yml         # Lambda自動デプロイ
+│   └── deploy-web-ui.yml         # Web UI自動デプロイ
+│
 ├── docs/                         # ドキュメント
 │   ├── README.md                 # プロジェクト概要
 │   ├── DISCORD_SETUP.md          # Discord Bot設定ガイド
@@ -46,6 +51,7 @@ project/
 
 ## 機能
 
+### Discord Bot機能
 - ✅ Discord `/upload_replay`コマンドでリプレイファイルをアップロード
 - ✅ **ゲームタイプの自動判定**（Clan Battle / Random Battle / Ranked Battle）
 - ✅ リプレイファイルからマップIDを自動抽出
@@ -59,9 +65,50 @@ project/
 - ✅ AWS Lambda + Docker コンテナで実行（非同期処理対応）
 - ✅ **複数Discordサーバー対応**（Lambda版）
 
+### CI/CD
+- ✅ **GitHub Actions自動デプロイ**
+  - mainブランチへのプッシュで自動的にdev環境へデプロイ
+  - 手動トリガーでproduction環境へデプロイ（承認必須）
+- ✅ **Linting & フォーマット**（flake8, black）
+- ✅ **ARM64アーキテクチャ対応**（Lambda最適化）
+- ✅ **Git Submodules管理**（minimap_renderer, replays_unpack_upstream）
+
 ## デプロイ
 
-### Lambda環境
+### GitHub Actions（推奨）
+
+mainブランチへのプッシュで自動的にdev環境にデプロイされます。
+
+#### 必要な設定
+
+**1. Repository Secrets** (`Settings > Secrets and variables > Actions`)
+```
+AWS_ACCESS_KEY_ID         # AWSアクセスキー
+AWS_SECRET_ACCESS_KEY     # AWSシークレットキー
+```
+
+**2. Environment Secrets** (`Settings > Environments`)
+
+**development環境:**
+```
+DISCORD_PUBLIC_KEY
+DISCORD_APPLICATION_ID
+DISCORD_BOT_TOKEN
+INPUT_CHANNEL_ID
+GUILD_ID
+UPLOAD_API_KEY
+```
+
+**production環境:** （オプション）
+- 上記と同じsecretsを設定
+- **Required reviewers**を有効化して承認者を設定
+
+#### デプロイフロー
+
+- **自動デプロイ（dev）**: `main`ブランチへのプッシュ/マージで自動実行
+- **手動デプロイ（prod）**: Actions タブから`Deploy Lambda Backend`ワークフローを手動実行
+
+### 手動デプロイ（ローカル）
 
 ```bash
 # 1. 環境変数を設定
