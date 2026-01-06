@@ -39,7 +39,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      apiBaseUrl: process.env.API_BASE_URL || 'https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com',
+      apiBaseUrl: process.env.API_BASE_URL || '',
     }
   },
 

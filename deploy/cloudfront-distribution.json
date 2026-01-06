@@ -1,0 +1,69 @@
+{
+  "CallerReference": "wows-replay-web-ui-2026-01-06",
+  "Comment": "WoWS Replay Web UI Distribution",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "S3-wows-replay-web-ui-prod",
+        "DomainName": "wows-replay-web-ui-prod.s3.ap-northeast-1.amazonaws.com",
+        "OriginAccessControlId": "E2TH9MUJOYCC7D",
+        "S3OriginConfig": {
+          "OriginAccessIdentity": ""
+        }
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "S3-wows-replay-web-ui-prod",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": ["GET", "HEAD"],
+      "CachedMethods": {
+        "Quantity": 2,
+        "Items": ["GET", "HEAD"]
+      }
+    },
+    "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+    "Compress": true,
+    "FunctionAssociations": {
+      "Quantity": 1,
+      "Items": [
+        {
+          "FunctionARN": "arn:aws:cloudfront::811755557932:function/wows-replay-basic-auth",
+          "EventType": "viewer-request"
+        }
+      ]
+    }
+  },
+  "Enabled": true,
+  "Aliases": {
+    "Quantity": 1,
+    "Items": ["wows-replay.mirage0926.com"]
+  },
+  "ViewerCertificate": {
+    "ACMCertificateArn": "arn:aws:acm:us-east-1:811755557932:certificate/5350531d-51ef-4c88-8bbf-5ba6b9156385",
+    "SSLSupportMethod": "sni-only",
+    "MinimumProtocolVersion": "TLSv1.2_2021"
+  },
+  "DefaultRootObject": "index.html",
+  "CustomErrorResponses": {
+    "Quantity": 2,
+    "Items": [
+      {
+        "ErrorCode": 403,
+        "ResponsePagePath": "/index.html",
+        "ResponseCode": "200",
+        "ErrorCachingMinTTL": 0
+      },
+      {
+        "ErrorCode": 404,
+        "ResponsePagePath": "/index.html",
+        "ResponseCode": "200",
+        "ErrorCachingMinTTL": 0
+      }
+    ]
+  },
+  "PriceClass": "PriceClass_200"
+}

@@ -193,6 +193,51 @@ Actions > Deploy Lambda Backend > Run workflow
 ✅ Production環境デプロイ完了
 ```
 
+## Web UI インフラ構成
+
+### 本番環境
+
+| コンポーネント | 詳細 |
+|---------------|------|
+| URL | https://wows-replay.mirage0926.com |
+| S3バケット | `wows-replay-web-ui-prod` |
+| CloudFront | `E312DFOIWOIX5S` |
+| ACM証明書 | us-east-1 (CloudFront用) |
+| Route53 | `mirage0926.com` Zone |
+| Basic認証 | CloudFront Functions |
+
+### URL構成
+
+```
+https://wows-replay.mirage0926.com/
+├── /              → S3 (フロントエンド) [Basic認証あり]
+└── /api/*         → API Gateway (Lambda) [認証なし]
+```
+
+### API エンドポイント
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| POST | `/api/search` | リプレイ検索 |
+| GET | `/api/match/{arenaUniqueID}` | 試合詳細取得 |
+| POST | `/api/upload` | リプレイアップロード |
+| POST | `/api/generate-video` | 動画生成 |
+
+### CloudFront設定
+
+- **オリジン1**: S3バケット（OAC使用）
+- **オリジン2**: API Gateway（HTTPS）
+- **キャッシュビヘイビア**:
+  - デフォルト（`/*`）: S3、Basic認証あり、キャッシュ有効
+  - `/api/*`: API Gateway、認証なし、キャッシュ無効
+
+### デプロイ
+
+GitHub Actions (`deploy-web-ui.yml`) で自動デプロイ:
+- `main`ブランチへのpushで自動実行
+- S3へファイル同期
+- CloudFrontキャッシュ無効化
+
 ## ドキュメント
 
 - **クイックスタート**
