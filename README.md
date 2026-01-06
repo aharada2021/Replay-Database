@@ -10,7 +10,6 @@ project/
 │   ├── lambda_handler.py         # Discord Interactions受信用Lambda
 │   ├── replay_processor_handler.py  # リプレイ処理用Lambda
 │   ├── replay_processor.py       # リプレイ処理ロジック
-│   ├── bot.py                    # Discord Bot（ローカル実行用）
 │   ├── register_commands.py      # Discordスラッシュコマンド登録
 │   └── setup_channels.py         # Discordチャンネル自動作成
 │
@@ -28,20 +27,18 @@ project/
 │   ├── DISCORD_SETUP.md          # Discord Bot設定ガイド
 │   ├── QUICKSTART_LAMBDA.md      # Lambda クイックスタート
 │   ├── README_LAMBDA.md          # Lambda詳細ドキュメント
-│   ├── MULTI_SERVER_SETUP.md     # 複数サーバー対応ガイド
-│   └── specification.md          # 仕様書・残タスク
+│   └── MULTI_SERVER_SETUP.md     # 複数サーバー対応ガイド
 │
 ├── config/                       # 設定ファイル
 │   ├── map_names.yaml            # マップ名マッピング
 │   ├── .env.example              # 環境変数テンプレート
-│   ├── requirements.txt          # Python依存関係（ローカル）
+│   ├── requirements.txt          # Python依存関係
 │   └── requirements_lambda.txt   # Python依存関係（Lambda）
 │
 ├── scripts/                      # ユーティリティスクリプト
 │   ├── deploy_lambda.sh          # Lambdaデプロイスクリプト
 │   ├── setup_lambda.sh           # Lambda初期セットアップ
-│   ├── install_aws_cli.sh        # AWS CLI インストール
-│   └── restart_bot.sh            # Bot再起動スクリプト
+│   └── install_aws_cli.sh        # AWS CLI インストール
 │
 ├── minimap_renderer/             # WoWS Minimap Renderer（サブモジュール）
 ├── replays_unpack_upstream/      # リプレイアンパックライブラリ
@@ -125,20 +122,6 @@ cd scripts
 
 詳細は [docs/QUICKSTART_LAMBDA.md](docs/QUICKSTART_LAMBDA.md) を参照してください。
 
-### ローカル環境
-
-```bash
-# 1. 依存関係をインストール
-pip install -r config/requirements.txt
-
-# 2. 環境変数を設定
-cp config/.env.example .env
-# .env を編集
-
-# 3. Botを起動
-python src/bot.py
-```
-
 ## アーキテクチャ
 
 ### Lambda関数構成
@@ -219,9 +202,6 @@ Actions > Deploy Lambda Backend > Run workflow
   - [Lambda デプロイガイド](docs/README_LAMBDA.md) - 詳細な手順
   - [複数サーバー対応ガイド](docs/MULTI_SERVER_SETUP.md) - 複数Discordサーバーでの運用
   - [Discord Bot設定](docs/DISCORD_SETUP.md) - Discord側の設定
-
-- **その他**
-  - [仕様書・残タスク](docs/specification.md) - 技術仕様
 
 ## ライセンス
 
