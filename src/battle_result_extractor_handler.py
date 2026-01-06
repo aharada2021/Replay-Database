@@ -9,6 +9,7 @@ import json
 import boto3
 import tempfile
 from pathlib import Path
+import os
 
 from utils.battle_stats_extractor import (
     extract_battle_stats,
@@ -20,6 +21,7 @@ from utils import dynamodb
 
 # S3クライアント
 s3_client = boto3.client("s3")
+lambda_client = boto3.client("lambda")
 
 
 def handle(event, context):
@@ -110,6 +112,9 @@ def handle(event, context):
 
                 print(f"Successfully migrated and updated record: arena {arena_unique_id}, player {player_id}")
 
+                # 動画生成チェック: 同じ試合の既存リプレイで動画があるかチェック
+                check_and_trigger_video_generation(arena_unique_id, player_id)
+
             finally:
                 # 一時ファイルを削除
                 if tmp_path.exists():
@@ -124,3 +129,57 @@ def handle(event, context):
         traceback.print_exc()
 
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+
+
+def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
+    """
+    同じ試合の既存リプレイで動画があるかチェックし、なければ動画生成をトリガー
+
+    Args:
+        arena_unique_id: arenaUniqueID
+        player_id: プレイヤーID
+    """
+    try:
+        # 同じarenaUniqueIDの全リプレイを取得
+        table = dynamodb.get_table()
+        response = table.query(
+            KeyConditionExpression="arenaUniqueID = :aid", ExpressionAttributeValues={":aid": str(arena_unique_id)}
+        )
+
+        items = response.get("Items", [])
+        if not items:
+            print(f"No items found for arena {arena_unique_id}")
+            return
+
+        # 既に動画があるリプレイがあるかチェック
+        has_video = any(item.get("mp4S3Key") for item in items)
+
+        if has_video:
+            print(f"Arena {arena_unique_id} already has video, skipping generation")
+            return
+
+        # 動画がない場合、生成をトリガー
+        print(f"No video found for arena {arena_unique_id}, triggering video generation for player {player_id}")
+
+        # 環境変数から関数名を取得
+        stage = os.environ.get("STAGE", "dev")
+        function_name = f"wows-replay-bot-{stage}-generate-video-api"
+
+        # Lambda非同期呼び出し
+        payload = {
+            "body": json.dumps({"arenaUniqueID": str(arena_unique_id), "playerID": player_id}),
+            "httpMethod": "POST",
+        }
+
+        lambda_client.invoke(
+            FunctionName=function_name, InvocationType="Event", Payload=json.dumps(payload)  # 非同期呼び出し
+        )
+
+        print(f"Video generation triggered successfully for arena {arena_unique_id}, player {player_id}")
+
+    except Exception as e:
+        # エラーが発生しても、メインの処理は継続させる
+        print(f"Error checking/triggering video generation: {e}")
+        import traceback
+
+        traceback.print_exc()

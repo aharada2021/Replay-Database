@@ -112,6 +112,9 @@
         :loading="searchStore.loading || false"
         :items-per-page="searchStore.query?.limit || 50"
         hide-default-footer
+        show-expand
+        :expanded="expanded"
+        @update:expanded="onExpandedChange"
       >
         <!-- 日時 -->
         <template v-slot:item.dateTime="{ item }">
@@ -176,15 +179,13 @@
           </v-chip>
         </template>
 
-        <!-- アクション -->
-        <template v-slot:item.actions="{ item }">
-          <v-btn
-            size="small"
-            color="primary"
-            :to="`/match/${item?.arenaUniqueID ?? item?.raw?.arenaUniqueID}`"
-          >
-            詳細
-          </v-btn>
+        <!-- 展開時の詳細表示 -->
+        <template v-slot:expanded-row="{ columns, item }">
+          <tr>
+            <td :colspan="columns.length">
+              <match-detail-expansion :match="item" />
+            </td>
+          </tr>
         </template>
       </v-data-table>
 
@@ -271,6 +272,13 @@ const winLossTypes = [
   { text: '引き分け', value: 'draw' },
 ]
 
+// 展開状態の管理
+const expanded = ref([])
+
+const onExpandedChange = (newExpanded: any[]) => {
+  expanded.value = newExpanded
+}
+
 // テーブルヘッダー
 const headers = [
   { title: '日時', key: 'dateTime', sortable: false },
@@ -281,7 +289,6 @@ const headers = [
   { title: '味方クラン', key: 'allies', sortable: false },
   { title: '敵クラン', key: 'enemies', sortable: false },
   { title: 'リプレイ数', key: 'replayCount', sortable: false },
-  { title: 'アクション', key: 'actions', sortable: false },
 ]
 
 // ハンドラー
