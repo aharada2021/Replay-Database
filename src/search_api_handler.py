@@ -125,7 +125,7 @@ def handle(event, context):
         # 検索パラメータ
         game_type = params.get("gameType")
         map_id = params.get("mapId")
-        player_name = params.get("playerName")
+        ally_clan_tag = params.get("allyClanTag")
         enemy_clan_tag = params.get("enemyClanTag")
         win_loss = params.get("winLoss")
         date_from = params.get("dateFrom")
@@ -228,7 +228,9 @@ def handle(event, context):
         # マッチのリストに変換（日時順にソート）
         match_list = sorted(matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True)
 
-        # 敵クランタグでフィルタリング（クライアント側フィルタ）
+        # クランタグでフィルタリング（クライアント側フィルタ）
+        if ally_clan_tag:
+            match_list = [m for m in match_list if m.get("allyMainClanTag") == ally_clan_tag]
         if enemy_clan_tag:
             match_list = [m for m in match_list if m.get("enemyMainClanTag") == enemy_clan_tag]
 

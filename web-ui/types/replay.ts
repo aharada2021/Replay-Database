@@ -99,7 +99,7 @@ export interface ReplayRecord {
 export interface SearchQuery {
   gameType?: string
   mapId?: string
-  playerName?: string
+  allyClanTag?: string
   enemyClanTag?: string
   winLoss?: string
   dateFrom?: string
