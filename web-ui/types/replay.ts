@@ -11,6 +11,7 @@ export interface PlayerInfo {
 }
 
 export interface ReplayProvider {
+  arenaUniqueID: string
   playerID: number
   playerName: string
   uploadedBy: string
