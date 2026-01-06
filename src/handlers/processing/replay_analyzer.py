@@ -40,9 +40,14 @@ def load_map_config() -> tuple:
     """マップ設定を読み込む"""
     import yaml
 
-    # srcディレクトリの親（プロジェクトルート）からconfig/map_names.yamlを参照
-    src_dir = Path(__file__).parent.parent.parent  # handlers/processing -> handlers -> src
-    map_file = src_dir.parent / "config" / "map_names.yaml"
+    # Lambda環境ではLAMBDA_TASK_ROOT(/var/task)配下にconfig/map_names.yamlがある
+    task_root = os.environ.get("LAMBDA_TASK_ROOT", "")
+    if task_root:
+        map_file = Path(task_root) / "config" / "map_names.yaml"
+    else:
+        # ローカル開発環境用: プロジェクトルートからの相対パス
+        src_dir = Path(__file__).parent.parent.parent
+        map_file = src_dir.parent / "config" / "map_names.yaml"
     try:
         with open(map_file, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
