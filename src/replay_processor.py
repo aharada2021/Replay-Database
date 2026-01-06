@@ -466,16 +466,27 @@ class ReplayProcessor:
 
             # レンダラーでMP4を生成
             logger.info("MP4動画をレンダリング中...")
-            renderer = Renderer(
-                replay_info["hidden"]["replay_data"],
-                logs=True,
-                enable_chat=True,
-                use_tqdm=False,  # Lambda環境ではtqdmを無効化
-            )
 
-            # 一時的にデフォルト出力先に生成
-            default_output = replay_path.with_suffix(".mp4")
-            renderer.start(str(default_output))
+            # stdout/stderrを保護（Rendererがファイルディスクリプタを閉じる問題の回避）
+            import sys
+            original_stdout = sys.stdout
+            original_stderr = sys.stderr
+
+            try:
+                renderer = Renderer(
+                    replay_info["hidden"]["replay_data"],
+                    logs=True,
+                    enable_chat=True,
+                    use_tqdm=False,  # Lambda環境ではtqdmを無効化
+                )
+
+                # 一時的にデフォルト出力先に生成
+                default_output = replay_path.with_suffix(".mp4")
+                renderer.start(str(default_output))
+            finally:
+                # stdout/stderrを復元
+                sys.stdout = original_stdout
+                sys.stderr = original_stderr
 
             # プレイヤービルド情報をJSONで保存
             builds_path = replay_path.parent / f"{replay_path.stem}-builds.json"
