@@ -154,14 +154,26 @@ def get_channel_by_name(guild_id: str, channel_name: str) -> Optional[str]:
         return None
 
 
-def send_followup_message(webhook_url: str, content: str, flags: int = 64):
+def send_followup_message(webhook_url: str, content: str, flags: int = 64, fallback_channel_id: str = None):
     """Discord Webhookでフォローアップメッセージを送信"""
     try:
         response = requests.post(webhook_url, json={"content": content, "flags": flags}, timeout=30)
         response.raise_for_status()
         logger.info("フォローアップメッセージを送信しました")
+        return True
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            logger.warning("フォローアップメッセージのwebhookが期限切れ (15分経過)")
+            # 404の場合、webhookが期限切れなのでfallbackチャンネルに送信
+            if fallback_channel_id:
+                logger.info(f"代わりにチャンネル {fallback_channel_id} に直接メッセージを送信します")
+                return send_channel_message(fallback_channel_id, content)
+        else:
+            logger.error(f"フォローアップメッセージ送信エラー: {e}")
+        return False
     except Exception as e:
         logger.error(f"フォローアップメッセージ送信エラー: {e}")
+        return False
 
 
 def handle_replay_processing(event, context):
@@ -313,9 +325,15 @@ def handle_replay_processing(event, context):
             success = send_channel_message(target_channel_id, embed=embed, files=files)
 
             if success:
-                send_followup_message(webhook_url, f"✅ リプレイファイルを <#{target_channel_id}> に投稿しました！")
+                send_followup_message(
+                    webhook_url,
+                    f"✅ リプレイファイルを <#{target_channel_id}> に投稿しました！",
+                    fallback_channel_id=target_channel_id,
+                )
             else:
-                send_followup_message(webhook_url, "❌ メッセージの投稿に失敗しました。")
+                send_followup_message(
+                    webhook_url, "❌ メッセージの投稿に失敗しました。", fallback_channel_id=target_channel_id
+                )
 
     except Exception as e:
         logger.error(f"リプレイ処理エラー: {e}", exc_info=True)
