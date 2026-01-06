@@ -156,10 +156,8 @@ def handle(event, context):
         # 小規模データベースの場合はScanで十分
         # 大規模な場合はGameTypeIndexを使って絞り込む
         game_type = seed_item.get("gameType")
-        date_time = seed_item.get("dateTime")
 
         # GameTypeIndexで同じゲームタイプのリプレイを取得
-        # 日時の範囲を広めに取る（±10分）
         all_response = table.query(
             IndexName="GameTypeIndex",
             KeyConditionExpression="gameType = :gt",
