@@ -299,9 +299,7 @@ def handle_discord_callback(event, context):
                 }
 
             # 許可されたギルドのメンバーかチェック
-            is_member = any(
-                guild.get("id") == ALLOWED_GUILD_ID for guild in guilds_data
-            )
+            is_member = any(guild.get("id") == ALLOWED_GUILD_ID for guild in guilds_data)
 
             if not is_member:
                 print(f"User {user_data.get('id')} is not a member of guild {ALLOWED_GUILD_ID}")
@@ -349,6 +347,7 @@ def handle_discord_callback(event, context):
     except Exception as e:
         print(f"Error in handle_discord_callback: {e}")
         import traceback
+
         traceback.print_exc()
         return {
             "statusCode": 302,

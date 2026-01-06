@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 # 環境変数
 DISCORD_PUBLIC_KEY = os.getenv("DISCORD_PUBLIC_KEY")
-REPLAY_ANALYZER_FUNCTION_NAME = os.getenv(
-    "REPLAY_ANALYZER_FUNCTION_NAME", "wows-replay-bot-dev-replay-analyzer"
-)
+REPLAY_ANALYZER_FUNCTION_NAME = os.getenv("REPLAY_ANALYZER_FUNCTION_NAME", "wows-replay-bot-dev-replay-analyzer")
 
 # Discord API Base URL
 DISCORD_API_BASE = "https://discord.com/api/v10"
@@ -125,9 +123,7 @@ def handle_interaction(event, context):
                         InvocationType="Event",  # 非同期呼び出し
                         Payload=json.dumps(payload),
                     )
-                    logger.info(
-                        f"解析用Lambda関数を呼び出しました: {REPLAY_ANALYZER_FUNCTION_NAME}"
-                    )
+                    logger.info(f"解析用Lambda関数を呼び出しました: {REPLAY_ANALYZER_FUNCTION_NAME}")
                 except Exception as e:
                     logger.error(f"Lambda呼び出しエラー: {e}", exc_info=True)
                     return {
