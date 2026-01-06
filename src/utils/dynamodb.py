@@ -245,7 +245,6 @@ def check_duplicate_by_arena_id(arena_unique_id: int) -> Optional[Dict[str, Any]
 def search_replays(
     game_type: Optional[str] = None,
     map_id: Optional[str] = None,
-    player_name: Optional[str] = None,
     win_loss: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
@@ -258,7 +257,6 @@ def search_replays(
     Args:
         game_type: ゲームタイプフィルタ
         map_id: マップIDフィルタ
-        player_name: プレイヤー名検索
         win_loss: 勝敗フィルタ
         date_from: 開始日時
         date_to: 終了日時
@@ -295,31 +293,6 @@ def search_replays(
             "ExpressionAttributeValues": expression_values,
             "Limit": limit,
             "ScanIndexForward": False,  # 降順（新しい順）
-        }
-
-        if last_evaluated_key:
-            query_params["ExclusiveStartKey"] = last_evaluated_key
-
-        response = table.query(**query_params)
-
-    elif player_name:
-        # PlayerNameIndexを使用
-        key_condition = "playerName = :pn"
-        expression_values = {":pn": player_name}
-
-        if date_from:
-            key_condition += " AND dateTime >= :df"
-            expression_values[":df"] = date_from
-        if date_to:
-            key_condition += " AND dateTime <= :dt"
-            expression_values[":dt"] = date_to
-
-        query_params = {
-            "IndexName": "PlayerNameIndex",
-            "KeyConditionExpression": key_condition,
-            "ExpressionAttributeValues": expression_values,
-            "Limit": limit,
-            "ScanIndexForward": False,
         }
 
         if last_evaluated_key:
