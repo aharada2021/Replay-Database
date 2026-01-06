@@ -10,9 +10,8 @@ import struct
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-# replays_unpackライブラリのパスを追加
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "replays_unpack_upstream"))
-
+# minimap_rendererのreplay_unpackを使用（インストール済み）
+# replays_unpack_upstreamは使用しない（バージョン違いによるJSONパースエラーを回避）
 from replay_unpack.replay_reader import ReplayReader  # noqa: E402
 from replay_unpack.clients.wows.player import ReplayPlayer as WoWSReplayPlayer  # noqa: E402
 

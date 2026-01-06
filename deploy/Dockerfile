@@ -43,8 +43,12 @@ COPY minimap_renderer/ ./minimap_renderer/
 RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt && \
     pip install --no-cache-dir ./minimap_renderer/
 
-# replays_unpack_upstreamをコピー（battle_result_extractor用）
+# replays_unpack_upstreamをコピーしてパッチ適用（battle_result_extractor用）
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
+
+# BattleStatsを__all__にエクスポートするパッチを適用
+RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
+    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
 
 # アプリケーションコードをコピー
 COPY src/replay_processor.py .
