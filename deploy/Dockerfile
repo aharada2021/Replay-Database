@@ -42,6 +42,9 @@ COPY replays_unpack_upstream/ ./replays_unpack_upstream/
 RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
     ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
 
+# パッチ適用後にreplays_unpackをインストール
+RUN pip install --no-cache-dir ./replays_unpack_upstream/
+
 # アプリケーションコードをコピー
 COPY src/replay_processor.py .
 COPY src/lambda_handler.py .
