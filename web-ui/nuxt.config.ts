@@ -53,4 +53,19 @@ export default defineNuxtConfig({
   router: {
     middleware: ['auth'],
   },
+
+  // Nitro設定
+  nitro: {
+    publicAssets: [
+      {
+        dir: 'public',
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+      },
+    ],
+  },
+
+  // ルートルール
+  routeRules: {
+    '/robots.txt': { prerender: true },
+  },
 })
