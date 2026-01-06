@@ -1,5 +1,7 @@
 """
 DynamoDB操作ヘルパーモジュール
+
+Version: 2026-01-06 - Added clan tag calculation support
 """
 
 import os
