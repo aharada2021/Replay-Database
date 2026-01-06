@@ -217,7 +217,10 @@ def handle_discord_callback(event, context):
         req = urllib.request.Request(
             DISCORD_TOKEN_URL,
             data=urllib.parse.urlencode(token_data).encode(),
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "wows-replay/1.0",
+            },
         )
 
         try:
@@ -249,7 +252,10 @@ def handle_discord_callback(event, context):
         # ユーザー情報取得
         user_req = urllib.request.Request(
             DISCORD_USER_URL,
-            headers={"Authorization": f"Bearer {access_token}"},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": "wows-replay/1.0",
+            },
         )
 
         try:
