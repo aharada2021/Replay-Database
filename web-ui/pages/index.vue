@@ -115,6 +115,7 @@
         show-expand
         :expanded="expanded"
         @update:expanded="onExpandedChange"
+        item-value="matchKey"
       >
         <!-- 日時 -->
         <template v-slot:item.dateTime="{ item }">

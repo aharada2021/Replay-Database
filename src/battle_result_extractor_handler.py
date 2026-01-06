@@ -18,6 +18,7 @@ from utils.battle_stats_extractor import (
     get_arena_unique_id,
 )
 from utils import dynamodb
+from utils.match_key import generate_match_key
 
 # S3クライアント
 s3_client = boto3.client("s3")
@@ -135,31 +136,63 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
     """
     同じ試合の既存リプレイで動画があるかチェックし、なければ動画生成をトリガー
 
+    arenaUniqueIDは各プレイヤーごとに異なるため、match_key（プレイヤーセット）で同一試合を判定
+
     Args:
         arena_unique_id: arenaUniqueID
         player_id: プレイヤーID
     """
     try:
-        # 同じarenaUniqueIDの全リプレイを取得
         table = dynamodb.get_table()
-        response = table.query(
-            KeyConditionExpression="arenaUniqueID = :aid", ExpressionAttributeValues={":aid": str(arena_unique_id)}
-        )
 
-        items = response.get("Items", [])
-        if not items:
-            print(f"No items found for arena {arena_unique_id}")
+        # 現在のレコードを取得してmatch_keyを生成
+        current_record = dynamodb.get_replay_record(arena_unique_id, player_id)
+        if not current_record:
+            print(f"No record found for arena {arena_unique_id}, player {player_id}")
             return
 
+        # ownPlayerが配列の場合、単一オブジェクトに変換
+        if "ownPlayer" in current_record and isinstance(current_record["ownPlayer"], list):
+            current_record["ownPlayer"] = current_record["ownPlayer"][0] if current_record["ownPlayer"] else {}
+
+        # 現在の試合のmatch_keyを生成
+        current_match_key = generate_match_key(current_record)
+        game_type = current_record.get("gameType")
+
+        print(f"Checking for existing video in match: {current_match_key}")
+
+        # 同じgameTypeの全リプレイを取得（効率化のため）
+        response = table.query(
+            IndexName="GameTypeIndex",
+            KeyConditionExpression="gameType = :gt",
+            ExpressionAttributeValues={":gt": game_type},
+        )
+
+        all_items = response.get("Items", [])
+        print(f"Found {len(all_items)} items with gameType={game_type}")
+
+        # ownPlayerが配列の場合、単一オブジェクトに変換
+        for item in all_items:
+            if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
+                item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
+
+        # match_keyが一致するリプレイをフィルタリング
+        same_match_items = []
+        for item in all_items:
+            if generate_match_key(item) == current_match_key:
+                same_match_items.append(item)
+
+        print(f"Found {len(same_match_items)} replays for the same match")
+
         # 既に動画があるリプレイがあるかチェック
-        has_video = any(item.get("mp4S3Key") for item in items)
+        has_video = any(item.get("mp4S3Key") for item in same_match_items)
 
         if has_video:
-            print(f"Arena {arena_unique_id} already has video, skipping generation")
+            print("Match already has video, skipping generation")
             return
 
         # 動画がない場合、生成をトリガー
-        print(f"No video found for arena {arena_unique_id}, triggering video generation for player {player_id}")
+        print(f"No video found for match, triggering video generation for arena {arena_unique_id}, player {player_id}")
 
         # 環境変数から関数名を取得
         stage = os.environ.get("STAGE", "dev")
