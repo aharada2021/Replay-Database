@@ -6,7 +6,7 @@ export const useSearchStore = defineStore('search', {
     query: {
       gameType: '',
       mapId: '',
-      playerName: '',
+      allyClanTag: '',
       enemyClanTag: '',
       winLoss: '',
       dateFrom: '',
@@ -29,7 +29,7 @@ export const useSearchStore = defineStore('search', {
       this.query = {
         gameType: '',
         mapId: '',
-        playerName: '',
+        allyClanTag: '',
         enemyClanTag: '',
         winLoss: '',
         dateFrom: '',

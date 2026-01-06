@@ -19,11 +19,14 @@
 
             <!-- マップ -->
             <v-col cols="12" md="3">
-              <v-text-field
+              <v-select
                 v-model="searchStore.query.mapId"
-                label="マップID"
+                :items="mapList"
+                label="マップ"
                 clearable
-              ></v-text-field>
+                item-title="text"
+                item-value="value"
+              ></v-select>
             </v-col>
 
             <!-- 勝敗 -->
@@ -38,17 +41,18 @@
               ></v-select>
             </v-col>
 
-            <!-- プレイヤー名 -->
+            <!-- 味方クランタグ -->
             <v-col cols="12" md="3">
               <v-text-field
-                v-model="searchStore.query.playerName"
-                label="プレイヤー名"
+                v-model="searchStore.query.allyClanTag"
+                label="味方クランタグ"
                 clearable
+                hint="クラン戦のみ有効"
               ></v-text-field>
             </v-col>
 
             <!-- 敵クランタグ -->
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="3">
               <v-text-field
                 v-model="searchStore.query.enemyClanTag"
                 label="敵クランタグ"
@@ -58,20 +62,20 @@
             </v-col>
 
             <!-- 日時範囲 From -->
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="3">
               <v-text-field
                 v-model="searchStore.query.dateFrom"
-                label="日時From (YYYY-MM-DD)"
+                label="日時From"
                 clearable
                 type="date"
               ></v-text-field>
             </v-col>
 
             <!-- 日時範囲 To -->
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="3">
               <v-text-field
                 v-model="searchStore.query.dateTo"
-                label="日時To (YYYY-MM-DD)"
+                label="日時To"
                 clearable
                 type="date"
               ></v-text-field>
@@ -94,21 +98,6 @@
       </v-card-text>
     </v-card>
 
-    <!-- エラー表示 -->
-    <v-alert v-if="searchStore.error" type="error" class="mb-4">
-      {{ searchStore.error }}
-    </v-alert>
-
-    <!-- デバッグ情報 -->
-    <v-alert type="info" class="mb-4">
-      <div>Loading: {{ searchStore?.loading }}</div>
-      <div>Results count: {{ searchStore?.results?.length ?? 'undefined' }}</div>
-      <div>Total count: {{ searchStore?.totalCount }}</div>
-      <div>Error: {{ searchStore?.error }}</div>
-      <div>Results type: {{ typeof searchStore?.results }}</div>
-      <div>Store: {{ searchStore ? 'exists' : 'undefined' }}</div>
-    </v-alert>
-
     <!-- 検索結果 -->
     <v-card>
       <v-card-title>
@@ -127,6 +116,11 @@
         <!-- 日時 -->
         <template v-slot:item.dateTime="{ item }">
           {{ formatDateTime(item?.dateTime || item?.raw?.dateTime) }}
+        </template>
+
+        <!-- マップ -->
+        <template v-slot:item.mapDisplayName="{ item }">
+          {{ getMapName(item?.mapId || item?.raw?.mapId) }}
         </template>
 
         <!-- ゲームタイプ -->
@@ -222,9 +216,14 @@
 
 <script setup lang="ts">
 import { useSearchStore } from '~/stores/search'
+import { useMapNames } from '~/composables/useMapNames'
 import type { PlayerInfo } from '~/types/replay'
 
 const searchStore = useSearchStore()
+const { getMapName, getMapList } = useMapNames()
+
+// マップ一覧
+const mapList = getMapList()
 
 // Store初期化確認
 console.log('SearchStore initialized:', searchStore)
@@ -299,7 +298,31 @@ const handleReset = () => {
 // フォーマット関数
 const formatDateTime = (dateTime: string) => {
   if (!dateTime) return '-'
-  return new Date(dateTime).toLocaleString('ja-JP')
+
+  try {
+    // "04.01.2026 21:56:55" 形式の日時を解析
+    const parts = dateTime.match(/(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})/)
+    if (parts) {
+      const [_, day, month, year, hour, minute, second] = parts
+      return `${year}/${month}/${day} ${hour}:${minute}:${second}`
+    }
+
+    // ISO形式の場合
+    const date = new Date(dateTime)
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hour = String(date.getHours()).padStart(2, '0')
+      const minute = String(date.getMinutes()).padStart(2, '0')
+      const second = String(date.getSeconds()).padStart(2, '0')
+      return `${year}/${month}/${day} ${hour}:${minute}:${second}`
+    }
+  } catch (e) {
+    console.error('Date format error:', e)
+  }
+
+  return dateTime
 }
 
 const getGameTypeText = (type: string) => {
