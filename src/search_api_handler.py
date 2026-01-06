@@ -111,9 +111,7 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
-            "http", {}
-        ).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -190,9 +188,7 @@ def handle(event, context):
             # リプレイ提供者情報を追加
             matches[match_key]["replays"].append(
                 {
-                    "arenaUniqueID": item.get(
-                        "arenaUniqueID"
-                    ),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),
@@ -230,15 +226,11 @@ def handle(event, context):
             match["replayCount"] = len(replays)
 
         # マッチのリストに変換（日時順にソート）
-        match_list = sorted(
-            matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True
-        )
+        match_list = sorted(matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True)
 
         # 敵クランタグでフィルタリング（クライアント側フィルタ）
         if enemy_clan_tag:
-            match_list = [
-                m for m in match_list if m.get("enemyMainClanTag") == enemy_clan_tag
-            ]
+            match_list = [m for m in match_list if m.get("enemyMainClanTag") == enemy_clan_tag]
 
         # レスポンス
         return {
