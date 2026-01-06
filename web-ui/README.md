@@ -57,63 +57,78 @@ npm run preview
 
 ## デプロイ
 
-### S3 + CloudFrontへのデプロイ
+### 本番環境インフラ構成
 
-1. **S3バケット作成**
+| コンポーネント | 詳細 |
+|---------------|------|
+| URL | https://wows-replay.mirage0926.com |
+| S3バケット | `wows-replay-web-ui-prod` |
+| CloudFront | `E312DFOIWOIX5S` |
+| ACM証明書 | us-east-1 (CloudFront用) |
+| Route53 | `mirage0926.com` Zone |
+| Basic認証 | CloudFront Functions (`wows-replay-basic-auth`) |
 
-```bash
-aws s3 mb s3://wows-replay-web-ui-dev --region ap-northeast-1
+### URL構成
+
+```
+https://wows-replay.mirage0926.com/
+├── /              → S3 (フロントエンド) [Basic認証あり]
+└── /api/*         → API Gateway (Lambda) [認証なし]
 ```
 
-2. **静的ウェブサイトホスティング有効化**
+### GitHub Actions 自動デプロイ
 
-```bash
-aws s3 website s3://wows-replay-web-ui-dev --index-document index.html --error-document 404.html
+`main`ブランチへのpushで自動的にデプロイされます。
+
+ワークフロー: `.github/workflows/deploy-web-ui.yml`
+
+```yaml
+# 実行される処理:
+1. npm ci                    # 依存関係インストール
+2. npm run generate          # 静的ファイル生成
+3. aws s3 sync               # S3へアップロード
+4. aws cloudfront create-invalidation  # キャッシュ無効化
 ```
 
-3. **ビルド & アップロード**
+### 手動デプロイ
 
 ```bash
+# 1. ビルド
 npm run generate
-aws s3 sync .output/public/ s3://wows-replay-web-ui-dev --delete
+
+# 2. S3へアップロード
+aws s3 sync .output/public/ s3://wows-replay-web-ui-prod --delete
+
+# 3. CloudFrontキャッシュ無効化
+aws cloudfront create-invalidation --distribution-id E312DFOIWOIX5S --paths "/*"
 ```
 
-4. **パブリックアクセス設定**
+### CloudFront設定詳細
+
+**オリジン構成:**
+- **S3オリジン**: OAC (Origin Access Control) 使用、パブリックアクセス無効
+- **API Gatewayオリジン**: HTTPS-only、キャッシュ無効
+
+**キャッシュビヘイビア:**
+| パス | オリジン | キャッシュ | 認証 |
+|------|---------|-----------|------|
+| `/*` (デフォルト) | S3 | Managed-CachingOptimized | Basic認証 |
+| `/api/*` | API Gateway | CachingDisabled | なし |
+
+**Basic認証:**
+CloudFront Functions (`wows-replay-basic-auth`) で実装。
+認証情報はCloudFront Function内にハードコードされています。
+
+### 環境変数
+
+`.env` ファイルで設定:
 
 ```bash
-aws s3api put-bucket-policy --bucket wows-replay-web-ui-dev --policy '{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "PublicReadGetObject",
-      "Effect": "Allow",
-      "Principal": "*",
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::wows-replay-web-ui-dev/*"
-    }
-  ]
-}'
+# API Base URL (空 = 同一オリジン)
+API_BASE_URL=
 ```
 
-5. **CloudFront Distribution作成（オプション）**
-
-CloudFrontを使用すると、HTTPS対応やカスタムドメイン設定が可能です。
-
-```bash
-# CloudFront Distributionは手動またはserverless.ymlで設定
-```
-
-### デプロイスクリプト
-
-簡単にデプロイできるようにスクリプトを作成しました:
-
-```bash
-# 開発環境へデプロイ
-npm run deploy:dev
-
-# 本番環境へデプロイ
-npm run deploy:prod
-```
+ビルド時に `API_BASE_URL` が空の場合、相対パス `/api/*` でAPIにアクセスします。
 
 ## ディレクトリ構成
 
