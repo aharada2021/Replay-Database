@@ -17,46 +17,40 @@ class BattleStatsParser:
     # インデックスマッピング（14.11.0基準）
     INDICES = {
         # 基本情報
-        'player_id': 0,
-        'player_name': 1,
-        'account_db_id': 2,
-        'clan_tag': 3,
-        'clan_id': 4,
-        'realm': 9,
-        'survival_time': 22,
-        'survival_percentage': 23,
-
+        "player_id": 0,
+        "player_name": 1,
+        "account_db_id": 2,
+        "clan_tag": 3,
+        "clan_id": 4,
+        "realm": 9,
+        "survival_time": 22,
+        "survival_percentage": 23,
         # 戦闘成績
-        'kills': 32,
-
+        "kills": 32,
         # 命中数内訳
-        'hits_ap': 66,
-        'hits_he': 68,  # 主砲のみ
-        'hits_secondaries': 71,  # 副砲HE弾
-        'hits': 68,  # 互換性のため維持（実際はHE弾のみ）
-
+        "hits_ap": 66,
+        "hits_he": 68,  # 主砲のみ
+        "hits_secondaries": 71,  # 副砲HE弾
+        "hits": 68,  # 互換性のため維持（実際はHE弾のみ）
         # DoT（継続ダメージ）
-        'floods': 75,
-        'fires': 86,
-
+        "floods": 75,
+        "fires": 86,
         # ダメージ内訳
-        'damage_ap': 157,  # 主砲AP弾
-        'damage_he': 159,  # 主砲HE弾
-        'damage_he_secondaries': 162,  # 副砲HE弾
-        'damage_torps': 166,  # 通常魚雷
-        'damage_deep_water_torps': 167,  # 深水魚雷（パンアジア駆逐艦）
-        'damage_other': 178,  # その他ダメージ（主砲AP+副砲AP等の残差）
-        'damage_fire': 179,  # 火災ダメージ
-        'damage_flooding': 180,  # 浸水ダメージ
-
+        "damage_ap": 157,  # 主砲AP弾
+        "damage_he": 159,  # 主砲HE弾
+        "damage_he_secondaries": 162,  # 副砲HE弾
+        "damage_torps": 166,  # 通常魚雷
+        "damage_deep_water_torps": 167,  # 深水魚雷（パンアジア駆逐艦）
+        "damage_other": 178,  # その他ダメージ（主砲AP+副砲AP等の残差）
+        "damage_fire": 179,  # 火災ダメージ
+        "damage_flooding": 180,  # 浸水ダメージ
         # 総ダメージ統計
-        'received_damage': 204,
-        'damage': 429,
-
+        "received_damage": 204,
+        "damage": 429,
         # 経験値・スポットダメージ
-        'base_xp': 406,
-        'spotting_damage': 415,
-        'potential_damage': 419,
+        "base_xp": 406,
+        "spotting_damage": 415,
+        "potential_damage": 419,
     }
 
     @classmethod
@@ -84,11 +78,11 @@ class BattleStatsParser:
                 value = player_data[index]
 
                 # データ型変換
-                if key == 'potential_damage' and isinstance(value, float):
+                if key == "potential_damage" and isinstance(value, float):
                     stats[key] = int(value)
-                elif key in ['player_id', 'account_db_id', 'clan_id'] and value is not None:
+                elif key in ["player_id", "account_db_id", "clan_id"] and value is not None:
                     stats[key] = int(value)
-                elif key in ['player_name', 'clan_tag', 'realm'] and value is not None:
+                elif key in ["player_name", "clan_tag", "realm"] and value is not None:
                     stats[key] = str(value)
                 else:
                     stats[key] = value
@@ -143,7 +137,7 @@ class BattleStatsParser:
             team_stats.append(stats)
 
         # ダメージでソート
-        team_stats.sort(key=lambda x: x.get('damage', 0), reverse=True)
+        team_stats.sort(key=lambda x: x.get("damage", 0), reverse=True)
 
         return team_stats
 
@@ -158,7 +152,7 @@ class BattleStatsParser:
         Returns:
             フォーマット済み文字列
         """
-        clan_tag = f"[{stats['clan_tag']}]" if stats.get('clan_tag') else ""
+        clan_tag = f"[{stats['clan_tag']}]" if stats.get("clan_tag") else ""
 
         lines = [
             f"プレイヤー: {clan_tag} {stats['player_name']}",
@@ -187,22 +181,22 @@ class BattleStatsParser:
         """
         # DynamoDBではNoneを保存できないため、デフォルト値を設定
         return {
-            'playerName': stats.get('player_name', 'Unknown'),
-            'clanTag': stats.get('clan_tag', ''),
-            'damage': stats.get('damage', 0),
-            'receivedDamage': stats.get('received_damage', 0),
-            'spottingDamage': stats.get('spotting_damage', 0),
-            'potentialDamage': stats.get('potential_damage', 0),
-            'kills': stats.get('kills', 0),
-            'hits': stats.get('hits', 0),
-            'fires': stats.get('fires', 0),
-            'floods': stats.get('floods', 0),
-            'baseXP': stats.get('base_xp', 0),
+            "playerName": stats.get("player_name", "Unknown"),
+            "clanTag": stats.get("clan_tag", ""),
+            "damage": stats.get("damage", 0),
+            "receivedDamage": stats.get("received_damage", 0),
+            "spottingDamage": stats.get("spotting_damage", 0),
+            "potentialDamage": stats.get("potential_damage", 0),
+            "kills": stats.get("kills", 0),
+            "hits": stats.get("hits", 0),
+            "fires": stats.get("fires", 0),
+            "floods": stats.get("floods", 0),
+            "baseXP": stats.get("base_xp", 0),
         }
 
 
 # 使用例
-if __name__ == '__main__':
+if __name__ == "__main__":
     import json
     import sys
     from pathlib import Path
@@ -213,10 +207,10 @@ if __name__ == '__main__':
 
     battlestats_path = Path(sys.argv[1])
 
-    with open(battlestats_path, 'r', encoding='utf-8') as f:
+    with open(battlestats_path, "r", encoding="utf-8") as f:
         battlestats = json.load(f)
 
-    players_public_info = battlestats.get('playersPublicInfo', {})
+    players_public_info = battlestats.get("playersPublicInfo", {})
 
     # 全プレイヤーをパース
     all_stats = BattleStatsParser.parse_all_players(players_public_info)
@@ -224,7 +218,7 @@ if __name__ == '__main__':
     print(f"\n全プレイヤーの統計 ({len(all_stats)}名):\n")
 
     # ダメージ順にソート
-    sorted_players = sorted(all_stats.values(), key=lambda x: x.get('damage', 0), reverse=True)
+    sorted_players = sorted(all_stats.values(), key=lambda x: x.get("damage", 0), reverse=True)
 
     for stats in sorted_players:
         print(f"{stats['player_name']:<30} | ダメージ: {stats['damage']:>8,} | 撃沈: {stats['kills']}")
