@@ -4,7 +4,7 @@ BattleStats playersPublicInfo配列パーサー
 BattleStatsパケットの位置ベース配列からプレイヤー統計を抽出するユーティリティ
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 
 class BattleStatsParser:
@@ -71,7 +71,11 @@ class BattleStatsParser:
             統計情報の辞書
         """
         if not isinstance(player_data, list) or len(player_data) < 430:
-            raise ValueError(f"Invalid player_data: expected list with 430+ elements, got {type(player_data)} with {len(player_data) if isinstance(player_data, list) else 0} elements")
+            data_len = len(player_data) if isinstance(player_data, list) else 0
+            raise ValueError(
+                f"Invalid player_data: expected list with 430+ elements, "
+                f"got {type(player_data)} with {data_len} elements"
+            )
 
         stats = {}
 
@@ -89,7 +93,7 @@ class BattleStatsParser:
                 else:
                     stats[key] = value
 
-            except (IndexError, TypeError, ValueError) as e:
+            except (IndexError, TypeError, ValueError):
                 # インデックスが存在しない、または変換失敗時はNoneを設定
                 stats[key] = None
 
