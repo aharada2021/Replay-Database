@@ -461,13 +461,27 @@ class ReplayProcessor:
             # minimap_rendererのモジュールを直接インポートして実行
             logger.info(f"minimap_rendererでMP4を生成: {replay_path}")
 
+            # FFmpegのパスを環境変数に設定（imageio-ffmpegが検出できるように）
+            import sys
+            import os
+
+            ffmpeg_path = "/usr/local/bin/ffmpeg"
+            if os.path.exists(ffmpeg_path):
+                logger.info(f"FFmpegバイナリが見つかりました: {ffmpeg_path}")
+                os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
+            else:
+                logger.warning(f"FFmpegバイナリが見つかりません: {ffmpeg_path}")
+                # 環境変数が設定されているか確認
+                if "IMAGEIO_FFMPEG_EXE" in os.environ:
+                    logger.info(f"環境変数IMAGEIO_FFMPEG_EXEは設定されています: {os.environ['IMAGEIO_FFMPEG_EXE']}")
+                else:
+                    logger.error("環境変数IMAGEIO_FFMPEG_EXEが設定されていません")
+
             from renderer.render import Renderer
             from replay_parser import ReplayParser
 
             # stdout/stderrを/dev/nullにリダイレクト
             # （ReplayParserとRenderer内部でバイナリデータが出力されるのを防ぐ）
-            import sys
-            import os
 
             original_stdout = sys.stdout
             original_stderr = sys.stderr
