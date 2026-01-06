@@ -49,11 +49,6 @@ export default defineNuxtConfig({
     },
   },
 
-  // グローバル認証ミドルウェア
-  router: {
-    middleware: ['auth'],
-  },
-
   // Nitro設定
   nitro: {
     publicAssets: [
