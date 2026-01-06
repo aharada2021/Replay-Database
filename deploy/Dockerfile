@@ -38,6 +38,10 @@ RUN pip install --no-cache-dir ./minimap_renderer/
 # replays_unpack_upstreamをコピー
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
 
+# BattleStatsを__all__にエクスポートするパッチを適用
+RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
+    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
+
 # アプリケーションコードをコピー
 COPY src/replay_processor.py .
 COPY src/lambda_handler.py .
