@@ -187,8 +187,17 @@ functions:
     architecture: arm64
     timeout: 300  # 5分
     memorySize: 512
+    events:
+      - s3:
+          bucket: ${self:custom.bucketName}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: replays/
+            - suffix: .wowsreplay
+          existing: true
     environment:
       REPLAYS_TABLE: ${self:custom.replaysTable}
+      STAGE: ${self:provider.stage}
 
   # 検索API
   search-api:
