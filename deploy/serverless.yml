@@ -263,6 +263,7 @@ functions:
       DISCORD_CLIENT_SECRET: ${env:DISCORD_CLIENT_SECRET}
       FRONTEND_URL: ${env:FRONTEND_URL, 'https://wows-replay.mirage0926.com'}
       SESSIONS_TABLE: ${self:custom.sessionsTable}
+      ALLOWED_GUILD_ID: ${env:ALLOWED_GUILD_ID, '1457376632921788550'}
 
   # 現在のユーザー情報取得
   auth-me:
