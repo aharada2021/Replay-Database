@@ -173,6 +173,43 @@ Discord /upload_replay
   → Webhook で完了通知
 ```
 
+### CI/CDパイプライン
+
+```
+git push origin main
+         ↓
+[GitHub Actions: CI - Linting]
+  → flake8 (src/)
+  → black --check (src/)
+         ↓
+[GitHub Actions: Deploy Lambda Backend]
+  → Build Docker Image (ARM64)
+    ├─ Install FFmpeg (BtbN/FFmpeg-Builds)
+    ├─ Install Python dependencies
+    ├─ Copy application code
+    └─ Build for linux/arm64
+  → Push to ECR (dev tag)
+  → Deploy to Lambda (dev)
+    ├─ interactions function
+    ├─ processor function
+    ├─ upload-api function
+    ├─ search-api function
+    ├─ battle-result-extractor function
+    └─ generate-video-api function
+         ↓
+✅ Development環境デプロイ完了
+```
+
+**手動トリガー（Production）:**
+```
+Actions > Deploy Lambda Backend > Run workflow
+  → environment: production を選択
+  → Required reviewers による承認
+  → 上記と同じフロー (prod tag)
+         ↓
+✅ Production環境デプロイ完了
+```
+
 ## ドキュメント
 
 - **クイックスタート**
