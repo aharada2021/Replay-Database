@@ -15,7 +15,9 @@ _SHIP_DATA_CACHE: Optional[Dict[str, dict]] = None
 
 # クラン情報のキャッシュ
 _PLAYER_ACCOUNT_CACHE: Dict[str, Optional[int]] = {}  # player_name -> account_id
-_CLAN_INFO_CACHE: Dict[int, Optional[dict]] = {}  # account_id -> clan_info (clan_id, tag)
+_CLAN_INFO_CACHE: Dict[int, Optional[dict]] = (
+    {}
+)  # account_id -> clan_info (clan_id, tag)
 
 
 class ReplayProcessor:
@@ -44,7 +46,11 @@ class ReplayProcessor:
 
             try:
                 # renderer.resourcesパッケージからships.jsonを読み込む
-                ships_json = files("renderer.resources").joinpath("ships.json").read_text(encoding="utf-8")
+                ships_json = (
+                    files("renderer.resources")
+                    .joinpath("ships.json")
+                    .read_text(encoding="utf-8")
+                )
                 _SHIP_DATA_CACHE = json.loads(ships_json)
                 logger.info(f"艦船データを読み込みました: {len(_SHIP_DATA_CACHE)}隻")
                 return _SHIP_DATA_CACHE
@@ -158,13 +164,17 @@ class ReplayProcessor:
                         for player in players:
                             if player.get("nickname") == player_name:
                                 account_id = player.get("account_id")
-                                logger.info(f"APIからアカウントIDを取得: {player_name} -> {account_id}")
+                                logger.info(
+                                    f"APIからアカウントIDを取得: {player_name} -> {account_id}"
+                                )
                                 _PLAYER_ACCOUNT_CACHE[player_name] = account_id
                                 return account_id
 
                         # 完全一致がない場合は最初の結果を使用
                         account_id = players[0].get("account_id")
-                        logger.info(f"APIからアカウントIDを取得（部分一致）: {player_name} -> {account_id}")
+                        logger.info(
+                            f"APIからアカウントIDを取得（部分一致）: {player_name} -> {account_id}"
+                        )
                         _PLAYER_ACCOUNT_CACHE[player_name] = account_id
                         return account_id
 
@@ -211,7 +221,9 @@ class ReplayProcessor:
                             f"?application_id={application_id}&clan_id={clan_id}"
                         )
 
-                        with urllib.request.urlopen(clan_url, timeout=5) as clan_response:
+                        with urllib.request.urlopen(
+                            clan_url, timeout=5
+                        ) as clan_response:
                             clan_data = json.loads(clan_response.read().decode("utf-8"))
 
                             if clan_data.get("status") == "ok" and "data" in clan_data:
@@ -219,12 +231,16 @@ class ReplayProcessor:
                                 if clan_info and "tag" in clan_info:
                                     tag = clan_info["tag"]
                                     result = {"clan_id": clan_id, "tag": tag}
-                                    logger.info(f"APIからクラン情報を取得: account_id={account_id} -> [{tag}]")
+                                    logger.info(
+                                        f"APIからクラン情報を取得: account_id={account_id} -> [{tag}]"
+                                    )
                                     _CLAN_INFO_CACHE[account_id] = result
                                     return result
 
         except Exception as e:
-            logger.warning(f"APIからのクラン情報取得エラー (account_id: {account_id}): {e}")
+            logger.warning(
+                f"APIからのクラン情報取得エラー (account_id: {account_id}): {e}"
+            )
 
         _CLAN_INFO_CACHE[account_id] = None
         return None
@@ -276,7 +292,9 @@ class ReplayProcessor:
                 # 最初の12バイトのヘッダーを読み取り
                 header = f.read(12)
                 if len(header) < 12:
-                    logger.error("リプレイファイルが不正です: ヘッダー情報が不足しています")
+                    logger.error(
+                        "リプレイファイルが不正です: ヘッダー情報が不足しています"
+                    )
                     return None
 
                 # ヘッダーを解析
@@ -410,7 +428,12 @@ class ReplayProcessor:
                 # クランタグを取得
                 clan_tag = ReplayProcessor.get_player_clan_tag(player_name)
 
-                player_data = {"name": player_name, "shipId": ship_id, "shipName": ship_name, "clanTag": clan_tag}
+                player_data = {
+                    "name": player_name,
+                    "shipId": ship_id,
+                    "shipName": ship_name,
+                    "clanTag": clan_tag,
+                }
 
                 relation = player.get("relation", 2)
 
@@ -437,7 +460,9 @@ class ReplayProcessor:
 
     @staticmethod
     def generate_minimap_video(
-        replay_path: Path, output_path: Path, minimap_renderer_path: Optional[str] = None
+        replay_path: Path,
+        output_path: Path,
+        minimap_renderer_path: Optional[str] = None,
     ) -> bool:
         """
         minimap_rendererを使用してMP4動画を生成
@@ -460,15 +485,20 @@ class ReplayProcessor:
             # リプレイファイルをパース
             logger.info("リプレイファイルをパース中...")
             with open(replay_path, "rb") as f:
-                replay_info = ReplayParser(f, strict=True, raw_data_output=True).get_info()
+                replay_info = ReplayParser(
+                    f, strict=True, raw_data_output=True
+                ).get_info()
 
-            logger.info(f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}")
+            logger.info(
+                f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}"
+            )
 
             # レンダラーでMP4を生成
             logger.info("MP4動画をレンダリング中...")
 
             # stdout/stderrを保護（Rendererがファイルディスクリプタを閉じる問題の回避）
             import sys
+
             original_stdout = sys.stdout
             original_stderr = sys.stderr
 
@@ -514,7 +544,10 @@ class ReplayProcessor:
 
     @classmethod
     def process_replay(
-        cls, replay_path: Path, output_dir: Path, minimap_renderer_path: Optional[str] = None
+        cls,
+        replay_path: Path,
+        output_dir: Path,
+        minimap_renderer_path: Optional[str] = None,
     ) -> Tuple[Optional[str], Optional[str], Optional[Path], dict]:
         """
         リプレイファイルを処理して対戦時間、ゲームタイプ、MP4、プレイヤー情報を生成
@@ -543,7 +576,9 @@ class ReplayProcessor:
         output_dir.mkdir(parents=True, exist_ok=True)
         mp4_path = output_dir / f"{replay_path.stem}.mp4"
 
-        success = cls.generate_minimap_video(replay_path, mp4_path, minimap_renderer_path)
+        success = cls.generate_minimap_video(
+            replay_path, mp4_path, minimap_renderer_path
+        )
 
         if success and mp4_path.exists():
             logger.info(f"MP4ファイルを生成しました: {mp4_path}")
