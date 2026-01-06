@@ -10,6 +10,7 @@ RUN yum update -y && \
     make \
     libxml2-devel \
     libxslt-devel \
+    python3-devel \
     wget \
     tar \
     xz \
@@ -50,13 +51,7 @@ RUN pip install --no-cache-dir ./replays_unpack_upstream/
 # minimap_rendererをインストール（replay_unpackを除外してインストール）
 COPY minimap_renderer/ ./minimap_renderer/
 RUN rm -rf ./minimap_renderer/src/replay_unpack && \
-    pip install --no-cache-dir \
-        imageio-ffmpeg==0.4.7 \
-        lxml==4.9.1 \
-        numpy==1.23.2 \
-        Pillow==9.2.0 \
-        pycryptodomex==3.15.0 \
-        tqdm==4.64.0 && \
+    pip install --no-cache-dir -r ./minimap_renderer/requirements.txt && \
     pip install --no-cache-dir --no-deps ./minimap_renderer/
 
 # アプリケーションコードをコピー
