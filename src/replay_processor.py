@@ -483,7 +483,7 @@ class ReplayProcessor:
             try:
                 renderer = Renderer(
                     replay_info["hidden"]["replay_data"],
-                    logs=True,
+                    logs=False,  # Lambda環境ではログ出力を無効化（バイナリデータの出力を防ぐ）
                     enable_chat=True,
                     use_tqdm=False,  # Lambda環境ではtqdmを無効化
                 )
