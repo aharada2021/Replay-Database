@@ -53,7 +53,13 @@ export const useMapNames = () => {
    */
   const getMapName = (mapId: string): string => {
     if (!mapId) return DEFAULT_MAP_NAME
-    return MAP_NAMES[mapId] || DEFAULT_MAP_NAME
+
+    // mapIdから "spaces/" プレフィックスと数字プレフィックス（例: "22_"）を除去
+    // 例: "spaces/22_tierra_del_fuego" → "tierra_del_fuego"
+    let cleanMapId = mapId.replace(/^spaces\//, '') // "spaces/" を除去
+    cleanMapId = cleanMapId.replace(/^\d+_/, '') // 先頭の数字とアンダースコアを除去
+
+    return MAP_NAMES[cleanMapId] || DEFAULT_MAP_NAME
   }
 
   /**
