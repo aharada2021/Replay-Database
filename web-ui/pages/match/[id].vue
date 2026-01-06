@@ -15,12 +15,12 @@
     </v-alert>
 
     <!-- データがない -->
-    <v-alert v-if="!loading && !replay" type="warning" class="mb-4">
-      リプレイデータが見つかりません
+    <v-alert v-if="!loading && !match" type="warning" class="mb-4">
+      試合データが見つかりません
     </v-alert>
 
     <!-- 詳細表示 -->
-    <div v-if="replay">
+    <div v-if="match">
       <!-- 試合情報カード -->
       <v-card class="mb-4">
         <v-card-title>試合情報</v-card-title>
@@ -28,46 +28,86 @@
           <v-row>
             <v-col cols="12" md="6">
               <div class="mb-2">
-                <strong>日時:</strong> {{ formatDateTime(replay.dateTime) }}
+                <strong>日時:</strong> {{ formatDateTime(match.dateTime) }}
               </div>
               <div class="mb-2">
-                <strong>マップ:</strong> {{ replay.mapDisplayName }}
+                <strong>マップ:</strong> {{ match.mapDisplayName }}
               </div>
               <div class="mb-2">
                 <strong>ゲームタイプ:</strong>
-                <v-chip :color="getGameTypeColor(replay.gameType)" size="small" class="ml-2">
-                  {{ getGameTypeText(replay.gameType) }}
+                <v-chip :color="getGameTypeColor(match.gameType)" size="small" class="ml-2">
+                  {{ getGameTypeText(match.gameType) }}
                 </v-chip>
               </div>
               <div class="mb-2">
                 <strong>勝敗:</strong>
-                <v-chip :color="getWinLossColor(replay.winLoss)" size="small" class="ml-2">
-                  {{ getWinLossText(replay.winLoss) }}
+                <v-chip :color="getWinLossColor(match.winLoss)" size="small" class="ml-2">
+                  {{ getWinLossText(match.winLoss) }}
                 </v-chip>
               </div>
             </v-col>
             <v-col cols="12" md="6">
               <div class="mb-2">
-                <strong>アップロード者:</strong> {{ replay.uploadedBy }}
+                <strong>Arena ID:</strong> {{ match.arenaUniqueID }}
               </div>
               <div class="mb-2">
-                <strong>アップロード日時:</strong> {{ formatDateTime(replay.uploadedAt) }}
+                <strong>クライアントバージョン:</strong> {{ match.clientVersion }}
               </div>
               <div class="mb-2">
-                <strong>ファイル名:</strong> {{ replay.fileName }}
-              </div>
-              <div class="mb-2">
-                <strong>ファイルサイズ:</strong> {{ formatFileSize(replay.fileSize) }}
+                <strong>リプレイ提供数:</strong> {{ match.replays.length }} 件
               </div>
             </v-col>
           </v-row>
         </v-card-text>
-        <v-card-actions>
-          <v-btn color="primary" @click="downloadReplay">
-            <v-icon left>mdi-download</v-icon>
-            リプレイをダウンロード
-          </v-btn>
-        </v-card-actions>
+      </v-card>
+
+      <!-- リプレイ提供者カード -->
+      <v-card class="mb-4">
+        <v-card-title>リプレイ提供者</v-card-title>
+        <v-card-text>
+          <v-list>
+            <v-list-item
+              v-for="(replay, index) in match.replays"
+              :key="index"
+              :active="selectedReplayIndex === index"
+              @click="selectReplay(index)"
+              class="mb-2"
+            >
+              <template v-slot:prepend>
+                <v-avatar color="primary">
+                  <v-icon v-if="replay.mp4S3Key">mdi-video</v-icon>
+                  <v-icon v-else>mdi-account</v-icon>
+                </v-avatar>
+              </template>
+
+              <v-list-item-title>
+                <span v-if="replay.ownPlayer?.clanTag" class="text-primary font-weight-bold">
+                  [{{ replay.ownPlayer.clanTag }}]
+                </span>
+                {{ replay.playerName }}
+                <v-chip v-if="replay.mp4S3Key" size="x-small" color="success" class="ml-2">
+                  動画あり
+                </v-chip>
+              </v-list-item-title>
+
+              <v-list-item-subtitle>
+                アップロード: {{ formatDateTime(replay.uploadedAt) }} by {{ replay.uploadedBy }}
+                <br>
+                船: {{ replay.ownPlayer?.shipName || '-' }}
+              </v-list-item-subtitle>
+
+              <template v-slot:append>
+                <v-btn
+                  size="small"
+                  variant="outlined"
+                  @click.stop="downloadReplay(replay.s3Key)"
+                >
+                  <v-icon>mdi-download</v-icon>
+                </v-btn>
+              </template>
+            </v-list-item>
+          </v-list>
+        </v-card-text>
       </v-card>
 
       <!-- プレイヤー一覧 -->
@@ -81,13 +121,13 @@
               <v-list density="compact">
                 <v-list-item>
                   <v-list-item-title>
-                    <span v-if="replay.ownPlayer.clanTag" class="text-primary font-weight-bold">
-                      [{{ replay.ownPlayer.clanTag }}]
+                    <span v-if="match.ownPlayer.clanTag" class="text-primary font-weight-bold">
+                      [{{ match.ownPlayer.clanTag }}]
                     </span>
-                    {{ replay.ownPlayer.name }}
+                    {{ match.ownPlayer.name }}
                   </v-list-item-title>
                   <v-list-item-subtitle>
-                    {{ replay.ownPlayer.shipName }}
+                    {{ match.ownPlayer.shipName }}
                   </v-list-item-subtitle>
                 </v-list-item>
               </v-list>
@@ -95,9 +135,9 @@
 
             <!-- 味方 -->
             <v-col cols="12" md="4">
-              <h3 class="mb-2">味方 ({{ replay.allies.length }}名)</h3>
+              <h3 class="mb-2">味方 ({{ match.allies.length }}名)</h3>
               <v-list density="compact">
-                <v-list-item v-for="(player, idx) in replay.allies" :key="idx">
+                <v-list-item v-for="(player, idx) in match.allies" :key="idx">
                   <v-list-item-title>
                     <span v-if="player.clanTag" class="text-primary font-weight-bold">
                       [{{ player.clanTag }}]
@@ -113,9 +153,9 @@
 
             <!-- 敵 -->
             <v-col cols="12" md="4">
-              <h3 class="mb-2">敵 ({{ replay.enemies.length }}名)</h3>
+              <h3 class="mb-2">敵 ({{ match.enemies.length }}名)</h3>
               <v-list density="compact">
-                <v-list-item v-for="(player, idx) in replay.enemies" :key="idx">
+                <v-list-item v-for="(player, idx) in match.enemies" :key="idx">
                   <v-list-item-title>
                     <span v-if="player.clanTag" class="text-error font-weight-bold">
                       [{{ player.clanTag }}]
@@ -134,11 +174,16 @@
 
       <!-- 動画セクション -->
       <v-card>
-        <v-card-title>動画</v-card-title>
+        <v-card-title>
+          ミニマップ動画
+          <v-chip v-if="selectedReplay" size="small" class="ml-2">
+            {{ selectedReplay.playerName }}のリプレイ
+          </v-chip>
+        </v-card-title>
         <v-card-text>
           <!-- 未生成 -->
-          <div v-if="!replay.mp4S3Key && !generatingVideo">
-            <p>このリプレイの動画はまだ生成されていません。</p>
+          <div v-if="!hasVideo && !generatingVideo">
+            <p>選択中のリプレイの動画はまだ生成されていません。</p>
             <v-btn color="primary" @click="handleGenerateVideo" :loading="generatingVideo">
               <v-icon left>mdi-video</v-icon>
               動画を生成
@@ -152,7 +197,7 @@
           </div>
 
           <!-- 生成済み -->
-          <div v-if="replay.mp4S3Key && videoUrl">
+          <div v-if="hasVideo && videoUrl">
             <video controls width="100%" :src="videoUrl">
               お使いのブラウザは動画タグをサポートしていません。
             </video>
@@ -161,6 +206,9 @@
                 <v-icon left>mdi-download</v-icon>
                 動画をダウンロード
               </v-btn>
+              <v-chip v-if="selectedReplay?.mp4GeneratedAt" size="small" class="ml-2">
+                生成日時: {{ formatDateTime(selectedReplay.mp4GeneratedAt) }}
+              </v-chip>
             </div>
           </div>
         </v-card-text>
@@ -170,74 +218,59 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import type { ReplayRecord } from '~/types/replay'
+import type { MatchDetailResponse, ReplayProvider } from '~/types/replay'
 
 const route = useRoute()
 const api = useApi()
 
 const loading = ref(true)
 const error = ref<string | null>(null)
-const replay = ref<ReplayRecord | null>(null)
+const match = ref<MatchDetailResponse | null>(null)
+const selectedReplayIndex = ref(0)
 const generatingVideo = ref(false)
 const videoUrl = ref<string | null>(null)
 
-// URLパラメータから arena ID と player ID を抽出
-const parseId = (id: string) => {
-  console.log('[Detail] Parsing ID:', id)
-  const parts = id.split('-')
-  console.log('[Detail] Split parts:', parts)
-
-  if (parts.length < 2) {
-    console.error('[Detail] Invalid ID format, expected at least 2 parts')
+// 選択中のリプレイ
+const selectedReplay = computed(() => {
+  if (!match.value || !match.value.replays || match.value.replays.length === 0) {
     return null
   }
+  return match.value.replays[selectedReplayIndex.value]
+})
 
-  // arenaUniqueIDは最後のパート以外をすべて結合
-  const playerIdPart = parts[parts.length - 1]
-  const arenaIdParts = parts.slice(0, -1)
-  const arenaUniqueID = arenaIdParts.join('-')
-  const playerID = parseInt(playerIdPart, 10)
-
-  console.log('[Detail] Parsed:', { arenaUniqueID, playerID })
-
-  if (isNaN(playerID)) {
-    console.error('[Detail] PlayerID is NaN')
-    return null
-  }
-
-  return {
-    arenaUniqueID,
-    playerID,
-  }
-}
+// 選択中のリプレイに動画があるか
+const hasVideo = computed(() => {
+  return selectedReplay.value?.mp4S3Key != null
+})
 
 onMounted(async () => {
-  const id = route.params.id as string
+  const arenaUniqueID = route.params.id as string
   console.log('[Detail] Route params:', route.params)
-  console.log('[Detail] ID from route:', id)
+  console.log('[Detail] Arena ID from route:', arenaUniqueID)
 
-  const parsed = parseId(id)
-
-  if (!parsed) {
+  if (!arenaUniqueID) {
     error.value = '無効なIDです'
     loading.value = false
     return
   }
 
   try {
-    const data = await api.getReplayDetail(parsed.arenaUniqueID, parsed.playerID)
+    const data = await api.getMatchDetail(arenaUniqueID)
     if (data) {
-      replay.value = data
+      match.value = data
 
-      // 動画が既に生成済みの場合、URLを取得
-      if (data.mp4S3Key) {
-        // 仮実装: 実際にはAPIから署名付きURLを取得する必要がある
-        videoUrl.value = `https://wows-replay-bot-dev-temp.s3.ap-northeast-1.amazonaws.com/${data.mp4S3Key}`
+      // 動画が既に生成済みのリプレイを優先選択
+      const videoReplayIndex = data.replays.findIndex((r) => r.mp4S3Key)
+      if (videoReplayIndex >= 0) {
+        selectedReplayIndex.value = videoReplayIndex
       }
+
+      // 動画URLを設定
+      updateVideoUrl()
     } else {
-      error.value = 'リプレイが見つかりません'
+      error.value = '試合データが見つかりません'
     }
   } catch (err: any) {
     error.value = err.message || 'データ取得エラー'
@@ -246,20 +279,38 @@ onMounted(async () => {
   }
 })
 
+// リプレイ選択時の処理
+const selectReplay = (index: number) => {
+  selectedReplayIndex.value = index
+  updateVideoUrl()
+}
+
+// 動画URLを更新
+const updateVideoUrl = () => {
+  const replay = selectedReplay.value
+  if (replay?.mp4S3Key) {
+    // 仮実装: 実際にはAPIから署名付きURLを取得する必要がある
+    videoUrl.value = `https://wows-replay-bot-dev-temp.s3.ap-northeast-1.amazonaws.com/${replay.mp4S3Key}`
+  } else {
+    videoUrl.value = null
+  }
+}
+
 const handleGenerateVideo = async () => {
-  if (!replay.value) return
+  if (!match.value || !selectedReplay.value) return
 
   generatingVideo.value = true
   try {
     const response = await api.generateVideo({
-      arenaUniqueID: replay.value.arenaUniqueID,
-      playerID: replay.value.playerID,
+      arenaUniqueID: match.value.arenaUniqueID,
+      playerID: selectedReplay.value.playerID,
     })
 
     if (response.status === 'already_exists' || response.status === 'generated') {
       videoUrl.value = response.videoUrl || null
-      if (replay.value) {
-        replay.value.mp4S3Key = response.mp4S3Key
+      if (selectedReplay.value && response.mp4S3Key) {
+        selectedReplay.value.mp4S3Key = response.mp4S3Key
+        updateVideoUrl()
       }
     }
   } catch (err: any) {
@@ -269,9 +320,8 @@ const handleGenerateVideo = async () => {
   }
 }
 
-const downloadReplay = () => {
-  if (!replay.value) return
-  const url = api.getReplayDownloadUrl(replay.value.s3Key)
+const downloadReplay = (s3Key: string) => {
+  const url = api.getReplayDownloadUrl(s3Key)
   window.open(url, '_blank')
 }
 

@@ -10,6 +10,54 @@ export interface PlayerInfo {
   relation?: string
 }
 
+export interface ReplayProvider {
+  playerID: number
+  playerName: string
+  uploadedBy: string
+  uploadedAt: string
+  s3Key: string
+  fileName: string
+  fileSize: number
+  mp4S3Key?: string
+  mp4GeneratedAt?: string
+  ownPlayer?: PlayerInfo
+}
+
+export interface MatchRecord {
+  arenaUniqueID: string
+
+  // 試合情報
+  dateTime: string
+  mapId: string
+  mapDisplayName: string
+  gameType: 'clan' | 'pvp' | 'ranked' | 'brawl' | string
+  clientVersion: string
+
+  // 勝敗情報
+  winLoss?: 'win' | 'loss' | 'draw' | 'unknown'
+  experienceEarned?: number
+
+  // プレイヤー情報
+  ownPlayer: PlayerInfo
+  allies: PlayerInfo[]
+  enemies: PlayerInfo[]
+
+  // リプレイ提供者情報
+  replays: ReplayProvider[]
+  replayCount: number
+
+  // 代表リプレイ情報（一覧表示用）
+  representativePlayerID?: number
+  representativePlayerName?: string
+  uploadedBy?: string
+  uploadedAt?: string
+  s3Key?: string
+  fileName?: string
+  fileSize?: number
+  mp4S3Key?: string
+  mp4GeneratedAt?: string
+}
+
 export interface ReplayRecord {
   arenaUniqueID: string
   playerID: number
@@ -56,10 +104,25 @@ export interface SearchQuery {
 }
 
 export interface SearchResponse {
-  items: ReplayRecord[]
+  items: MatchRecord[]
   count: number
   scannedCount?: number
   lastEvaluatedKey?: any
+}
+
+export interface MatchDetailResponse {
+  arenaUniqueID: string
+  dateTime: string
+  mapId: string
+  mapDisplayName: string
+  gameType: 'clan' | 'pvp' | 'ranked' | 'brawl' | string
+  clientVersion: string
+  winLoss?: 'win' | 'loss' | 'draw' | 'unknown'
+  experienceEarned?: number
+  ownPlayer: PlayerInfo
+  allies: PlayerInfo[]
+  enemies: PlayerInfo[]
+  replays: ReplayProvider[]
 }
 
 export interface GenerateVideoRequest {

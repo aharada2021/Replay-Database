@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { SearchQuery, ReplayRecord } from '~/types/replay'
+import type { SearchQuery, MatchRecord } from '~/types/replay'
 
 export const useSearchStore = defineStore('search', {
   state: () => ({
@@ -14,7 +14,7 @@ export const useSearchStore = defineStore('search', {
       limit: 50,
       offset: 0,
     } as SearchQuery,
-    results: [] as ReplayRecord[],
+    results: [] as MatchRecord[],
     loading: false,
     error: null as string | null,
     totalCount: 0,

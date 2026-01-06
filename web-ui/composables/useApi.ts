@@ -2,6 +2,7 @@ import type {
   SearchQuery,
   SearchResponse,
   ReplayRecord,
+  MatchDetailResponse,
   GenerateVideoRequest,
   GenerateVideoResponse,
 } from '~/types/replay'
@@ -53,7 +54,34 @@ export const useApi = () => {
   }
 
   /**
-   * リプレイ詳細取得
+   * 試合詳細取得（全リプレイを含む）
+   */
+  const getMatchDetail = async (
+    arenaUniqueID: string
+  ): Promise<MatchDetailResponse | null> => {
+    console.log('[API] getMatchDetail called:', { arenaUniqueID })
+
+    try {
+      const url = `${baseUrl}/api/match/${encodeURIComponent(arenaUniqueID)}`
+      console.log('[API] Fetching match detail:', url)
+
+      const response = await $fetch<MatchDetailResponse>(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      console.log('[API] Match detail response:', response)
+      return response
+    } catch (error) {
+      console.error('[API] Get match detail error:', error)
+      return null
+    }
+  }
+
+  /**
+   * リプレイ詳細取得（後方互換性のため残す）
    */
   const getReplayDetail = async (
     arenaUniqueID: string,
@@ -62,33 +90,44 @@ export const useApi = () => {
     console.log('[API] getReplayDetail called:', { arenaUniqueID, playerID })
 
     try {
-      // 全件取得して該当レコードを探す
-      // TODO: DynamoDB GetItemを使用する専用APIを作成すると効率的
-      const response = await searchReplays({
-        limit: 1000, // 全件取得
-      })
-
-      console.log('[API] Search response for detail:', response.items.length, 'items')
-
-      // 検索結果から該当レコードを探す
-      const record = response.items.find((item) => {
-        const itemArenaId = String(item.arenaUniqueID)
-        const searchArenaId = String(arenaUniqueID)
-        const itemPlayerId = Number(item.playerID)
-        const searchPlayerId = Number(playerID)
-
-        return itemArenaId === searchArenaId && itemPlayerId === searchPlayerId
-      })
-
-      console.log('[API] Found record:', record ? 'yes' : 'no')
-      if (record) {
-        console.log('[API] Record details:', record)
-      } else {
-        console.log('[API] Looking for:', { arenaUniqueID, playerID })
-        console.log('[API] Available items:', response.items.map(i => ({ arenaUniqueID: i.arenaUniqueID, playerID: i.playerID })))
+      // 試合詳細を取得
+      const matchDetail = await getMatchDetail(arenaUniqueID)
+      if (!matchDetail) {
+        return null
       }
 
-      return record || null
+      // 該当するリプレイを探す
+      const replay = matchDetail.replays.find((r) => r.playerID === playerID)
+      if (!replay) {
+        console.log('[API] Replay not found for playerID:', playerID)
+        return null
+      }
+
+      // ReplayRecord形式に変換
+      const record: ReplayRecord = {
+        arenaUniqueID: matchDetail.arenaUniqueID,
+        playerID: replay.playerID,
+        playerName: replay.playerName,
+        uploadedBy: replay.uploadedBy,
+        uploadedAt: replay.uploadedAt,
+        dateTime: matchDetail.dateTime,
+        mapId: matchDetail.mapId,
+        mapDisplayName: matchDetail.mapDisplayName,
+        gameType: matchDetail.gameType,
+        clientVersion: matchDetail.clientVersion,
+        winLoss: matchDetail.winLoss,
+        experienceEarned: matchDetail.experienceEarned,
+        ownPlayer: replay.ownPlayer || matchDetail.ownPlayer,
+        allies: matchDetail.allies,
+        enemies: matchDetail.enemies,
+        s3Key: replay.s3Key,
+        fileName: replay.fileName,
+        fileSize: replay.fileSize,
+        mp4S3Key: replay.mp4S3Key,
+        mp4GeneratedAt: replay.mp4GeneratedAt,
+      }
+
+      return record
     } catch (error) {
       console.error('[API] Get detail error:', error)
       return null
@@ -130,6 +169,7 @@ export const useApi = () => {
 
   return {
     searchReplays,
+    getMatchDetail,
     getReplayDetail,
     generateVideo,
     getReplayDownloadUrl,

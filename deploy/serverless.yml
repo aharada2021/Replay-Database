@@ -162,6 +162,22 @@ functions:
     environment:
       REPLAYS_TABLE: ${self:custom.replaysTable}
 
+  # 試合詳細API
+  match-detail-api:
+    image:
+      uri: ${env:ECR_IMAGE_URI}
+      command:
+        - match_detail_api_handler.handle
+    architecture: arm64
+    timeout: 30
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/match/{arenaUniqueID}
+          method: get
+    environment:
+      REPLAYS_TABLE: ${self:custom.replaysTable}
+
   # 動画生成API
   generate-video-api:
     image:

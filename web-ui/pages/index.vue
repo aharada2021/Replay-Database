@@ -178,12 +178,19 @@
           </v-chip-group>
         </template>
 
+        <!-- リプレイ数 -->
+        <template v-slot:item.replayCount="{ item }">
+          <v-chip size="small" color="info">
+            {{ item?.replayCount ?? item?.raw?.replayCount ?? 1 }} 件
+          </v-chip>
+        </template>
+
         <!-- アクション -->
         <template v-slot:item.actions="{ item }">
           <v-btn
             size="small"
             color="primary"
-            :to="`/match/${item?.arenaUniqueID ?? item?.raw?.arenaUniqueID}-${item?.playerID ?? item?.raw?.playerID}`"
+            :to="`/match/${item?.arenaUniqueID ?? item?.raw?.arenaUniqueID}`"
           >
             詳細
           </v-btn>
@@ -277,6 +284,7 @@ const headers = [
   { title: '自分', key: 'ownPlayer', sortable: false },
   { title: '味方クラン', key: 'allies', sortable: false },
   { title: '敵クラン', key: 'enemies', sortable: false },
+  { title: 'リプレイ数', key: 'replayCount', sortable: false },
   { title: 'アクション', key: 'actions', sortable: false },
 ]
 

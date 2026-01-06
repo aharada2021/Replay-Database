@@ -78,12 +78,77 @@ def handle(event, context):
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
                 item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
 
+        # 試合単位でグループ化
+        matches = {}
+        for item in items:
+            arena_id = item.get("arenaUniqueID")
+            if not arena_id:
+                continue
+
+            if arena_id not in matches:
+                matches[arena_id] = {
+                    "arenaUniqueID": arena_id,
+                    "replays": [],
+                    # 代表データ（最初のリプレイから取得）
+                    "dateTime": item.get("dateTime"),
+                    "mapId": item.get("mapId"),
+                    "mapDisplayName": item.get("mapDisplayName"),
+                    "gameType": item.get("gameType"),
+                    "clientVersion": item.get("clientVersion"),
+                    "winLoss": item.get("winLoss"),
+                    "experienceEarned": item.get("experienceEarned"),
+                    "ownPlayer": item.get("ownPlayer"),
+                    "allies": item.get("allies"),
+                    "enemies": item.get("enemies"),
+                }
+
+            # リプレイ提供者情報を追加
+            matches[arena_id]["replays"].append(
+                {
+                    "playerID": item.get("playerID"),
+                    "playerName": item.get("playerName"),
+                    "uploadedBy": item.get("uploadedBy"),
+                    "uploadedAt": item.get("uploadedAt"),
+                    "s3Key": item.get("s3Key"),
+                    "fileName": item.get("fileName"),
+                    "fileSize": item.get("fileSize"),
+                    "mp4S3Key": item.get("mp4S3Key"),
+                    "mp4GeneratedAt": item.get("mp4GeneratedAt"),
+                }
+            )
+
+        # 各試合の代表リプレイを選択（mp4生成済み > 最初にアップロードされた順）
+        for arena_id, match in matches.items():
+            replays = match["replays"]
+
+            # mp4が生成済みのリプレイを優先
+            replays_with_video = [r for r in replays if r.get("mp4S3Key")]
+            if replays_with_video:
+                representative = replays_with_video[0]
+            else:
+                representative = replays[0]
+
+            # 代表リプレイの情報をマッチに追加
+            match["representativePlayerID"] = representative.get("playerID")
+            match["representativePlayerName"] = representative.get("playerName")
+            match["uploadedBy"] = representative.get("uploadedBy")
+            match["uploadedAt"] = representative.get("uploadedAt")
+            match["s3Key"] = representative.get("s3Key")
+            match["fileName"] = representative.get("fileName")
+            match["fileSize"] = representative.get("fileSize")
+            match["mp4S3Key"] = representative.get("mp4S3Key")
+            match["mp4GeneratedAt"] = representative.get("mp4GeneratedAt")
+            match["replayCount"] = len(replays)
+
+        # マッチのリストに変換（日時順にソート）
+        match_list = sorted(matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True)
+
         # レスポンス
         return {
             "statusCode": 200,
             "headers": cors_headers,
             "body": json.dumps(
-                {"items": items, "lastEvaluatedKey": result["last_evaluated_key"], "count": len(items)},
+                {"items": match_list, "lastEvaluatedKey": result["last_evaluated_key"], "count": len(match_list)},
                 cls=DecimalEncoder,
             ),
         }
