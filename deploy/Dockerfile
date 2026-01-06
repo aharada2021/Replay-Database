@@ -20,8 +20,11 @@ RUN yum update -y && \
 RUN cd /tmp && \
     wget -O ffmpeg.zip "https://ffmpeg.martin-riedl.de/redirect/latest/linux/arm64/release/ffmpeg.zip" && \
     unzip ffmpeg.zip && \
+    ls -la && \
+    find . -name "ffmpeg" -o -name "ffmpeg-*" && \
     chmod +x ffmpeg && \
     mv ffmpeg /usr/local/bin/ && \
+    /usr/local/bin/ffmpeg -version && \
     rm -rf ffmpeg.zip
 
 # 作業ディレクトリ
