@@ -50,7 +50,8 @@ RUN pip install --no-cache-dir ./replays_unpack_upstream/
 # minimap_rendererをインストール（replay_unpackを除外してインストール）
 COPY minimap_renderer/ ./minimap_renderer/
 RUN rm -rf ./minimap_renderer/src/replay_unpack && \
-    pip install --no-cache-dir ./minimap_renderer/
+    pip install --no-cache-dir -r ./minimap_renderer/requirements.txt && \
+    pip install --no-cache-dir --no-deps ./minimap_renderer/
 
 # アプリケーションコードをコピー
 COPY src/replay_processor.py .
