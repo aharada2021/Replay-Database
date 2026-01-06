@@ -31,11 +31,7 @@ WORKDIR ${LAMBDA_TASK_ROOT}
 COPY config/requirements_lambda.txt .
 RUN pip install --no-cache-dir -r requirements_lambda.txt
 
-# minimap_rendererをローカルからインストール
-COPY minimap_renderer/ ./minimap_renderer/
-RUN pip install --no-cache-dir ./minimap_renderer/
-
-# replays_unpack_upstreamをコピー
+# replays_unpack_upstreamをコピーしてパッチ適用
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
 
 # BattleStatsを__all__にエクスポートするパッチを適用
@@ -48,8 +44,13 @@ RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
     echo "# Alias for backward compatibility with minimap_renderer" >> ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
     echo "PACKETS_MAPPING_12_6_0 = PACKETS_MAPPING_12_6" >> ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
 
-# パッチ適用後にreplays_unpackをインストール
+# パッチ適用後のreplays_unpackを先にインストール
 RUN pip install --no-cache-dir ./replays_unpack_upstream/
+
+# minimap_rendererをインストール（replay_unpackを除外してインストール）
+COPY minimap_renderer/ ./minimap_renderer/
+RUN rm -rf ./minimap_renderer/src/replay_unpack && \
+    pip install --no-cache-dir ./minimap_renderer/
 
 # アプリケーションコードをコピー
 COPY src/replay_processor.py .
