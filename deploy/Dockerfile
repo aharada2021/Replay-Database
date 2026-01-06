@@ -37,7 +37,8 @@ RUN pip install --no-cache-dir -r requirements_lambda.txt
 
 # minimap_rendererをインストール（元のreplay_unpackを含む）
 COPY minimap_renderer/ ./minimap_renderer/
-RUN pip install --no-cache-dir ./minimap_renderer/
+RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt && \
+    pip install --no-cache-dir ./minimap_renderer/
 
 # replays_unpack_upstreamをコピーしてパッチ適用（battle_result_extractor用）
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
