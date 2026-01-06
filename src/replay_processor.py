@@ -497,7 +497,8 @@ class ReplayProcessor:
             with open(replay_path, "rb") as f:
                 replay_info = ReplayParser(f, strict=True, raw_data_output=True).get_info()
 
-            original_stdout.write(f"[INFO] リプレイバージョン: {replay_info['open']['clientVersionFromExe']}\n")
+            client_version = replay_info["open"]["clientVersionFromExe"]
+            original_stdout.write(f"[INFO] リプレイバージョン: {client_version}\n")
             original_stdout.flush()
 
             # レンダラーでMP4を生成
@@ -559,7 +560,7 @@ class ReplayProcessor:
                     # ファイルオブジェクトベースのリダイレクトを復元
                     sys.stdout = original_stdout
                     sys.stderr = original_stderr
-                    if 'devnull' in locals():
+                    if "devnull" in locals():
                         devnull.close()
             except Exception as e:
                 # 復元に失敗した場合はoriginalを直接設定
