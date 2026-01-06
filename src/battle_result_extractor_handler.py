@@ -56,6 +56,18 @@ def handle(event, context):
                 s3_client.download_fileobj(bucket, key, tmp_file)
             # with文を抜けてファイルが完全に閉じられる
 
+            # デバッグ: ファイル情報を確認
+            if tmp_path.exists():
+                file_size = tmp_path.stat().st_size
+                print(f"Downloaded file: {tmp_path}, size: {file_size} bytes")
+
+                # ファイルの最初の100バイトを確認
+                with open(tmp_path, 'rb') as f:
+                    first_bytes = f.read(100)
+                    print(f"First 100 bytes (hex): {first_bytes[:100].hex()}")
+            else:
+                print(f"ERROR: File does not exist: {tmp_path}")
+
             try:
                 # BattleStatsパケットを抽出
                 battle_results = extract_battle_stats(str(tmp_path))
