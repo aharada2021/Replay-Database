@@ -111,9 +111,7 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
-            "http", {}
-        ).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -205,9 +203,7 @@ def handle(event, context):
         for item in items:
             match_info["replays"].append(
                 {
-                    "arenaUniqueID": item.get(
-                        "arenaUniqueID"
-                    ),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),

@@ -18,9 +18,7 @@ def get_dynamodb_resource():
     """DynamoDBリソースを取得（遅延初期化）"""
     global _dynamodb
     if _dynamodb is None:
-        _dynamodb = boto3.resource(
-            "dynamodb", region_name=os.environ.get("AWS_REGION", "ap-northeast-1")
-        )
+        _dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "ap-northeast-1"))
     return _dynamodb
 
 
@@ -212,9 +210,7 @@ def get_replay_record(arena_unique_id: int, player_id: int) -> Optional[Dict[str
     """
     table = get_table()
 
-    response = table.get_item(
-        Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}
-    )
+    response = table.get_item(Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id})
 
     return response.get("Item")
 
