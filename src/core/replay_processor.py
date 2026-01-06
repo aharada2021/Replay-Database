@@ -52,11 +52,7 @@ class ReplayProcessor:
 
             try:
                 # renderer.resourcesパッケージからships.jsonを読み込む
-                ships_json = (
-                    files("renderer.resources")
-                    .joinpath("ships.json")
-                    .read_text(encoding="utf-8")
-                )
+                ships_json = files("renderer.resources").joinpath("ships.json").read_text(encoding="utf-8")
                 _SHIP_DATA_CACHE = json.loads(ships_json)
                 logger.info(f"艦船データを読み込みました: {len(_SHIP_DATA_CACHE)}隻")
                 return _SHIP_DATA_CACHE

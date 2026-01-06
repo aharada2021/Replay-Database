@@ -17,9 +17,7 @@ import boto3
 from core.replay_metadata import ReplayMetadataParser
 
 # ログ設定
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -27,9 +25,7 @@ logger.setLevel(logging.INFO)
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 DISCORD_API_BASE = "https://discord.com/api/v10"
 TEMP_BUCKET = os.environ.get("TEMP_BUCKET", "wows-replay-bot-dev-temp")
-VIDEO_GENERATOR_FUNCTION_NAME = os.environ.get(
-    "VIDEO_GENERATOR_FUNCTION_NAME", "wows-replay-bot-dev-video-generator"
-)
+VIDEO_GENERATOR_FUNCTION_NAME = os.environ.get("VIDEO_GENERATOR_FUNCTION_NAME", "wows-replay-bot-dev-video-generator")
 
 # AWSクライアント
 s3_client = boto3.client("s3")
@@ -121,14 +117,10 @@ def download_file(url: str, dest_path: Path) -> bool:
         return False
 
 
-def send_followup_message(
-    webhook_url: str, content: str, flags: int = 64, fallback_channel_id: str = None
-):
+def send_followup_message(webhook_url: str, content: str, flags: int = 64, fallback_channel_id: str = None):
     """Discord Webhookでフォローアップメッセージを送信"""
     try:
-        response = requests.post(
-            webhook_url, json={"content": content, "flags": flags}, timeout=30
-        )
+        response = requests.post(webhook_url, json={"content": content, "flags": flags}, timeout=30)
         response.raise_for_status()
         logger.info("フォローアップメッセージを送信しました")
         return True
@@ -189,8 +181,7 @@ def handle(event, context):
         # マップ設定を読み込み
         MAPS, GAME_TYPE_PREFIXES, DEFAULT_MAP_NAME = load_map_config()
         logger.info(
-            f"マップ設定を読み込みました: {len(MAPS)}個のマップ, "
-            f"{len(GAME_TYPE_PREFIXES)}個のゲームタイプprefix"
+            f"マップ設定を読み込みました: {len(MAPS)}個のマップ, " f"{len(GAME_TYPE_PREFIXES)}個のゲームタイプprefix"
         )
 
         # 一時ディレクトリでファイルを処理
@@ -200,18 +191,14 @@ def handle(event, context):
 
             # ファイルをダウンロード
             if not download_file(file_url, replay_path):
-                send_followup_message(
-                    webhook_url, "❌ ファイルのダウンロードに失敗しました。"
-                )
+                send_followup_message(webhook_url, "❌ ファイルのダウンロードに失敗しました。")
                 return
 
             # メタデータを解析
             metadata = ReplayMetadataParser.parse_replay_metadata(replay_path)
 
             if not metadata:
-                send_followup_message(
-                    webhook_url, "❌ リプレイファイルの解析に失敗しました。"
-                )
+                send_followup_message(webhook_url, "❌ リプレイファイルの解析に失敗しました。")
                 return
 
             # メタデータから情報を抽出
@@ -219,9 +206,7 @@ def handle(event, context):
             game_type = ReplayMetadataParser.extract_game_type(metadata)
             players_info = ReplayMetadataParser.extract_players_info(metadata)
 
-            logger.info(
-                f"メタデータ解析完了: battle_time={battle_time}, game_type={game_type}"
-            )
+            logger.info(f"メタデータ解析完了: battle_time={battle_time}, game_type={game_type}")
 
             # マップIDを取得
             map_id = extract_map_id_from_filename(filename)
@@ -247,10 +232,7 @@ def handle(event, context):
 
             # チャンネル名を構築
             target_channel_name = f"{prefix}{japanese_map_name}"
-            logger.info(
-                f"マップID: {map_id} → 日本語名: {japanese_map_name} → "
-                f"チャンネル: {target_channel_name}"
-            )
+            logger.info(f"マップID: {map_id} → 日本語名: {japanese_map_name} → " f"チャンネル: {target_channel_name}")
 
             # チャンネルIDを取得
             target_channel_id = get_channel_by_name(guild_id, target_channel_name)
@@ -303,15 +285,11 @@ def handle(event, context):
                 Payload=json.dumps(video_payload),
             )
 
-            logger.info(
-                f"video-generator Lambdaを呼び出しました: {VIDEO_GENERATOR_FUNCTION_NAME}"
-            )
+            logger.info(f"video-generator Lambdaを呼び出しました: {VIDEO_GENERATOR_FUNCTION_NAME}")
 
     except Exception as e:
         logger.error(f"リプレイ解析エラー: {e}", exc_info=True)
         try:
-            send_followup_message(
-                event.get("webhook_url"), f"❌ 解析中にエラーが発生しました: {str(e)}"
-            )
+            send_followup_message(event.get("webhook_url"), f"❌ 解析中にエラーが発生しました: {str(e)}")
         except Exception:
             pass

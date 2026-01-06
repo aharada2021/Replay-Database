@@ -16,9 +16,7 @@ import boto3
 from core.replay_processor import ReplayProcessor
 
 # ログ設定
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -31,9 +29,7 @@ TEMP_BUCKET = os.environ.get("TEMP_BUCKET", "wows-replay-bot-dev-temp")
 s3_client = boto3.client("s3")
 
 
-def send_channel_message(
-    channel_id: str, content: str = None, embed: dict = None, files: list = None
-) -> bool:
+def send_channel_message(channel_id: str, content: str = None, embed: dict = None, files: list = None) -> bool:
     """Discordチャンネルにメッセージを送信"""
     url = f"{DISCORD_API_BASE}/channels/{channel_id}/messages"
     headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
@@ -50,9 +46,7 @@ def send_channel_message(
             files_payload = []
             for i, file_path in enumerate(files):
                 with open(file_path, "rb") as f:
-                    files_payload.append(
-                        (f"files[{i}]", (Path(file_path).name, f.read()))
-                    )
+                    files_payload.append((f"files[{i}]", (Path(file_path).name, f.read())))
 
             response = requests.post(
                 url,
@@ -74,14 +68,10 @@ def send_channel_message(
         return False
 
 
-def send_followup_message(
-    webhook_url: str, content: str, flags: int = 64, fallback_channel_id: str = None
-):
+def send_followup_message(webhook_url: str, content: str, flags: int = 64, fallback_channel_id: str = None):
     """Discord Webhookでフォローアップメッセージを送信"""
     try:
-        response = requests.post(
-            webhook_url, json={"content": content, "flags": flags}, timeout=30
-        )
+        response = requests.post(webhook_url, json={"content": content, "flags": flags}, timeout=30)
         response.raise_for_status()
         logger.info("フォローアップメッセージを送信しました")
         return True
@@ -90,9 +80,7 @@ def send_followup_message(
             logger.warning("フォローアップメッセージのwebhookが期限切れ (15分経過)")
             # 404の場合、webhookが期限切れなのでfallbackチャンネルに送信
             if fallback_channel_id:
-                logger.info(
-                    f"代わりにチャンネル {fallback_channel_id} に直接メッセージを送信します"
-                )
+                logger.info(f"代わりにチャンネル {fallback_channel_id} に直接メッセージを送信します")
                 return send_channel_message(fallback_channel_id, content)
         else:
             logger.error(f"フォローアップメッセージ送信エラー: {e}")
@@ -164,14 +152,10 @@ def handle(event, context):
 
             # ゲームタイプを表示
             if game_type:
-                embed["fields"].append(
-                    {"name": "ゲームタイプ", "value": game_type, "inline": True}
-                )
+                embed["fields"].append({"name": "ゲームタイプ", "value": game_type, "inline": True})
 
             # ファイル名を追加
-            embed["fields"].append(
-                {"name": "ファイル名", "value": filename, "inline": False}
-            )
+            embed["fields"].append({"name": "ファイル名", "value": filename, "inline": False})
 
             # プレイヤー情報を追加
             if players_info:
@@ -186,9 +170,7 @@ def handle(event, context):
                             for p in players_info["own"]
                         ]
                     )
-                    embed["fields"].append(
-                        {"name": "自分", "value": own_text, "inline": False}
-                    )
+                    embed["fields"].append({"name": "自分", "value": own_text, "inline": False})
 
                 if players_info.get("allies"):
                     allies_list = [
@@ -201,13 +183,8 @@ def handle(event, context):
                     ]
                     allies_text = "\n".join(allies_list)
                     if len(allies_text) > 1024:
-                        allies_text = (
-                            "\n".join(allies_list[:15])
-                            + f"\n... 他 {len(allies_list) - 15} 名"
-                        )
-                    embed["fields"].append(
-                        {"name": "味方", "value": allies_text, "inline": True}
-                    )
+                        allies_text = "\n".join(allies_list[:15]) + f"\n... 他 {len(allies_list) - 15} 名"
+                    embed["fields"].append({"name": "味方", "value": allies_text, "inline": True})
 
                 if players_info.get("enemies"):
                     enemies_list = [
@@ -220,13 +197,8 @@ def handle(event, context):
                     ]
                     enemies_text = "\n".join(enemies_list)
                     if len(enemies_text) > 1024:
-                        enemies_text = (
-                            "\n".join(enemies_list[:15])
-                            + f"\n... 他 {len(enemies_list) - 15} 名"
-                        )
-                    embed["fields"].append(
-                        {"name": "敵", "value": enemies_text, "inline": True}
-                    )
+                        enemies_text = "\n".join(enemies_list[:15]) + f"\n... 他 {len(enemies_list) - 15} 名"
+                    embed["fields"].append({"name": "敵", "value": enemies_text, "inline": True})
 
             # ファイルを準備
             files = []
@@ -237,9 +209,7 @@ def handle(event, context):
                 files.append(str(replay_path))
 
             # チャンネルに投稿
-            post_success = send_channel_message(
-                target_channel_id, embed=embed, files=files
-            )
+            post_success = send_channel_message(target_channel_id, embed=embed, files=files)
 
             if post_success:
                 send_followup_message(

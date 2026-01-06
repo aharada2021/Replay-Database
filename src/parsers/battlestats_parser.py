@@ -80,10 +80,7 @@ class BattleStatsParser:
                 # データ型変換
                 if key == "potential_damage" and isinstance(value, float):
                     stats[key] = int(value)
-                elif (
-                    key in ["player_id", "account_db_id", "clan_id"]
-                    and value is not None
-                ):
+                elif key in ["player_id", "account_db_id", "clan_id"] and value is not None:
                     stats[key] = int(value)
                 elif key in ["player_name", "clan_tag", "realm"] and value is not None:
                     stats[key] = str(value)
@@ -97,9 +94,7 @@ class BattleStatsParser:
         return stats
 
     @classmethod
-    def parse_all_players(
-        cls, players_public_info: Dict[str, List[Any]]
-    ) -> Dict[str, Dict[str, Any]]:
+    def parse_all_players(cls, players_public_info: Dict[str, List[Any]]) -> Dict[str, Dict[str, Any]]:
         """
         全プレイヤーの統計情報を抽出
 
@@ -122,9 +117,7 @@ class BattleStatsParser:
         return result
 
     @classmethod
-    def get_team_stats(
-        cls, players_public_info: Dict[str, List[Any]], team_id: int
-    ) -> List[Dict[str, Any]]:
+    def get_team_stats(cls, players_public_info: Dict[str, List[Any]], team_id: int) -> List[Dict[str, Any]]:
         """
         特定チームのプレイヤー統計を取得
 
@@ -238,14 +231,10 @@ if __name__ == "__main__":
     print(f"\n全プレイヤーの統計 ({len(all_stats)}名):\n")
 
     # ダメージ順にソート
-    sorted_players = sorted(
-        all_stats.values(), key=lambda x: x.get("damage", 0), reverse=True
-    )
+    sorted_players = sorted(all_stats.values(), key=lambda x: x.get("damage", 0), reverse=True)
 
     for stats in sorted_players:
-        print(
-            f"{stats['player_name']:<30} | ダメージ: {stats['damage']:>8,} | 撃沈: {stats['kills']}"
-        )
+        print(f"{stats['player_name']:<30} | ダメージ: {stats['damage']:>8,} | 撃沈: {stats['kills']}")
 
     print("\n詳細（トッププレイヤー）:")
     if sorted_players:
