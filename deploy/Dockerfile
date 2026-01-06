@@ -16,12 +16,13 @@ RUN yum update -y && \
     xz \
     && yum clean all
 
-# FFmpegのインストール (ARM64用 - BtbN/FFmpeg-Builds)
+# FFmpegのインストール (ARM64用 - BtbN/FFmpeg-Builds n7.1)
+# imageio_ffmpegとの互換性のため、安定版のn7.1を使用
 RUN cd /tmp && \
-    wget -O ffmpeg-linuxarm64.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz" && \
+    wget -O ffmpeg-linuxarm64.tar.xz "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2024-11-21-12-47/ffmpeg-n7.1-latest-linuxarm64-gpl-7.1.tar.xz" && \
     tar xf ffmpeg-linuxarm64.tar.xz && \
-    mv ffmpeg-master-latest-linuxarm64-gpl/bin/ffmpeg /usr/local/bin/ && \
-    mv ffmpeg-master-latest-linuxarm64-gpl/bin/ffprobe /usr/local/bin/ && \
+    mv ffmpeg-n7.1-latest-linuxarm64-gpl-7.1/bin/ffmpeg /usr/local/bin/ && \
+    mv ffmpeg-n7.1-latest-linuxarm64-gpl-7.1/bin/ffprobe /usr/local/bin/ && \
     rm -rf ffmpeg-* && \
     chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
 
