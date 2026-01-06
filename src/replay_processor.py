@@ -464,18 +464,8 @@ class ReplayProcessor:
             from renderer.render import Renderer
             from replay_parser import ReplayParser
 
-            # リプレイファイルをパース
-            logger.info("リプレイファイルをパース中...")
-            with open(replay_path, "rb") as f:
-                replay_info = ReplayParser(f, strict=True, raw_data_output=True).get_info()
-
-            logger.info(f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}")
-
-            # レンダラーでMP4を生成
-            logger.info("MP4動画をレンダリング中...")
-
             # stdout/stderrを/dev/nullにリダイレクト
-            # （Renderer内部のFFmpegサブプロセスがバイナリデータを出力するのを防ぐ）
+            # （ReplayParserとRenderer内部でバイナリデータが出力されるのを防ぐ）
             import sys
             import os
 
@@ -486,6 +476,16 @@ class ReplayProcessor:
             try:
                 sys.stdout = devnull
                 sys.stderr = devnull
+
+                # リプレイファイルをパース
+                logger.info("リプレイファイルをパース中...")
+                with open(replay_path, "rb") as f:
+                    replay_info = ReplayParser(f, strict=True, raw_data_output=True).get_info()
+
+                logger.info(f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}")
+
+                # レンダラーでMP4を生成
+                logger.info("MP4動画をレンダリング中...")
 
                 renderer = Renderer(
                     replay_info["hidden"]["replay_data"],
