@@ -48,4 +48,9 @@ export default defineNuxtConfig({
       'process.env.DEBUG': false,
     },
   },
+
+  // グローバル認証ミドルウェア
+  router: {
+    middleware: ['auth'],
+  },
 })

@@ -12,18 +12,20 @@ provider:
   httpApi:
     cors:
       allowedOrigins:
-        - '*'
+        - https://wows-replay.mirage0926.com
+        - http://localhost:3000
       allowedHeaders:
         - Content-Type
         - X-Api-Key
         - X-User-Id
+        - Cookie
       allowedMethods:
         - GET
         - POST
         - PUT
         - DELETE
         - OPTIONS
-      allowCredentials: false
+      allowCredentials: true
 
   # 環境変数
   environment:
@@ -78,11 +80,13 @@ provider:
           Resource:
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.sessionsTable}
 
 # カスタム変数
 custom:
   bucketName: wows-replay-bot-${self:provider.stage}-temp
   replaysTable: wows-replays-${self:provider.stage}
+  sessionsTable: wows-sessions-${self:provider.stage}
   # Dockerイメージを使用するため、pythonRequirementsは不要
   # pythonRequirements:
   #   dockerizePip: true
@@ -218,6 +222,80 @@ functions:
     environment:
       REPLAYS_TABLE: ${self:custom.replaysTable}
 
+  # ========================================
+  # 認証API
+  # ========================================
+
+  # Discord OAuth2 認証開始
+  auth-discord:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.auth.handle_discord_auth
+    architecture: arm64
+    timeout: 10
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/auth/discord
+          method: get
+    environment:
+      DISCORD_CLIENT_ID: ${env:DISCORD_APPLICATION_ID}
+      DISCORD_CLIENT_SECRET: ${env:DISCORD_CLIENT_SECRET}
+      FRONTEND_URL: ${env:FRONTEND_URL, 'https://wows-replay.mirage0926.com'}
+      SESSIONS_TABLE: ${self:custom.sessionsTable}
+
+  # Discord OAuth2 コールバック
+  auth-discord-callback:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.auth.handle_discord_callback
+    architecture: arm64
+    timeout: 10
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/auth/discord/callback
+          method: get
+    environment:
+      DISCORD_CLIENT_ID: ${env:DISCORD_APPLICATION_ID}
+      DISCORD_CLIENT_SECRET: ${env:DISCORD_CLIENT_SECRET}
+      FRONTEND_URL: ${env:FRONTEND_URL, 'https://wows-replay.mirage0926.com'}
+      SESSIONS_TABLE: ${self:custom.sessionsTable}
+
+  # 現在のユーザー情報取得
+  auth-me:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.auth.handle_auth_me
+    architecture: arm64
+    timeout: 10
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/auth/me
+          method: get
+    environment:
+      SESSIONS_TABLE: ${self:custom.sessionsTable}
+
+  # ログアウト
+  auth-logout:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.auth.handle_logout
+    architecture: arm64
+    timeout: 10
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/auth/logout
+          method: post
+    environment:
+      SESSIONS_TABLE: ${self:custom.sessionsTable}
+
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
 resources:
   Resources:
@@ -270,6 +348,22 @@ resources:
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
+
+    # DynamoDBテーブル（セッション管理用）
+    SessionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.sessionsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: sessionId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: sessionId
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: expiresAt
+          Enabled: true
 
 # Dockerイメージを使用するため、pluginsは不要
 # plugins:

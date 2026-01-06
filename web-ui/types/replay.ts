@@ -10,7 +10,32 @@ export interface PlayerInfo {
   relation?: string
 }
 
-export interface ReplayProvider {
+export interface BattleStats {
+  // 基本統計
+  damage?: number
+  receivedDamage?: number
+  spottingDamage?: number
+  potentialDamage?: number
+  kills?: number
+  fires?: number
+  floods?: number
+  baseXP?: number
+  // 命中数内訳
+  hitsAP?: number
+  hitsHE?: number
+  hitsSecondaries?: number
+  // ダメージ内訳
+  damageAP?: number
+  damageHE?: number
+  damageHESecondaries?: number
+  damageTorps?: number
+  damageDeepWaterTorps?: number
+  damageOther?: number
+  damageFire?: number
+  damageFlooding?: number
+}
+
+export interface ReplayProvider extends BattleStats {
   arenaUniqueID: string
   playerID: number
   playerName: string
@@ -24,7 +49,7 @@ export interface ReplayProvider {
   ownPlayer?: PlayerInfo
 }
 
-export interface MatchRecord {
+export interface MatchRecord extends BattleStats {
   arenaUniqueID: string
 
   // 試合情報
@@ -155,4 +180,11 @@ export interface ShipInfo {
   name: string
   tier?: number
   type?: string
+}
+
+export interface User {
+  id: string
+  username: string
+  globalName: string | null
+  avatar: string | null
 }
