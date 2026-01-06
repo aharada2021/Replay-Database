@@ -460,7 +460,7 @@ class ReplayProcessor:
             # リプレイファイルをパース
             logger.info("リプレイファイルをパース中...")
             with open(replay_path, "rb") as f:
-                replay_info = ReplayParser(f, strict=True, raw_data_output=False).get_info()
+                replay_info = ReplayParser(f, strict=True, raw_data_output=True).get_info()
 
             logger.info(f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}")
 
