@@ -6,6 +6,7 @@
 
 import json
 from decimal import Decimal
+from datetime import datetime
 
 from utils import dynamodb
 
@@ -17,6 +18,77 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return int(obj) if obj % 1 == 0 else float(obj)
         return super(DecimalEncoder, self).default(obj)
+
+
+def round_datetime_to_5min(date_time_str):
+    """
+    日時を5分単位に丸める
+
+    Args:
+        date_time_str: "04.01.2026 21:56:55" 形式の日時文字列
+
+    Returns:
+        5分単位に丸めた日時文字列 (例: "04.01.2026 21:55:00")
+    """
+    try:
+        # フォーマット例: "04.01.2026 21:56:55"
+        dt = datetime.strptime(date_time_str, "%d.%m.%Y %H:%M:%S")
+
+        # 分を5分単位に切り捨て
+        rounded_minute = (dt.minute // 5) * 5
+
+        # 丸めた日時を返す
+        rounded_dt = dt.replace(minute=rounded_minute, second=0)
+        return rounded_dt.strftime("%d.%m.%Y %H:%M:00")
+    except Exception as e:
+        print(f"Error rounding datetime: {e}, returning original: {date_time_str}")
+        return date_time_str
+
+
+def generate_match_key(item):
+    """
+    同一試合を識別するためのキーを生成
+
+    Args:
+        item: DynamoDBアイテム
+
+    Returns:
+        マッチキー文字列
+    """
+    # 全プレイヤー名を収集
+    players = set()
+
+    # ownPlayerを追加
+    own_player = item.get("ownPlayer", {})
+    if isinstance(own_player, dict) and own_player.get("name"):
+        players.add(own_player["name"])
+
+    # alliesを追加
+    for ally in item.get("allies", []):
+        if ally.get("name"):
+            players.add(ally["name"])
+
+    # enemiesを追加
+    for enemy in item.get("enemies", []):
+        if enemy.get("name"):
+            players.add(enemy["name"])
+
+    # プレイヤーリストをソート（安定したキーのため）
+    player_list = sorted(players)
+
+    # 日時を5分単位に丸める
+    date_time = item.get("dateTime", "")
+    rounded_date_time = round_datetime_to_5min(date_time)
+
+    # マップとゲームタイプ
+    map_id = item.get("mapId", "")
+    game_type = item.get("gameType", "")
+
+    # マッチキーを生成
+    # フォーマット: "日時(5分丸め)|マップ|ゲームタイプ|プレイヤー1|プレイヤー2|..."
+    match_key = f"{rounded_date_time}|{map_id}|{game_type}|{'|'.join(player_list)}"
+
+    return match_key
 
 
 def handle(event, context):
@@ -54,15 +126,15 @@ def handle(event, context):
                 "body": json.dumps({"error": "arenaUniqueID is required"}),
             }
 
-        # DynamoDBから該当する全リプレイを取得
+        # まず指定されたarenaUniqueIDのレコードを取得してmatch_keyを生成
         table = dynamodb.get_table()
         response = table.query(
             KeyConditionExpression="arenaUniqueID = :aid", ExpressionAttributeValues={":aid": str(arena_unique_id)}
         )
 
-        items = response.get("Items", [])
+        seed_items = response.get("Items", [])
 
-        if not items:
+        if not seed_items:
             return {
                 "statusCode": 404,
                 "headers": cors_headers,
@@ -70,9 +142,44 @@ def handle(event, context):
             }
 
         # ownPlayerが配列の場合、単一オブジェクトに変換
-        for item in items:
+        for item in seed_items:
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
                 item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
+
+        # 最初のレコードからmatch_keyを生成
+        seed_item = seed_items[0]
+        target_match_key = generate_match_key(seed_item)
+
+        print(f"Target match_key: {target_match_key}")
+
+        # 全リプレイをスキャンして同じmatch_keyを持つものを探す
+        # 小規模データベースの場合はScanで十分
+        # 大規模な場合はGameTypeIndexを使って絞り込む
+        game_type = seed_item.get("gameType")
+        date_time = seed_item.get("dateTime")
+
+        # GameTypeIndexで同じゲームタイプのリプレイを取得
+        # 日時の範囲を広めに取る（±10分）
+        all_response = table.query(
+            IndexName="GameTypeIndex",
+            KeyConditionExpression="gameType = :gt",
+            ExpressionAttributeValues={":gt": game_type},
+        )
+
+        all_items = all_response.get("Items", [])
+
+        # ownPlayerが配列の場合、単一オブジェクトに変換
+        for item in all_items:
+            if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
+                item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
+
+        # match_keyが一致するアイテムをフィルタリング
+        items = []
+        for item in all_items:
+            if generate_match_key(item) == target_match_key:
+                items.append(item)
+
+        print(f"Found {len(items)} replays for the same match")
 
         # 試合情報を構築（最初のリプレイから共通情報を取得）
         first_replay = items[0]
@@ -95,6 +202,7 @@ def handle(event, context):
         for item in items:
             match_info["replays"].append(
                 {
+                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),

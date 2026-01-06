@@ -6,6 +6,7 @@ Web UIからの検索リクエストを処理
 
 import json
 from decimal import Decimal
+from datetime import datetime
 
 from utils import dynamodb
 
@@ -17,6 +18,77 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return int(obj) if obj % 1 == 0 else float(obj)
         return super(DecimalEncoder, self).default(obj)
+
+
+def round_datetime_to_5min(date_time_str):
+    """
+    日時を5分単位に丸める
+
+    Args:
+        date_time_str: "04.01.2026 21:56:55" 形式の日時文字列
+
+    Returns:
+        5分単位に丸めた日時文字列 (例: "04.01.2026 21:55:00")
+    """
+    try:
+        # フォーマット例: "04.01.2026 21:56:55"
+        dt = datetime.strptime(date_time_str, "%d.%m.%Y %H:%M:%S")
+
+        # 分を5分単位に切り捨て
+        rounded_minute = (dt.minute // 5) * 5
+
+        # 丸めた日時を返す
+        rounded_dt = dt.replace(minute=rounded_minute, second=0)
+        return rounded_dt.strftime("%d.%m.%Y %H:%M:00")
+    except Exception as e:
+        print(f"Error rounding datetime: {e}, returning original: {date_time_str}")
+        return date_time_str
+
+
+def generate_match_key(item):
+    """
+    同一試合を識別するためのキーを生成
+
+    Args:
+        item: DynamoDBアイテム
+
+    Returns:
+        マッチキー文字列
+    """
+    # 全プレイヤー名を収集
+    players = set()
+
+    # ownPlayerを追加
+    own_player = item.get("ownPlayer", {})
+    if isinstance(own_player, dict) and own_player.get("name"):
+        players.add(own_player["name"])
+
+    # alliesを追加
+    for ally in item.get("allies", []):
+        if ally.get("name"):
+            players.add(ally["name"])
+
+    # enemiesを追加
+    for enemy in item.get("enemies", []):
+        if enemy.get("name"):
+            players.add(enemy["name"])
+
+    # プレイヤーリストをソート（安定したキーのため）
+    player_list = sorted(players)
+
+    # 日時を5分単位に丸める
+    date_time = item.get("dateTime", "")
+    rounded_date_time = round_datetime_to_5min(date_time)
+
+    # マップとゲームタイプ
+    map_id = item.get("mapId", "")
+    game_type = item.get("gameType", "")
+
+    # マッチキーを生成
+    # フォーマット: "日時(5分丸め)|マップ|ゲームタイプ|プレイヤー1|プレイヤー2|..."
+    match_key = f"{rounded_date_time}|{map_id}|{game_type}|{'|'.join(player_list)}"
+
+    return match_key
 
 
 def handle(event, context):
@@ -78,16 +150,23 @@ def handle(event, context):
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
                 item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
 
-        # 試合単位でグループ化
+        # 試合単位でグループ化（プレイヤーセットベース）
         matches = {}
-        for item in items:
-            arena_id = item.get("arenaUniqueID")
-            if not arena_id:
-                continue
+        match_key_to_arena_ids = {}  # match_key -> 最初のarenaUniqueIDのマッピング
 
-            if arena_id not in matches:
-                matches[arena_id] = {
-                    "arenaUniqueID": arena_id,
+        for item in items:
+            # マッチキーを生成
+            match_key = generate_match_key(item)
+
+            if match_key not in matches:
+                # 新しい試合として登録
+                # arenaUniqueIDは最初に見つかったものを使用
+                arena_id = item.get("arenaUniqueID", "")
+                match_key_to_arena_ids[match_key] = arena_id
+
+                matches[match_key] = {
+                    "arenaUniqueID": arena_id,  # 代表arenaUniqueID
+                    "matchKey": match_key,  # デバッグ用
                     "replays": [],
                     # 代表データ（最初のリプレイから取得）
                     "dateTime": item.get("dateTime"),
@@ -103,8 +182,9 @@ def handle(event, context):
                 }
 
             # リプレイ提供者情報を追加
-            matches[arena_id]["replays"].append(
+            matches[match_key]["replays"].append(
                 {
+                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),
@@ -118,7 +198,7 @@ def handle(event, context):
             )
 
         # 各試合の代表リプレイを選択（mp4生成済み > 最初にアップロードされた順）
-        for arena_id, match in matches.items():
+        for match_key, match in matches.items():
             replays = match["replays"]
 
             # mp4が生成済みのリプレイを優先
@@ -129,6 +209,7 @@ def handle(event, context):
                 representative = replays[0]
 
             # 代表リプレイの情報をマッチに追加
+            match["representativeArenaUniqueID"] = representative.get("arenaUniqueID")
             match["representativePlayerID"] = representative.get("playerID")
             match["representativePlayerName"] = representative.get("playerName")
             match["uploadedBy"] = representative.get("uploadedBy")
