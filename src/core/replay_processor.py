@@ -189,4 +189,3 @@ class ReplayProcessor:
         except Exception as e:
             logger.error(f"MP4生成エラー: {e}", exc_info=True)
             return False
-
