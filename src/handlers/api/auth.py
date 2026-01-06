@@ -18,6 +18,7 @@ DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wows-replay.mirage0926.com")
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "wows-sessions-dev")
+ALLOWED_GUILD_ID = os.environ.get("ALLOWED_GUILD_ID", "1457376632921788550")
 
 # DynamoDB
 dynamodb = boto3.resource("dynamodb")
@@ -30,6 +31,7 @@ SESSION_TTL = 24 * 60 * 60
 DISCORD_AUTH_URL = "https://discord.com/api/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
 DISCORD_USER_URL = "https://discord.com/api/users/@me"
+DISCORD_GUILDS_URL = "https://discord.com/api/users/@me/guilds"
 
 
 def get_redirect_uri():
@@ -119,7 +121,7 @@ def handle_discord_auth(event, context):
             "client_id": DISCORD_CLIENT_ID,
             "redirect_uri": get_redirect_uri(),
             "response_type": "code",
-            "scope": "identify",
+            "scope": "identify guilds",
             "state": state,
         }
         auth_url = f"{DISCORD_AUTH_URL}?{urllib.parse.urlencode(params)}"
@@ -271,6 +273,46 @@ def handle_discord_callback(event, context):
                 },
                 "body": "",
             }
+
+        # ギルドメンバーシップ確認
+        if ALLOWED_GUILD_ID:
+            guilds_req = urllib.request.Request(
+                DISCORD_GUILDS_URL,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "User-Agent": "wows-replay/1.0",
+                },
+            )
+
+            try:
+                with urllib.request.urlopen(guilds_req) as response:
+                    guilds_data = json.loads(response.read().decode())
+            except urllib.error.HTTPError as e:
+                print(f"Guilds info error: {e}")
+                return {
+                    "statusCode": 302,
+                    "headers": {
+                        **cors_headers,
+                        "Location": f"{FRONTEND_URL}/login?error=guilds_error",
+                    },
+                    "body": "",
+                }
+
+            # 許可されたギルドのメンバーかチェック
+            is_member = any(
+                guild.get("id") == ALLOWED_GUILD_ID for guild in guilds_data
+            )
+
+            if not is_member:
+                print(f"User {user_data.get('id')} is not a member of guild {ALLOWED_GUILD_ID}")
+                return {
+                    "statusCode": 302,
+                    "headers": {
+                        **cors_headers,
+                        "Location": f"{FRONTEND_URL}/login?error=not_member",
+                    },
+                    "body": "",
+                }
 
         # セッション作成
         session_id = secrets.token_urlsafe(32)

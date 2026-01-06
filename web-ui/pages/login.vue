@@ -54,6 +54,8 @@ const errorMessage = computed(() => {
       token_error: 'アクセストークンの取得に失敗しました',
       no_token: 'アクセストークンが取得できませんでした',
       user_error: 'ユーザー情報の取得に失敗しました',
+      guilds_error: 'サーバー情報の取得に失敗しました',
+      not_member: '許可されたDiscordサーバーのメンバーではありません',
       access_denied: 'アクセスが拒否されました',
     }
     return errorMessages[error] || `認証エラー: ${error}`
