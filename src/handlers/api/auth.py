@@ -317,9 +317,11 @@ def handle_discord_callback(event, context):
         expires_at = int(time.time()) + SESSION_TTL
 
         # アバターURL構築
+        print(f"Discord user_data: {user_data}")
         avatar_url = None
         if user_data.get("avatar"):
             avatar_url = f"https://cdn.discordapp.com/avatars/{user_data['id']}/{user_data['avatar']}.png"
+            print(f"Avatar URL: {avatar_url}")
 
         session_item = {
             "sessionId": session_id,
