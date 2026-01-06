@@ -53,6 +53,7 @@ def handle(event, context):
             with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_file:
                 tmp_path = Path(tmp_file.name)
                 s3_client.download_fileobj(bucket, key, tmp_file)
+                tmp_file.flush()  # バッファをディスクに書き込む
 
             try:
                 # BattleStatsパケットを抽出
