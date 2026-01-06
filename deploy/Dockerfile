@@ -19,13 +19,15 @@ RUN yum update -y && \
 # 自動リダイレクトURLで最新の安定版を取得
 RUN cd /tmp && \
     wget -O ffmpeg.zip "https://ffmpeg.martin-riedl.de/redirect/latest/linux/arm64/release/ffmpeg.zip" && \
+    unzip -l ffmpeg.zip && \
     unzip ffmpeg.zip && \
     ls -la && \
-    find . -name "ffmpeg" -o -name "ffmpeg-*" && \
-    chmod +x ffmpeg && \
-    mv ffmpeg /usr/local/bin/ && \
+    FFMPEG_BIN=$(find . -type f -name "ffmpeg" | head -n 1) && \
+    echo "Found FFmpeg binary: $FFMPEG_BIN" && \
+    chmod +x "$FFMPEG_BIN" && \
+    mv "$FFMPEG_BIN" /usr/local/bin/ffmpeg && \
     /usr/local/bin/ffmpeg -version && \
-    rm -rf ffmpeg.zip
+    cd /tmp && rm -rf *
 
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
