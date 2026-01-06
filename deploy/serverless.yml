@@ -55,12 +55,13 @@ provider:
             - logs:PutLogEvents
           Resource: '*'
 
-        # Lambda呼び出し（interactions → processor）
+        # Lambda呼び出し（interactions → processor, battle-result-extractor → generate-video-api）
         - Effect: Allow
           Action:
             - lambda:InvokeFunction
           Resource:
             - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${self:provider.stage}-processor
+            - arn:aws:lambda:${self:provider.region}:*:function:${self:service}-${self:provider.stage}-generate-video-api
 
         # DynamoDB アクセス
         - Effect: Allow
