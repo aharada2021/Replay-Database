@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "replays_unpack_upstream"))
 
 from replay_unpack.replay_reader import ReplayReader  # noqa: E402
-from replay_unpack.clients.wows.network.packets import BattleStats  # noqa: E402
+from replay_unpack.clients.wows.network.packets.BattleStats import BattleStats  # noqa: E402
 from replay_unpack.clients.wows.player import ReplayPlayer as WoWSReplayPlayer  # noqa: E402
 
 
