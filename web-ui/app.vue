@@ -5,15 +5,34 @@
       <v-toolbar-title>WoWS Replay Database</v-toolbar-title>
       <v-spacer></v-spacer>
 
-      <!-- ユーザー情報 -->
+      <!-- ユーザーメニュー -->
       <template v-if="auth.isAuthenticated && auth.user">
-        <v-avatar v-if="auth.user.avatar" size="32" class="mr-2">
-          <v-img :src="auth.user.avatar" :alt="auth.displayName"></v-img>
-        </v-avatar>
-        <span class="mr-4 text-body-2">{{ auth.displayName }}</span>
-        <v-btn icon @click="handleLogout" title="ログアウト">
-          <v-icon>mdi-logout</v-icon>
-        </v-btn>
+        <v-menu offset-y>
+          <template v-slot:activator="{ props }">
+            <v-btn v-bind="props" variant="text" class="text-none">
+              <v-avatar size="32" class="mr-2">
+                <v-img v-if="auth.user.avatar" :src="auth.user.avatar" :alt="auth.displayName"></v-img>
+                <v-icon v-else>mdi-account-circle</v-icon>
+              </v-avatar>
+              <span class="d-none d-sm-inline">{{ auth.displayName }}</span>
+              <v-icon end>mdi-menu-down</v-icon>
+            </v-btn>
+          </template>
+          <v-list>
+            <v-list-item>
+              <v-list-item-title class="text-caption text-grey">
+                {{ auth.user.username }}
+              </v-list-item-title>
+            </v-list-item>
+            <v-divider></v-divider>
+            <v-list-item @click="handleLogout">
+              <template v-slot:prepend>
+                <v-icon>mdi-logout</v-icon>
+              </template>
+              <v-list-item-title>ログアウト</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
       </template>
     </v-app-bar>
 
