@@ -16,10 +16,11 @@ on:
 
 jobs:
   build-and-push:
-    name: Build & Push Docker Image to ECR
+    name: Build & Push Docker Images to ECR
     runs-on: ubuntu-latest
     outputs:
-      ecr_image_uri: ${{ steps.set-output.outputs.ecr_image_uri }}
+      ecr_processor_image_uri: ${{ steps.set-output.outputs.ecr_processor_image_uri }}
+      ecr_extractor_image_uri: ${{ steps.set-output.outputs.ecr_extractor_image_uri }}
 
     steps:
       - name: Checkout code
@@ -80,31 +81,37 @@ jobs:
           echo "stage=${STAGE}" >> $GITHUB_OUTPUT
           echo "Building for stage: ${STAGE}"
 
-      - name: Build and push Docker image with cache
-        id: docker-build
+      - name: Build and push Processor Docker image
+        id: docker-build-processor
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: deploy/Dockerfile
+          file: deploy/Dockerfile.processor
           platforms: linux/arm64
           push: true
           provenance: false
           tags: |
-            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:latest
-            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ steps.determine-stage.outputs.stage }}
-            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ github.sha }}
-          cache-from: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:buildcache
-          cache-to: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:buildcache,mode=max
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-latest
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-${{ steps.determine-stage.outputs.stage }}
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-${{ github.sha }}
+          cache-from: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-buildcache
+          cache-to: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-buildcache,mode=max
 
-      - name: Set ECR URI output
-        id: set-ecr-uri
-        run: |
-          ACCOUNT_ID="${{ steps.aws-account.outputs.account_id }}"
-          REGION="ap-northeast-1"
-          REPOSITORY_NAME="wows-replay-bot"
-          ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
-          echo "ecr_uri=${ECR_URI}" >> $GITHUB_OUTPUT
-          echo "stage=${{ steps.determine-stage.outputs.stage }}" >> $GITHUB_OUTPUT
+      - name: Build and push Extractor Docker image
+        id: docker-build-extractor
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/Dockerfile.extractor
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-latest
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-${{ steps.determine-stage.outputs.stage }}
+            ${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-${{ github.sha }}
+          cache-from: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-buildcache
+          cache-to: type=registry,ref=${{ steps.aws-account.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-buildcache,mode=max
 
       - name: Set output for downstream jobs
         id: set-output
@@ -126,9 +133,12 @@ jobs:
             STAGE="dev"
           fi
 
-          IMAGE_URI="${ECR_URI}:${STAGE}"
-          echo "ecr_image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
-          echo "ECR Image URI: ${IMAGE_URI}"
+          PROCESSOR_IMAGE_URI="${ECR_URI}:processor-${STAGE}"
+          EXTRACTOR_IMAGE_URI="${ECR_URI}:extractor-${STAGE}"
+          echo "ecr_processor_image_uri=${PROCESSOR_IMAGE_URI}" >> $GITHUB_OUTPUT
+          echo "ecr_extractor_image_uri=${EXTRACTOR_IMAGE_URI}" >> $GITHUB_OUTPUT
+          echo "Processor Image URI: ${PROCESSOR_IMAGE_URI}"
+          echo "Extractor Image URI: ${EXTRACTOR_IMAGE_URI}"
 
   deploy-dev:
     name: Deploy to Development
@@ -160,7 +170,8 @@ jobs:
 
       - name: Deploy to Lambda
         env:
-          ECR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_image_uri }}
+          ECR_PROCESSOR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_processor_image_uri }}
+          ECR_EXTRACTOR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_extractor_image_uri }}
           DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
           DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -183,7 +194,8 @@ jobs:
         run: |
           echo "## Deployment Summary (Development)" >> $GITHUB_STEP_SUMMARY
           echo "- **Stage**: dev" >> $GITHUB_STEP_SUMMARY
-          echo "- **ECR Image**: ${{ needs.build-and-push.outputs.ecr_image_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Processor Image**: ${{ needs.build-and-push.outputs.ecr_processor_image_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Extractor Image**: ${{ needs.build-and-push.outputs.ecr_extractor_image_uri }}" >> $GITHUB_STEP_SUMMARY
           echo "- **API Endpoint**: ${{ steps.get-endpoint.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
           echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
@@ -218,7 +230,8 @@ jobs:
 
       - name: Deploy to Lambda (prod)
         env:
-          ECR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_image_uri }}
+          ECR_PROCESSOR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_processor_image_uri }}
+          ECR_EXTRACTOR_IMAGE_URI: ${{ needs.build-and-push.outputs.ecr_extractor_image_uri }}
           DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
           DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
@@ -241,7 +254,8 @@ jobs:
         run: |
           echo "## Deployment Summary (Production)" >> $GITHUB_STEP_SUMMARY
           echo "- **Stage**: prod" >> $GITHUB_STEP_SUMMARY
-          echo "- **ECR Image**: ${{ needs.build-and-push.outputs.ecr_image_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Processor Image**: ${{ needs.build-and-push.outputs.ecr_processor_image_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Extractor Image**: ${{ needs.build-and-push.outputs.ecr_extractor_image_uri }}" >> $GITHUB_STEP_SUMMARY
           echo "- **API Endpoint**: ${{ steps.get-endpoint.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
           echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
