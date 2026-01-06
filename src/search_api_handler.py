@@ -111,7 +111,9 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+            "http", {}
+        ).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -126,6 +128,7 @@ def handle(event, context):
         game_type = params.get("gameType")
         map_id = params.get("mapId")
         player_name = params.get("playerName")
+        enemy_clan_tag = params.get("enemyClanTag")
         win_loss = params.get("winLoss")
         date_from = params.get("dateFrom")
         date_to = params.get("dateTo")
@@ -179,12 +182,17 @@ def handle(event, context):
                     "ownPlayer": item.get("ownPlayer"),
                     "allies": item.get("allies"),
                     "enemies": item.get("enemies"),
+                    # クラン情報
+                    "allyMainClanTag": item.get("allyMainClanTag"),
+                    "enemyMainClanTag": item.get("enemyMainClanTag"),
                 }
 
             # リプレイ提供者情報を追加
             matches[match_key]["replays"].append(
                 {
-                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get(
+                        "arenaUniqueID"
+                    ),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),
@@ -222,14 +230,26 @@ def handle(event, context):
             match["replayCount"] = len(replays)
 
         # マッチのリストに変換（日時順にソート）
-        match_list = sorted(matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True)
+        match_list = sorted(
+            matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True
+        )
+
+        # 敵クランタグでフィルタリング（クライアント側フィルタ）
+        if enemy_clan_tag:
+            match_list = [
+                m for m in match_list if m.get("enemyMainClanTag") == enemy_clan_tag
+            ]
 
         # レスポンス
         return {
             "statusCode": 200,
             "headers": cors_headers,
             "body": json.dumps(
-                {"items": match_list, "lastEvaluatedKey": result["last_evaluated_key"], "count": len(match_list)},
+                {
+                    "items": match_list,
+                    "lastEvaluatedKey": result["last_evaluated_key"],
+                    "count": len(match_list),
+                },
                 cls=DecimalEncoder,
             ),
         }

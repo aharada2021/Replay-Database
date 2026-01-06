@@ -47,12 +47,13 @@
               ></v-text-field>
             </v-col>
 
-            <!-- 敵艦名 -->
+            <!-- 敵クランタグ -->
             <v-col cols="12" md="4">
               <v-text-field
-                v-model="searchStore.query.enemyShipName"
-                label="敵艦名"
+                v-model="searchStore.query.enemyClanTag"
+                label="敵クランタグ"
                 clearable
+                hint="クラン戦のみ有効"
               ></v-text-field>
             </v-col>
 
@@ -153,29 +154,25 @@
 
         <!-- 味方クラン -->
         <template v-slot:item.allies="{ item }">
-          <v-chip-group>
-            <v-chip
-              v-for="tag in getAllyClanTags(item?.allies || item?.raw?.allies || [])"
-              :key="tag"
-              size="small"
-            >
-              [{{ tag }}]
-            </v-chip>
-          </v-chip-group>
+          <v-chip
+            v-if="(item?.gameType || item?.raw?.gameType) === 'clan' && (item?.allyMainClanTag || item?.raw?.allyMainClanTag)"
+            size="small"
+          >
+            [{{ item?.allyMainClanTag ?? item?.raw?.allyMainClanTag }}]
+          </v-chip>
+          <span v-else>-</span>
         </template>
 
         <!-- 敵クラン -->
         <template v-slot:item.enemies="{ item }">
-          <v-chip-group>
-            <v-chip
-              v-for="tag in getEnemyClanTags(item?.enemies || item?.raw?.enemies || [])"
-              :key="tag"
-              size="small"
-              color="error"
-            >
-              [{{ tag }}]
-            </v-chip>
-          </v-chip-group>
+          <v-chip
+            v-if="(item?.gameType || item?.raw?.gameType) === 'clan' && (item?.enemyMainClanTag || item?.raw?.enemyMainClanTag)"
+            size="small"
+            color="error"
+          >
+            [{{ item?.enemyMainClanTag ?? item?.raw?.enemyMainClanTag }}]
+          </v-chip>
+          <span v-else>-</span>
         </template>
 
         <!-- リプレイ数 -->
@@ -343,17 +340,6 @@ const getWinLossColor = (winLoss?: string) => {
   return colors[winLoss || 'unknown'] || 'grey'
 }
 
-const getAllyClanTags = (allies: PlayerInfo[]) => {
-  const tags = allies
-    .filter((p) => p.clanTag)
-    .map((p) => p.clanTag!)
-  return [...new Set(tags)]
-}
-
-const getEnemyClanTags = (enemies: PlayerInfo[]) => {
-  const tags = enemies
-    .filter((p) => p.clanTag)
-    .map((p) => p.clanTag!)
-  return [...new Set(tags)]
-}
+// getAllyClanTags と getEnemyClanTags 関数は削除
+// クラン戦の場合は allyMainClanTag と enemyMainClanTag を直接表示するため不要
 </script>

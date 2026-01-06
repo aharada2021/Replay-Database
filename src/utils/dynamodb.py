@@ -4,8 +4,9 @@ DynamoDB操作ヘルパーモジュール
 
 import os
 import boto3
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
+from collections import Counter
 
 
 # DynamoDBクライアント（遅延初期化）
@@ -17,13 +18,41 @@ def get_dynamodb_resource():
     """DynamoDBリソースを取得（遅延初期化）"""
     global _dynamodb
     if _dynamodb is None:
-        _dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "ap-northeast-1"))
+        _dynamodb = boto3.resource(
+            "dynamodb", region_name=os.environ.get("AWS_REGION", "ap-northeast-1")
+        )
     return _dynamodb
 
 
 def get_table():
     """DynamoDBテーブルを取得"""
     return get_dynamodb_resource().Table(REPLAYS_TABLE_NAME)
+
+
+def calculate_main_clan_tag(players: List[Dict[str, Any]]) -> Optional[str]:
+    """
+    プレイヤーリストから最も多いクランタグを計算
+
+    Args:
+        players: プレイヤー情報のリスト
+
+    Returns:
+        最も多いクランタグ、またはNone
+    """
+    if not players:
+        return None
+
+    # クランタグを持つプレイヤーのみを抽出
+    clan_tags = [p.get("clanTag") for p in players if p.get("clanTag")]
+
+    if not clan_tags:
+        return None
+
+    # 最も多いクランタグを取得
+    counter = Counter(clan_tags)
+    most_common = counter.most_common(1)
+
+    return most_common[0][0] if most_common else None
 
 
 def put_replay_record(
@@ -61,6 +90,24 @@ def put_replay_record(
     # タイムスタンプ
     uploaded_at = datetime.utcnow().isoformat()
 
+    # プレイヤー情報の取得
+    own_player = players_info.get("own", [{}])[0] if players_info.get("own") else {}
+    allies = players_info.get("allies", [])
+    enemies = players_info.get("enemies", [])
+
+    # クランタグの計算（クラン戦のみ）
+    determined_game_type = game_type or metadata.get("matchGroup", "unknown")
+    ally_main_clan_tag = None
+    enemy_main_clan_tag = None
+
+    if determined_game_type == "clan":
+        # 味方クラン: 自分 + allies
+        ally_players = [own_player] + allies if own_player else allies
+        ally_main_clan_tag = calculate_main_clan_tag(ally_players)
+
+        # 敵クラン: enemies
+        enemy_main_clan_tag = calculate_main_clan_tag(enemies)
+
     # レコード作成
     item = {
         "arenaUniqueID": str(arena_unique_id),
@@ -72,12 +119,15 @@ def put_replay_record(
         "dateTime": metadata.get("dateTime", ""),
         "mapId": metadata.get("mapName", ""),
         "mapDisplayName": metadata.get("mapDisplayName", ""),
-        "gameType": game_type or metadata.get("matchGroup", "unknown"),
+        "gameType": determined_game_type,
         "clientVersion": metadata.get("clientVersionFromXml", ""),
         # プレイヤー情報
-        "ownPlayer": players_info.get("own", [{}])[0] if players_info.get("own") else {},
-        "allies": players_info.get("allies", []),
-        "enemies": players_info.get("enemies", []),
+        "ownPlayer": own_player,
+        "allies": allies,
+        "enemies": enemies,
+        # クラン情報（クラン戦のみ）
+        "allyMainClanTag": ally_main_clan_tag,
+        "enemyMainClanTag": enemy_main_clan_tag,
         # ファイル情報
         "s3Key": s3_key,
         "fileName": file_name,
@@ -93,7 +143,12 @@ def put_replay_record(
     table.put_item(Item=item)
 
 
-def update_battle_result(arena_unique_id: int, player_id: int, win_loss: str, experience_earned: Optional[int]) -> None:
+def update_battle_result(
+    arena_unique_id: int,
+    player_id: int,
+    win_loss: str,
+    experience_earned: Optional[int],
+) -> None:
     """
     バトル結果（勝敗・経験値）を更新
 
@@ -134,7 +189,10 @@ def update_video_info(arena_unique_id: int, player_id: int, mp4_s3_key: str) -> 
     table.update_item(
         Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id},
         UpdateExpression="SET mp4S3Key = :s3key, mp4GeneratedAt = :generated",
-        ExpressionAttributeValues={":s3key": mp4_s3_key, ":generated": mp4_generated_at},
+        ExpressionAttributeValues={
+            ":s3key": mp4_s3_key,
+            ":generated": mp4_generated_at,
+        },
     )
 
 
@@ -154,7 +212,9 @@ def get_replay_record(arena_unique_id: int, player_id: int) -> Optional[Dict[str
     """
     table = get_table()
 
-    response = table.get_item(Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id})
+    response = table.get_item(
+        Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}
+    )
 
     return response.get("Item")
 
@@ -175,7 +235,9 @@ def check_duplicate_by_arena_id(arena_unique_id: int) -> Optional[Dict[str, Any]
     table = get_table()
 
     response = table.query(
-        KeyConditionExpression="arenaUniqueID = :aid", ExpressionAttributeValues={":aid": str(arena_unique_id)}, Limit=1
+        KeyConditionExpression="arenaUniqueID = :aid",
+        ExpressionAttributeValues={":aid": str(arena_unique_id)},
+        Limit=1,
     )
 
     items = response.get("Items", [])

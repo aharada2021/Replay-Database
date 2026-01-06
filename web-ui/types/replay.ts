@@ -43,6 +43,10 @@ export interface MatchRecord {
   allies: PlayerInfo[]
   enemies: PlayerInfo[]
 
+  // クラン情報（クラン戦のみ）
+  allyMainClanTag?: string
+  enemyMainClanTag?: string
+
   // リプレイ提供者情報
   replays: ReplayProvider[]
   replayCount: number
@@ -96,7 +100,7 @@ export interface SearchQuery {
   gameType?: string
   mapId?: string
   playerName?: string
-  enemyShipName?: string
+  enemyClanTag?: string
   winLoss?: string
   dateFrom?: string
   dateTo?: string
@@ -123,6 +127,8 @@ export interface MatchDetailResponse {
   ownPlayer: PlayerInfo
   allies: PlayerInfo[]
   enemies: PlayerInfo[]
+  allyMainClanTag?: string
+  enemyMainClanTag?: string
   replays: ReplayProvider[]
 }
 

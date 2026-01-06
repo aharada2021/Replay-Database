@@ -111,7 +111,9 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+            "http", {}
+        ).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -129,7 +131,8 @@ def handle(event, context):
         # まず指定されたarenaUniqueIDのレコードを取得してmatch_keyを生成
         table = dynamodb.get_table()
         response = table.query(
-            KeyConditionExpression="arenaUniqueID = :aid", ExpressionAttributeValues={":aid": str(arena_unique_id)}
+            KeyConditionExpression="arenaUniqueID = :aid",
+            ExpressionAttributeValues={":aid": str(arena_unique_id)},
         )
 
         seed_items = response.get("Items", [])
@@ -193,6 +196,8 @@ def handle(event, context):
             "ownPlayer": first_replay.get("ownPlayer"),
             "allies": first_replay.get("allies", []),
             "enemies": first_replay.get("enemies", []),
+            "allyMainClanTag": first_replay.get("allyMainClanTag"),
+            "enemyMainClanTag": first_replay.get("enemyMainClanTag"),
             "replays": [],
         }
 
@@ -200,7 +205,9 @@ def handle(event, context):
         for item in items:
             match_info["replays"].append(
                 {
-                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get(
+                        "arenaUniqueID"
+                    ),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),
