@@ -35,27 +35,16 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY config/requirements_lambda.txt .
 RUN pip install --no-cache-dir -r requirements_lambda.txt
 
-# replays_unpack_upstreamをコピーしてパッチ適用
+# minimap_rendererをインストール（元のreplay_unpackを含む）
+COPY minimap_renderer/ ./minimap_renderer/
+RUN pip install --no-cache-dir ./minimap_renderer/
+
+# replays_unpack_upstreamをコピーしてパッチ適用（battle_result_extractor用）
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
 
 # BattleStatsを__all__にエクスポートするパッチを適用
-# PACKETS_MAPPING_12_6_0エイリアスも追加（minimap_renderer互換性のため）
 RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
-    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
-    sed -i "s/'PACKETS_MAPPING_12_6'/'PACKETS_MAPPING_12_6',\n    'PACKETS_MAPPING_12_6_0'/" \
-    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
-    echo "" >> ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
-    echo "# Alias for backward compatibility with minimap_renderer" >> ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py && \
-    echo "PACKETS_MAPPING_12_6_0 = PACKETS_MAPPING_12_6" >> ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
-
-# パッチ適用後のreplays_unpackを先にインストール
-RUN pip install --no-cache-dir ./replays_unpack_upstream/
-
-# minimap_rendererをインストール（replay_unpackを除外してインストール）
-COPY minimap_renderer/ ./minimap_renderer/
-RUN rm -rf ./minimap_renderer/src/replay_unpack && \
-    pip install --no-cache-dir -r ./minimap_renderer/requirements.txt && \
-    pip install --no-cache-dir --no-deps ./minimap_renderer/
+    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
 
 # アプリケーションコードをコピー
 COPY src/replay_processor.py .
