@@ -4,13 +4,20 @@ BattleStatsパケットからバトル結果を抽出するユーティリティ
 scripts/extract_battle_result.pyからロジックを流用し、Lambda関数で使いやすいように関数化
 """
 
+import os
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 
 # extractor専用イメージではreplays_unpack_upstreamのみがインストールされる
 # replays_unpackライブラリのパスを追加
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "replays_unpack_upstream"))
+task_root = os.environ.get("LAMBDA_TASK_ROOT", "")
+if task_root:
+    # Lambda環境: /var/task/replays_unpack_upstream
+    sys.path.insert(0, str(Path(task_root) / "replays_unpack_upstream"))
+else:
+    # ローカル開発環境: プロジェクトルートからの相対パス
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "replays_unpack_upstream"))
 
 from replay_unpack.replay_reader import ReplayReader  # noqa: E402
 from replay_unpack.clients.wows.player import ReplayPlayer as WoWSReplayPlayer  # noqa: E402
