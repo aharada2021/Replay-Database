@@ -10,6 +10,7 @@ import boto3
 import tempfile
 from pathlib import Path
 import os
+from urllib.parse import unquote_plus
 
 from utils.battle_stats_extractor import (
     extract_battle_stats,
@@ -40,7 +41,7 @@ def handle(event, context):
         # S3イベントから情報を取得
         for record in event.get("Records", []):
             bucket = record["s3"]["bucket"]["name"]
-            key = record["s3"]["object"]["key"]
+            key = unquote_plus(record["s3"]["object"]["key"])  # URLデコード
 
             print(f"Processing: s3://{bucket}/{key}")
 
