@@ -36,6 +36,38 @@ def parse_datetime_for_sort(date_str: str) -> datetime:
             return datetime.min
 
 
+def normalize_ship_name(name: str) -> str:
+    """
+    艦艇名を検索用に正規化
+
+    DynamoDBは完全一致検索のため、入力を正規化して
+    保存されている形式に合わせる
+
+    Args:
+        name: 入力された艦艇名
+
+    Returns:
+        正規化された艦艇名
+    """
+    if not name:
+        return name
+
+    # 大文字のまま保持するプレフィックス（コラボ艦艇など）
+    uppercase_prefixes = ["AL ", "BA ", "GQ ", "STAR "]
+
+    # まずタイトルケースに変換
+    normalized = name.title()
+
+    # 大文字プレフィックスを復元
+    for prefix in uppercase_prefixes:
+        lower_prefix = prefix.title()  # "Al ", "Ba ", etc.
+        if normalized.startswith(lower_prefix):
+            normalized = prefix + normalized[len(prefix) :]
+            break
+
+    return normalized
+
+
 def parse_frontend_date(date_str: str) -> datetime:
     """
     フロントエンドの日付文字列をパース
@@ -101,7 +133,9 @@ def handle(event, context):
         map_id = params.get("mapId")
         ally_clan_tag = params.get("allyClanTag")
         enemy_clan_tag = params.get("enemyClanTag")
-        ship_name = params.get("shipName")
+        ship_name_raw = params.get("shipName")
+        # 艦艇名を正規化（DynamoDBは完全一致検索のため）
+        ship_name = normalize_ship_name(ship_name_raw) if ship_name_raw else None
         ship_team = params.get("shipTeam")  # "ally", "enemy", or None
         ship_min_count = params.get("shipMinCount", 1)
         win_loss = params.get("winLoss")
