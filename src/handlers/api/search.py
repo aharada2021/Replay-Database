@@ -56,6 +56,7 @@ def handle(event, context):
         map_id = params.get("mapId")
         ally_clan_tag = params.get("allyClanTag")
         enemy_clan_tag = params.get("enemyClanTag")
+        ship_name = params.get("shipName")
         win_loss = params.get("winLoss")
         date_from = params.get("dateFrom")
         date_to = params.get("dateTo")
@@ -209,6 +210,29 @@ def handle(event, context):
             match_list = [m for m in match_list if m.get("allyMainClanTag") == ally_clan_tag]
         if enemy_clan_tag:
             match_list = [m for m in match_list if m.get("enemyMainClanTag") == enemy_clan_tag]
+
+        # 艦艇名でフィルタリング（部分一致、大文字小文字区別なし）
+        if ship_name:
+            ship_name_lower = ship_name.lower()
+
+            def match_has_ship(match):
+                # ownPlayerの艦艇をチェック
+                own_player = match.get("ownPlayer", {})
+                if own_player and ship_name_lower in (own_player.get("shipName", "") or "").lower():
+                    return True
+                # 味方の艦艇をチェック
+                allies = match.get("allies", []) or []
+                for ally in allies:
+                    if ship_name_lower in (ally.get("shipName", "") or "").lower():
+                        return True
+                # 敵の艦艇をチェック
+                enemies = match.get("enemies", []) or []
+                for enemy in enemies:
+                    if ship_name_lower in (enemy.get("shipName", "") or "").lower():
+                        return True
+                return False
+
+            match_list = [m for m in match_list if match_has_ship(m)]
 
         # レスポンス
         return {

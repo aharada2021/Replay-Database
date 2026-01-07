@@ -448,6 +448,10 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   width: 120px;
 }
 
+.filter-item--ship {
+  width: 160px;
+}
+
 .filter-item--date {
   width: 185px;
 }
@@ -463,6 +467,7 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   .filter-item--medium,
   .filter-item--wide,
   .filter-item--clan,
+  .filter-item--ship,
   .filter-item--date {
     width: calc(50% - 4px);
     min-width: 120px;
@@ -479,6 +484,7 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   .filter-item--medium,
   .filter-item--wide,
   .filter-item--clan,
+  .filter-item--ship,
   .filter-item--date {
     width: 100%;
   }
