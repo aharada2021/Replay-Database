@@ -4,11 +4,13 @@ import type { SearchQuery, MatchRecord } from '~/types/replay'
 export const useSearchStore = defineStore('search', {
   state: () => ({
     query: {
-      gameType: '',
+      gameType: 'clan',  // デフォルトでクラン戦を選択
       mapId: '',
       allyClanTag: '',
       enemyClanTag: '',
       shipName: '',
+      shipTeam: '',
+      shipMinCount: 1,
       winLoss: '',
       dateFrom: '',
       dateTo: '',
@@ -28,11 +30,13 @@ export const useSearchStore = defineStore('search', {
 
     resetQuery() {
       this.query = {
-        gameType: '',
+        gameType: 'clan',  // デフォルトでクラン戦を選択
         mapId: '',
         allyClanTag: '',
         enemyClanTag: '',
         shipName: '',
+        shipTeam: '',
+        shipMinCount: 1,
         winLoss: '',
         dateFrom: '',
         dateTo: '',
