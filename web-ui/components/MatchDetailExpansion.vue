@@ -272,123 +272,6 @@
       </v-list-item>
     </v-list>
 
-    <!-- 戦闘統計 (下部に移動) -->
-    <div v-if="hasBattleStats">
-      <v-divider class="my-3"></v-divider>
-
-      <h3 class="mb-3">戦闘統計</h3>
-      <v-row>
-        <!-- 基本統計 -->
-        <v-col cols="12" md="4">
-          <v-card variant="outlined" class="h-100">
-            <v-card-title class="text-subtitle-2 bg-blue-grey-darken-3">基本統計</v-card-title>
-            <v-card-text class="pa-3">
-              <div class="d-flex justify-space-between mb-2">
-                <span class="text-grey">与ダメージ</span>
-                <span class="font-weight-bold">{{ formatNumber(match.damage) }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2">
-                <span class="text-grey">被ダメージ</span>
-                <span class="font-weight-bold">{{ formatNumber(match.receivedDamage) }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2">
-                <span class="text-grey">偵察ダメージ</span>
-                <span class="font-weight-bold">{{ formatNumber(match.spottingDamage) }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2">
-                <span class="text-grey">潜在ダメージ</span>
-                <span class="font-weight-bold">{{ formatNumber(match.potentialDamage) }}</span>
-              </div>
-              <v-divider class="my-2"></v-divider>
-              <div class="d-flex justify-space-between mb-2">
-                <span class="text-grey">撃沈数</span>
-                <span class="font-weight-bold text-error">{{ match.kills || 0 }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2">
-                <span class="text-grey">火災発生</span>
-                <span class="font-weight-bold text-orange">{{ match.fires || 0 }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2">
-                <span class="text-grey">浸水発生</span>
-                <span class="font-weight-bold text-blue">{{ match.floods || 0 }}</span>
-              </div>
-              <div class="d-flex justify-space-between">
-                <span class="text-grey">基礎経験値</span>
-                <span class="font-weight-bold text-amber">{{ formatNumber(match.baseXP) }}</span>
-              </div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-
-        <!-- ダメージ内訳 -->
-        <v-col cols="12" md="4">
-          <v-card variant="outlined" class="h-100">
-            <v-card-title class="text-subtitle-2 bg-red-darken-3">ダメージ内訳</v-card-title>
-            <v-card-text class="pa-3">
-              <div class="text-caption text-grey mb-1">主砲</div>
-              <div class="d-flex justify-space-between mb-1 pl-2">
-                <span class="text-grey-lighten-1">AP弾</span>
-                <span>{{ formatNumber(match.damageAP) }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2 pl-2">
-                <span class="text-grey-lighten-1">HE弾</span>
-                <span>{{ formatNumber(match.damageHE) }}</span>
-              </div>
-              <div class="text-caption text-grey mb-1">副砲</div>
-              <div class="d-flex justify-space-between mb-2 pl-2">
-                <span class="text-grey-lighten-1">HE弾</span>
-                <span>{{ formatNumber(match.damageHESecondaries) }}</span>
-              </div>
-              <div class="text-caption text-grey mb-1">魚雷</div>
-              <div class="d-flex justify-space-between mb-1 pl-2">
-                <span class="text-grey-lighten-1">通常魚雷</span>
-                <span>{{ formatNumber(match.damageTorps) }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2 pl-2">
-                <span class="text-grey-lighten-1">深度魚雷</span>
-                <span>{{ formatNumber(match.damageDeepWaterTorps) }}</span>
-              </div>
-              <div class="text-caption text-grey mb-1">継続ダメージ</div>
-              <div class="d-flex justify-space-between mb-1 pl-2">
-                <span class="text-grey-lighten-1 text-orange">火災</span>
-                <span>{{ formatNumber(match.damageFire) }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2 pl-2">
-                <span class="text-grey-lighten-1 text-blue">浸水</span>
-                <span>{{ formatNumber(match.damageFlooding) }}</span>
-              </div>
-              <div class="d-flex justify-space-between">
-                <span class="text-grey">その他</span>
-                <span>{{ formatNumber(match.damageOther) }}</span>
-              </div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-
-        <!-- 命中数内訳 -->
-        <v-col cols="12" md="4">
-          <v-card variant="outlined" class="h-100">
-            <v-card-title class="text-subtitle-2 bg-green-darken-3">命中数内訳</v-card-title>
-            <v-card-text class="pa-3">
-              <div class="text-caption text-grey mb-1">主砲</div>
-              <div class="d-flex justify-space-between mb-1 pl-2">
-                <span class="text-grey-lighten-1">AP弾</span>
-                <span>{{ match.hitsAP || 0 }} 発</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2 pl-2">
-                <span class="text-grey-lighten-1">HE弾</span>
-                <span>{{ match.hitsHE || 0 }} 発</span>
-              </div>
-              <div class="text-caption text-grey mb-1">副砲</div>
-              <div class="d-flex justify-space-between pl-2">
-                <span class="text-grey-lighten-1">HE弾</span>
-                <span>{{ match.hitsSecondaries || 0 }} 発</span>
-              </div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-    </div>
   </div>
 </template>
 
@@ -405,11 +288,6 @@ const api = useApi()
 // 全プレイヤー統計があるかどうか
 const hasAllPlayersStats = computed(() => {
   return props.match.allPlayersStats && props.match.allPlayersStats.length > 0
-})
-
-// 戦闘統計があるかどうか（自分のみの場合）
-const hasBattleStats = computed(() => {
-  return props.match.damage !== undefined && props.match.damage !== null
 })
 
 // スコアボードのヘッダー（圧縮版）
