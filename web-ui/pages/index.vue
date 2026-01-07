@@ -112,7 +112,7 @@
     <v-card>
       <v-data-table
         :headers="headers"
-        :items="sortedResults"
+        :items="searchStore.results || []"
         :loading="searchStore.loading || false"
         :items-per-page="searchStore.query?.limit || 50"
         hide-default-footer
@@ -122,6 +122,7 @@
         @click:row="onRowClick"
         item-value="matchKey"
         v-model:sort-by="sortBy"
+        :custom-key-sort="customKeySort"
         density="compact"
         class="clickable-rows"
       >
@@ -284,42 +285,6 @@ const onRowClick = (_event: Event, { item }: { item: any }) => {
 // ソート状態
 const sortBy = ref([{ key: 'dateTime', order: 'desc' }])
 
-// テーブルヘッダー
-const headers = [
-  { title: '日時', key: 'dateTime', sortable: true },
-  { title: 'マップ', key: 'mapDisplayName', sortable: true },
-  { title: 'ゲームタイプ', key: 'gameType', sortable: true },
-  { title: '勝敗', key: 'winLoss', sortable: true },
-  { title: '自分', key: 'ownPlayer', sortable: false },
-  { title: '味方クラン', key: 'allies', sortable: false },
-  { title: '敵クラン', key: 'enemies', sortable: false },
-  { title: 'リプレイ数', key: 'replayCount', sortable: true },
-]
-
-// ソート済み結果
-const sortedResults = computed(() => {
-  const results = searchStore.results || []
-  if (!sortBy.value.length) return results
-
-  const { key, order } = sortBy.value[0]
-  const sorted = [...results].sort((a, b) => {
-    let aVal = a[key] ?? a?.raw?.[key]
-    let bVal = b[key] ?? b?.raw?.[key]
-
-    // 日時の場合は日付として比較
-    if (key === 'dateTime') {
-      aVal = parseDateTimeForSort(aVal)
-      bVal = parseDateTimeForSort(bVal)
-    }
-
-    if (aVal < bVal) return order === 'asc' ? -1 : 1
-    if (aVal > bVal) return order === 'asc' ? 1 : -1
-    return 0
-  })
-
-  return sorted
-})
-
 // 日時をソート用に変換
 const parseDateTimeForSort = (dateTime: string): number => {
   if (!dateTime) return 0
@@ -335,6 +300,27 @@ const parseDateTimeForSort = (dateTime: string): number => {
   const date = new Date(dateTime)
   return isNaN(date.getTime()) ? 0 : date.getTime()
 }
+
+// カスタムソート関数（日時用）
+const customKeySort = {
+  dateTime: (a: string, b: string) => {
+    const aTime = parseDateTimeForSort(a)
+    const bTime = parseDateTimeForSort(b)
+    return aTime - bTime
+  }
+}
+
+// テーブルヘッダー
+const headers = [
+  { title: '日時', key: 'dateTime', sortable: true },
+  { title: 'マップ', key: 'mapDisplayName', sortable: true },
+  { title: 'ゲームタイプ', key: 'gameType', sortable: true },
+  { title: '勝敗', key: 'winLoss', sortable: true },
+  { title: '自分', key: 'ownPlayer', sortable: false },
+  { title: '味方クラン', key: 'allies', sortable: false },
+  { title: '敵クラン', key: 'enemies', sortable: false },
+  { title: 'リプレイ数', key: 'replayCount', sortable: true },
+]
 
 // ハンドラー
 const handleSearch = () => {
@@ -444,19 +430,19 @@ const getWinLossColor = (winLoss?: string) => {
 
 /* サイズバリエーション */
 .filter-item--small {
-  width: 100px;
+  width: 115px;
 }
 
 .filter-item--medium {
-  width: 130px;
+  width: 150px;
 }
 
 .filter-item--wide {
-  width: 180px;
+  width: 200px;
 }
 
 .filter-item--date {
-  width: 150px;
+  width: 170px;
 }
 
 .filter-item--buttons {
