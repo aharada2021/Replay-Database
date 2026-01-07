@@ -110,15 +110,9 @@
 
     <!-- 検索結果 -->
     <v-card>
-      <v-card-title>
-        検索結果
-        <v-spacer></v-spacer>
-        <span class="text-caption">{{ searchStore.totalCount }} 件</span>
-      </v-card-title>
-
       <v-data-table
         :headers="headers"
-        :items="searchStore.results || []"
+        :items="sortedResults"
         :loading="searchStore.loading || false"
         :items-per-page="searchStore.query?.limit || 50"
         hide-default-footer
@@ -126,7 +120,16 @@
         :expanded="expanded"
         @update:expanded="onExpandedChange"
         item-value="matchKey"
+        v-model:sort-by="sortBy"
+        density="compact"
       >
+        <!-- カスタムヘッダー: 検索結果タイトルを追加 -->
+        <template v-slot:top>
+          <div class="d-flex align-center px-4 py-1 bg-surface">
+            <span class="text-body-2 font-weight-medium">検索結果</span>
+            <span class="text-caption text-grey ml-2">{{ searchStore.totalCount }} 件</span>
+          </div>
+        </template>
         <!-- 日時 -->
         <template v-slot:item.dateTime="{ item }">
           {{ formatDateTime(item?.dateTime || item?.raw?.dateTime) }}
@@ -264,17 +267,60 @@ const onExpandedChange = (newExpanded: any[]) => {
   expanded.value = newExpanded
 }
 
+// ソート状態
+const sortBy = ref([{ key: 'dateTime', order: 'desc' }])
+
 // テーブルヘッダー
 const headers = [
-  { title: '日時', key: 'dateTime', sortable: false },
-  { title: 'マップ', key: 'mapDisplayName', sortable: false },
-  { title: 'ゲームタイプ', key: 'gameType', sortable: false },
-  { title: '勝敗', key: 'winLoss', sortable: false },
+  { title: '日時', key: 'dateTime', sortable: true },
+  { title: 'マップ', key: 'mapDisplayName', sortable: true },
+  { title: 'ゲームタイプ', key: 'gameType', sortable: true },
+  { title: '勝敗', key: 'winLoss', sortable: true },
   { title: '自分', key: 'ownPlayer', sortable: false },
   { title: '味方クラン', key: 'allies', sortable: false },
   { title: '敵クラン', key: 'enemies', sortable: false },
-  { title: 'リプレイ数', key: 'replayCount', sortable: false },
+  { title: 'リプレイ数', key: 'replayCount', sortable: true },
 ]
+
+// ソート済み結果
+const sortedResults = computed(() => {
+  const results = searchStore.results || []
+  if (!sortBy.value.length) return results
+
+  const { key, order } = sortBy.value[0]
+  const sorted = [...results].sort((a, b) => {
+    let aVal = a[key] ?? a?.raw?.[key]
+    let bVal = b[key] ?? b?.raw?.[key]
+
+    // 日時の場合は日付として比較
+    if (key === 'dateTime') {
+      aVal = parseDateTimeForSort(aVal)
+      bVal = parseDateTimeForSort(bVal)
+    }
+
+    if (aVal < bVal) return order === 'asc' ? -1 : 1
+    if (aVal > bVal) return order === 'asc' ? 1 : -1
+    return 0
+  })
+
+  return sorted
+})
+
+// 日時をソート用に変換
+const parseDateTimeForSort = (dateTime: string): number => {
+  if (!dateTime) return 0
+
+  // "04.01.2026 21:56:55" 形式
+  const parts = dateTime.match(/(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})/)
+  if (parts) {
+    const [_, day, month, year, hour, minute, second] = parts
+    return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`).getTime()
+  }
+
+  // ISO形式
+  const date = new Date(dateTime)
+  return isNaN(date.getTime()) ? 0 : date.getTime()
+}
 
 // ハンドラー
 const handleSearch = () => {
