@@ -15,12 +15,8 @@ export const useApi = () => {
    * リプレイ検索
    */
   const searchReplays = async (query: SearchQuery): Promise<SearchResponse> => {
-    console.log('[API] searchReplays called with query:', query)
-    console.log('[API] Base URL:', baseUrl)
-
     try {
       const url = `${baseUrl}/api/search`
-      console.log('[API] Fetching:', url)
 
       const response = await $fetch(url, {
         method: 'POST',
@@ -30,21 +26,13 @@ export const useApi = () => {
         body: JSON.stringify(query),
       })
 
-      console.log('[API] Raw response:', response)
-      console.log('[API] Response type:', typeof response)
-
       // レスポンスが文字列の場合、JSONをパース
       let parsedResponse: SearchResponse
       if (typeof response === 'string') {
-        console.log('[API] Parsing JSON string...')
         parsedResponse = JSON.parse(response)
       } else {
         parsedResponse = response as SearchResponse
       }
-
-      console.log('[API] Parsed response:', parsedResponse)
-      console.log('[API] Response.items:', parsedResponse?.items)
-      console.log('[API] Response.count:', parsedResponse?.count)
 
       return parsedResponse
     } catch (error) {
@@ -59,11 +47,8 @@ export const useApi = () => {
   const getMatchDetail = async (
     arenaUniqueID: string
   ): Promise<MatchDetailResponse | null> => {
-    console.log('[API] getMatchDetail called:', { arenaUniqueID })
-
     try {
       const url = `${baseUrl}/api/match/${encodeURIComponent(arenaUniqueID)}`
-      console.log('[API] Fetching match detail:', url)
 
       const response = await $fetch<MatchDetailResponse>(url, {
         method: 'GET',
@@ -72,7 +57,6 @@ export const useApi = () => {
         },
       })
 
-      console.log('[API] Match detail response:', response)
       return response
     } catch (error) {
       console.error('[API] Get match detail error:', error)
@@ -87,8 +71,6 @@ export const useApi = () => {
     arenaUniqueID: string,
     playerID: number
   ): Promise<ReplayRecord | null> => {
-    console.log('[API] getReplayDetail called:', { arenaUniqueID, playerID })
-
     try {
       // 試合詳細を取得
       const matchDetail = await getMatchDetail(arenaUniqueID)
@@ -99,7 +81,6 @@ export const useApi = () => {
       // 該当するリプレイを探す
       const replay = matchDetail.replays.find((r) => r.playerID === playerID)
       if (!replay) {
-        console.log('[API] Replay not found for playerID:', playerID)
         return null
       }
 
