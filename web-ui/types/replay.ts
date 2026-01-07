@@ -147,7 +147,7 @@ export interface SearchQuery {
   dateFrom?: string
   dateTo?: string
   limit?: number
-  offset?: number
+  lastEvaluatedKey?: any  // DynamoDB cursor for pagination
 }
 
 export interface SearchResponse {

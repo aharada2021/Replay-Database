@@ -150,7 +150,7 @@
         :headers="headers"
         :items="searchStore.results || []"
         :loading="searchStore.loading || false"
-        :items-per-page="searchStore.query?.limit || 50"
+        :items-per-page="-1"
         hide-default-footer
         show-expand
         :expanded="expanded"
@@ -245,7 +245,7 @@
         </v-btn>
         <v-spacer></v-spacer>
         <span>
-          ページ {{ searchStore.currentPage }} / {{ searchStore.totalPages }}
+          ページ {{ searchStore.currentPage }}{{ searchStore.hasNextPage ? '+' : '' }}
         </span>
         <v-spacer></v-spacer>
         <v-btn
@@ -364,8 +364,7 @@ const headers = [
 
 // ハンドラー
 const handleSearch = () => {
-  searchStore.query.offset = 0
-  searchStore.search()
+  searchStore.search()  // resetPagination=true がデフォルト
 }
 
 const handleReset = () => {

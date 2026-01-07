@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import type { SearchQuery, MatchRecord } from '~/types/replay'
 
+// 固定の表示件数
+const ITEMS_PER_PAGE = 30
+
 export const useSearchStore = defineStore('search', {
   state: () => ({
     query: {
@@ -14,13 +17,17 @@ export const useSearchStore = defineStore('search', {
       winLoss: '',
       dateFrom: '',
       dateTo: '',
-      limit: 50,
-      offset: 0,
+      limit: ITEMS_PER_PAGE,
+      lastEvaluatedKey: null as any,
     } as SearchQuery,
     results: [] as MatchRecord[],
     loading: false,
     error: null as string | null,
     totalCount: 0,
+    // ページング用の状態
+    currentPageNum: 1,
+    lastEvaluatedKeyHistory: [] as any[],  // 各ページのlastEvaluatedKeyを保存
+    lastEvaluatedKeyFromResponse: null as any,  // 最新のレスポンスからのlastEvaluatedKey
   }),
 
   actions: {
@@ -40,14 +47,24 @@ export const useSearchStore = defineStore('search', {
         winLoss: '',
         dateFrom: '',
         dateTo: '',
-        limit: 50,
-        offset: 0,
+        limit: ITEMS_PER_PAGE,
+        lastEvaluatedKey: null,
       }
+      this.currentPageNum = 1
+      this.lastEvaluatedKeyHistory = []
+      this.lastEvaluatedKeyFromResponse = null
     },
 
-    async search() {
+    async search(resetPagination: boolean = true) {
       this.loading = true
       this.error = null
+
+      // 新規検索の場合はページング状態をリセット
+      if (resetPagination) {
+        this.currentPageNum = 1
+        this.lastEvaluatedKeyHistory = []
+        this.query.lastEvaluatedKey = null
+      }
 
       try {
         const api = useApi()
@@ -55,47 +72,66 @@ export const useSearchStore = defineStore('search', {
 
         this.results = response.items
         this.totalCount = response.count
+        this.lastEvaluatedKeyFromResponse = response.lastEvaluatedKey || null
       } catch (err: any) {
         console.error('[Store] Search error:', err)
         this.error = err.message || 'Search failed'
         this.results = []
         this.totalCount = 0
+        this.lastEvaluatedKeyFromResponse = null
       } finally {
         this.loading = false
       }
     },
 
-    nextPage() {
-      this.query.offset = (this.query.offset || 0) + (this.query.limit || 50)
-      this.search()
+    async nextPage() {
+      if (!this.hasNextPage) return
+
+      // 現在のlastEvaluatedKeyを履歴に保存（戻るボタン用）
+      this.lastEvaluatedKeyHistory.push(this.query.lastEvaluatedKey)
+
+      // 次のページのキーを設定
+      this.query.lastEvaluatedKey = this.lastEvaluatedKeyFromResponse
+      this.currentPageNum++
+
+      await this.search(false)
     },
 
-    prevPage() {
-      const newOffset = (this.query.offset || 0) - (this.query.limit || 50)
-      this.query.offset = Math.max(0, newOffset)
-      this.search()
+    async prevPage() {
+      if (!this.hasPrevPage) return
+
+      this.currentPageNum--
+
+      // 履歴から前のページのキーを取得
+      if (this.lastEvaluatedKeyHistory.length > 0) {
+        this.query.lastEvaluatedKey = this.lastEvaluatedKeyHistory.pop()
+      } else {
+        this.query.lastEvaluatedKey = null
+      }
+
+      await this.search(false)
     },
   },
 
   getters: {
-    currentPage: (state) => {
-      const offset = state.query.offset || 0
-      const limit = state.query.limit || 50
-      return Math.floor(offset / limit) + 1
-    },
+    currentPage: (state) => state.currentPageNum,
 
     totalPages: (state) => {
-      const limit = state.query.limit || 50
-      return Math.ceil(state.totalCount / limit)
+      // カーソルベースのページングでは総ページ数は不明
+      // hasNextPageがtrueなら少なくとも次のページがある
+      if (state.lastEvaluatedKeyFromResponse) {
+        return state.currentPageNum + 1  // 最低でも次のページがある
+      }
+      return state.currentPageNum
     },
 
     hasNextPage: (state) => {
-      const offset = state.query.offset || 0
-      return offset + (state.query.limit || 50) < state.totalCount
+      // レスポンスにlastEvaluatedKeyがあれば次のページがある
+      return !!state.lastEvaluatedKeyFromResponse
     },
 
     hasPrevPage: (state) => {
-      return (state.query.offset || 0) > 0
+      return state.currentPageNum > 1
     },
   },
 })
