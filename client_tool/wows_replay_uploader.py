@@ -36,7 +36,7 @@ API_UPLOAD_URL = "https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com/ap
 API_VERSION_URL = "https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com/api/download?file=uploader"
 
 # バージョン情報
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 # デフォルトのリプレイフォルダ
 DEFAULT_REPLAYS_FOLDER = os.path.expandvars('%APPDATA%\\Wargaming.net\\WorldOfWarships\\replays')
