@@ -47,11 +47,11 @@
             </div>
 
             <!-- 味方クランタグ -->
-            <div class="filter-item filter-item--small">
+            <div class="filter-item filter-item--clan">
               <v-text-field
                 v-model="searchStore.query.allyClanTag"
                 label="味方"
-                placeholder="クランタグ"
+                placeholder="味方クラン"
                 clearable
                 density="compact"
                 hide-details
@@ -59,11 +59,11 @@
             </div>
 
             <!-- 敵クランタグ -->
-            <div class="filter-item filter-item--small">
+            <div class="filter-item filter-item--clan">
               <v-text-field
                 v-model="searchStore.query.enemyClanTag"
                 label="敵"
-                placeholder="クランタグ"
+                placeholder="敵クラン"
                 clearable
                 density="compact"
                 hide-details
@@ -430,19 +430,23 @@ const getWinLossColor = (winLoss?: string) => {
 
 /* サイズバリエーション */
 .filter-item--small {
-  width: 115px;
+  width: 130px;
 }
 
 .filter-item--medium {
-  width: 150px;
+  width: 170px;
 }
 
 .filter-item--wide {
-  width: 200px;
+  width: 220px;
+}
+
+.filter-item--clan {
+  width: 120px;
 }
 
 .filter-item--date {
-  width: 170px;
+  width: 185px;
 }
 
 .filter-item--buttons {
@@ -455,6 +459,7 @@ const getWinLossColor = (winLoss?: string) => {
   .filter-item--small,
   .filter-item--medium,
   .filter-item--wide,
+  .filter-item--clan,
   .filter-item--date {
     width: calc(50% - 4px);
     min-width: 120px;
@@ -470,6 +475,7 @@ const getWinLossColor = (winLoss?: string) => {
   .filter-item--small,
   .filter-item--medium,
   .filter-item--wide,
+  .filter-item--clan,
   .filter-item--date {
     width: 100%;
   }
