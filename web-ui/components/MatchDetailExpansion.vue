@@ -1,9 +1,60 @@
 <template>
   <div class="pa-4">
-    <!-- プレイヤー一覧 + ミニマップ動画 (優先表示) -->
+    <!-- 全プレイヤー戦闘統計（スコアボード） -->
+    <div v-if="hasAllPlayersStats">
+      <h3 class="mb-2">戦闘統計スコアボード</h3>
+      <v-data-table
+        :headers="scoreboardHeaders"
+        :items="sortedPlayersStats"
+        :items-per-page="-1"
+        density="compact"
+        class="scoreboard-table mb-4"
+        hide-default-footer
+      >
+        <!-- チーム -->
+        <template v-slot:item.team="{ item }">
+          <span :class="item.team === 'ally' ? 'text-success' : 'text-error'">
+            {{ item.team === 'ally' ? '🟢' : '🔴' }}
+          </span>
+          <v-icon v-if="item.isOwn" size="x-small" color="primary" class="ml-1">mdi-star</v-icon>
+        </template>
+
+        <!-- プレイヤー名 -->
+        <template v-slot:item.playerName="{ item }">
+          <span v-if="item.clanTag" class="font-weight-bold" :class="item.team === 'ally' ? 'text-success' : 'text-error'">
+            [{{ item.clanTag }}]
+          </span>
+          {{ item.playerName }}
+        </template>
+
+        <!-- 艦船 -->
+        <template v-slot:item.shipName="{ item }">
+          <span class="text-caption">{{ item.shipName || '-' }}</span>
+        </template>
+
+        <!-- 数値フォーマット -->
+        <template v-slot:item.damage="{ item }">
+          <span class="font-weight-bold">{{ formatNumber(item.damage) }}</span>
+        </template>
+
+        <template v-slot:item.kills="{ item }">
+          <span class="text-error font-weight-bold">{{ item.kills || 0 }}</span>
+        </template>
+
+        <template v-slot:item.spottingDamage="{ item }">
+          {{ formatNumber(item.spottingDamage) }}
+        </template>
+
+        <template v-slot:item.baseXP="{ item }">
+          <span class="text-amber">{{ formatNumber(item.baseXP) }}</span>
+        </template>
+      </v-data-table>
+    </div>
+
+    <!-- プレイヤー一覧（allPlayersStatsがない場合のフォールバック） + ミニマップ動画 -->
     <v-row>
-      <!-- プレイヤー一覧 -->
-      <v-col cols="12" md="6">
+      <!-- プレイヤー一覧 (allPlayersStatsがない場合のみ表示) -->
+      <v-col v-if="!hasAllPlayersStats" cols="12" md="6">
         <h3 class="mb-2">プレイヤー一覧</h3>
         <v-row dense>
           <!-- 自分 -->
@@ -61,10 +112,14 @@
       </v-col>
 
       <!-- 動画プレーヤー -->
-      <v-col cols="12" md="6">
+      <v-col cols="12" :md="hasAllPlayersStats ? 12 : 6">
         <h3 class="mb-2">ミニマップ動画</h3>
-        <div v-if="videoReplay">
-          <video controls width="100%" :src="getVideoUrl(videoReplay.mp4S3Key)">
+        <div v-if="videoReplay" :class="['video-container', hasAllPlayersStats ? 'video-container-full' : '']">
+          <video
+            controls
+            class="video-player"
+            :src="getVideoUrl(videoReplay.mp4S3Key)"
+          >
             お使いのブラウザは動画タグをサポートしていません。
           </video>
           <div class="mt-1 text-caption">
@@ -237,7 +292,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { MatchRecord } from '~/types/replay'
+import type { MatchRecord, PlayerStats } from '~/types/replay'
 
 const props = defineProps<{
   match: MatchRecord
@@ -245,9 +300,31 @@ const props = defineProps<{
 
 const api = useApi()
 
-// 戦闘統計があるかどうか
+// 全プレイヤー統計があるかどうか
+const hasAllPlayersStats = computed(() => {
+  return props.match.allPlayersStats && props.match.allPlayersStats.length > 0
+})
+
+// 戦闘統計があるかどうか（自分のみの場合）
 const hasBattleStats = computed(() => {
   return props.match.damage !== undefined && props.match.damage !== null
+})
+
+// スコアボードのヘッダー
+const scoreboardHeaders = [
+  { title: '', key: 'team', sortable: true, width: '50px' },
+  { title: 'プレイヤー', key: 'playerName', sortable: true },
+  { title: '艦船', key: 'shipName', sortable: true },
+  { title: 'ダメージ', key: 'damage', sortable: true, align: 'end' as const },
+  { title: '撃沈', key: 'kills', sortable: true, align: 'end' as const },
+  { title: '偵察', key: 'spottingDamage', sortable: true, align: 'end' as const },
+  { title: 'XP', key: 'baseXP', sortable: true, align: 'end' as const },
+]
+
+// ダメージ順にソートされたプレイヤー統計
+const sortedPlayersStats = computed<PlayerStats[]>(() => {
+  if (!props.match.allPlayersStats) return []
+  return [...props.match.allPlayersStats].sort((a, b) => (b.damage || 0) - (a.damage || 0))
 })
 
 // 数値をカンマ区切りでフォーマット
@@ -302,3 +379,29 @@ const formatDateTime = (dateTime: string) => {
   return dateTime
 }
 </script>
+
+<style scoped>
+.scoreboard-table {
+  font-size: 0.875rem;
+}
+
+.video-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.video-player {
+  width: 100%;
+  max-height: calc(100vh - 250px);
+  object-fit: contain;
+}
+
+.video-container-full {
+  text-align: center;
+  align-items: center;
+}
+
+.video-container-full .video-player {
+  max-width: 600px;
+}
+</style>

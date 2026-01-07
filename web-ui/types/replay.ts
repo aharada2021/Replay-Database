@@ -82,6 +82,9 @@ export interface MatchRecord extends BattleStats {
   allyMainClanTag?: string
   enemyMainClanTag?: string
 
+  // 全プレイヤー統計
+  allPlayersStats?: PlayerStats[]
+
   // リプレイ提供者情報
   replays: ReplayProvider[]
   replayCount: number
@@ -164,6 +167,7 @@ export interface MatchDetailResponse {
   enemies: PlayerInfo[]
   allyMainClanTag?: string
   enemyMainClanTag?: string
+  allPlayersStats?: PlayerStats[]
   replays: ReplayProvider[]
 }
 
