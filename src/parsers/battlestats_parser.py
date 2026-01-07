@@ -40,7 +40,7 @@ class BattleStatsParser:
         "damage_he": 159,  # 主砲HE弾
         "damage_he_secondaries": 162,  # 副砲HE弾
         "damage_torps": 166,  # 通常魚雷
-        "damage_deep_water_torps": 167,  # 深水魚雷（パンアジア駆逐艦）
+        "damage_deep_water_torps": 167,  # 深度魚雷（パンアジア駆逐艦）
         "damage_other": 178,  # その他ダメージ（主砲AP+副砲AP等の残差）
         "damage_fire": 179,  # 火災ダメージ
         "damage_flooding": 180,  # 浸水ダメージ

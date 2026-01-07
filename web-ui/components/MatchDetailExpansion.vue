@@ -63,7 +63,7 @@
                   <span>{{ formatNumber(item.damageTorps) }}</span>
                 </div>
                 <div class="tooltip-row">
-                  <span>深水魚雷:</span>
+                  <span>深度魚雷:</span>
                   <span>{{ formatNumber(item.damageDeepWaterTorps) }}</span>
                 </div>
                 <div class="tooltip-row text-orange">
@@ -345,7 +345,7 @@
                 <span>{{ formatNumber(match.damageTorps) }}</span>
               </div>
               <div class="d-flex justify-space-between mb-2 pl-2">
-                <span class="text-grey-lighten-1">深水魚雷</span>
+                <span class="text-grey-lighten-1">深度魚雷</span>
                 <span>{{ formatNumber(match.damageDeepWaterTorps) }}</span>
               </div>
               <div class="text-caption text-grey mb-1">継続ダメージ</div>
