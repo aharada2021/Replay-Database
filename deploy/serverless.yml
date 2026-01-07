@@ -193,6 +193,7 @@ functions:
     # S3トリガーは既に手動設定済み（wows-replay-bot-dev-temp/replays/*.wowsreplay）
     environment:
       REPLAYS_TABLE: ${self:custom.replaysTable}
+      SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
       STAGE: ${self:provider.stage}
 
   # 検索API
@@ -210,6 +211,7 @@ functions:
           method: post
     environment:
       REPLAYS_TABLE: ${self:custom.replaysTable}
+      SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
 
   # 試合詳細API
   match-detail-api:

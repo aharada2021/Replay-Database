@@ -79,6 +79,33 @@
               ></v-text-field>
             </div>
 
+            <!-- 艦艇チーム -->
+            <div class="filter-item filter-item--small">
+              <v-select
+                v-model="searchStore.query.shipTeam"
+                :items="shipTeamTypes"
+                label="チーム"
+                clearable
+                density="compact"
+                hide-details
+                item-title="text"
+                item-value="value"
+              ></v-select>
+            </div>
+
+            <!-- 艦艇最小数 -->
+            <div class="filter-item filter-item--count">
+              <v-select
+                v-model="searchStore.query.shipMinCount"
+                :items="shipCountOptions"
+                label="隻数"
+                density="compact"
+                hide-details
+                item-title="text"
+                item-value="value"
+              ></v-select>
+            </div>
+
             <!-- 日時範囲 From -->
             <div class="filter-item filter-item--date">
               <v-text-field
@@ -263,6 +290,19 @@ const winLossTypes = [
   { text: '勝利', value: 'win' },
   { text: '敗北', value: 'loss' },
   { text: '引き分け', value: 'draw' },
+]
+
+const shipTeamTypes = [
+  { text: 'すべて', value: '' },
+  { text: '味方', value: 'ally' },
+  { text: '敵', value: 'enemy' },
+]
+
+const shipCountOptions = [
+  { text: '1隻以上', value: 1 },
+  { text: '2隻以上', value: 2 },
+  { text: '3隻以上', value: 3 },
+  { text: '4隻以上', value: 4 },
 ]
 
 // 展開状態の管理
@@ -452,6 +492,10 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   width: 160px;
 }
 
+.filter-item--count {
+  width: 100px;
+}
+
 .filter-item--date {
   width: 185px;
 }
@@ -468,6 +512,7 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   .filter-item--wide,
   .filter-item--clan,
   .filter-item--ship,
+  .filter-item--count,
   .filter-item--date {
     width: calc(50% - 4px);
     min-width: 120px;
@@ -485,6 +530,7 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   .filter-item--wide,
   .filter-item--clan,
   .filter-item--ship,
+  .filter-item--count,
   .filter-item--date {
     width: 100%;
   }

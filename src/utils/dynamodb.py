@@ -341,3 +341,176 @@ def search_replays(
         items = [item for item in items if item.get("winLoss") == win_loss]
 
     return {"items": items, "last_evaluated_key": response.get("LastEvaluatedKey")}
+
+
+def get_ship_match_index_table():
+    """艦艇-試合インデックステーブルを取得"""
+    return get_dynamodb_resource().Table(SHIP_MATCH_INDEX_TABLE_NAME)
+
+
+def put_ship_match_index_entries(
+    arena_unique_id: str,
+    date_time: str,
+    game_type: str,
+    map_id: str,
+    allies: List[Dict[str, Any]],
+    enemies: List[Dict[str, Any]],
+    own_player: Optional[Dict[str, Any]] = None,
+) -> None:
+    """
+    艦艇-試合インデックスエントリを作成
+
+    Args:
+        arena_unique_id: arenaUniqueID
+        date_time: 試合日時
+        game_type: ゲームタイプ
+        map_id: マップID
+        allies: 味方プレイヤーリスト
+        enemies: 敵プレイヤーリスト
+        own_player: 自分のプレイヤー情報
+    """
+    table = get_ship_match_index_table()
+
+    # 艦艇ごとのカウントを集計
+    ship_counts = {}  # shipName -> {"ally": count, "enemy": count}
+
+    # 自分 + 味方の艦艇
+    ally_players = []
+    if own_player and own_player.get("shipName"):
+        ally_players.append(own_player)
+    ally_players.extend(allies or [])
+
+    for player in ally_players:
+        ship_name = player.get("shipName")
+        if not ship_name:
+            continue
+        if ship_name not in ship_counts:
+            ship_counts[ship_name] = {"ally": 0, "enemy": 0}
+        ship_counts[ship_name]["ally"] += 1
+
+    # 敵の艦艇
+    for player in (enemies or []):
+        ship_name = player.get("shipName")
+        if not ship_name:
+            continue
+        if ship_name not in ship_counts:
+            ship_counts[ship_name] = {"ally": 0, "enemy": 0}
+        ship_counts[ship_name]["enemy"] += 1
+
+    # バッチ書き込み
+    with table.batch_writer() as batch:
+        for ship_name, counts in ship_counts.items():
+            item = {
+                "shipName": ship_name,
+                "arenaUniqueID": arena_unique_id,
+                "dateTime": date_time,
+                "gameType": game_type,
+                "mapId": map_id,
+                "allyCount": counts["ally"],
+                "enemyCount": counts["enemy"],
+                "totalCount": counts["ally"] + counts["enemy"],
+            }
+            batch.put_item(Item=item)
+
+    print(f"Ship index entries created for arena {arena_unique_id}: {len(ship_counts)} ships")
+
+
+def search_matches_by_ship(
+    ship_name: str,
+    limit: int = 100,
+    last_evaluated_key: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    """
+    艦艇名で試合を検索
+
+    Args:
+        ship_name: 艦艇名
+        limit: 取得件数上限
+        last_evaluated_key: ページネーション用キー
+
+    Returns:
+        {
+            'items': [...],
+            'last_evaluated_key': {...} or None
+        }
+    """
+    table = get_ship_match_index_table()
+
+    query_params = {
+        "KeyConditionExpression": "shipName = :sn",
+        "ExpressionAttributeValues": {":sn": ship_name},
+        "Limit": limit,
+        "ScanIndexForward": False,  # 新しい順
+    }
+
+    if last_evaluated_key:
+        query_params["ExclusiveStartKey"] = last_evaluated_key
+
+    response = table.query(**query_params)
+
+    return {
+        "items": response.get("Items", []),
+        "last_evaluated_key": response.get("LastEvaluatedKey"),
+    }
+
+
+def search_matches_by_ship_with_count(
+    ship_name: str,
+    team: Optional[str] = None,  # "ally", "enemy", or None for both
+    min_count: int = 1,
+    limit: int = 100,
+    last_evaluated_key: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    """
+    艦艇名と隻数条件で試合を検索
+
+    Args:
+        ship_name: 艦艇名
+        team: チーム ("ally", "enemy", None=両方)
+        min_count: 最小隻数
+        limit: 取得件数上限
+        last_evaluated_key: ページネーション用キー
+
+    Returns:
+        {
+            'items': [...],
+            'last_evaluated_key': {...} or None
+        }
+    """
+    table = get_ship_match_index_table()
+
+    # 基本クエリ
+    key_condition = "shipName = :sn"
+    expression_values = {":sn": ship_name}
+
+    # フィルタ条件
+    filter_expressions = []
+    if team == "ally":
+        filter_expressions.append("allyCount >= :minCount")
+        expression_values[":minCount"] = min_count
+    elif team == "enemy":
+        filter_expressions.append("enemyCount >= :minCount")
+        expression_values[":minCount"] = min_count
+    else:
+        filter_expressions.append("totalCount >= :minCount")
+        expression_values[":minCount"] = min_count
+
+    query_params = {
+        "KeyConditionExpression": key_condition,
+        "ExpressionAttributeValues": expression_values,
+        "Limit": limit,
+        "ScanIndexForward": False,
+    }
+
+    if filter_expressions:
+        query_params["FilterExpression"] = " AND ".join(filter_expressions)
+
+    if last_evaluated_key:
+        query_params["ExclusiveStartKey"] = last_evaluated_key
+
+    response = table.query(**query_params)
+
+    return {
+        "items": response.get("Items", []),
+        "last_evaluated_key": response.get("LastEvaluatedKey"),
+    }

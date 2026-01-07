@@ -57,11 +57,27 @@ def handle(event, context):
         ally_clan_tag = params.get("allyClanTag")
         enemy_clan_tag = params.get("enemyClanTag")
         ship_name = params.get("shipName")
+        ship_team = params.get("shipTeam")  # "ally", "enemy", or None
+        ship_min_count = params.get("shipMinCount", 1)
         win_loss = params.get("winLoss")
         date_from = params.get("dateFrom")
         date_to = params.get("dateTo")
         limit = params.get("limit", 50)
         last_evaluated_key = params.get("lastEvaluatedKey")
+
+        # 艦艇検索の場合、インデックステーブルを使用
+        ship_filtered_arena_ids = None
+        if ship_name:
+            ship_result = dynamodb.search_matches_by_ship_with_count(
+                ship_name=ship_name,
+                team=ship_team,
+                min_count=ship_min_count,
+                limit=500,  # 十分な数を取得
+            )
+            ship_filtered_arena_ids = set(
+                item.get("arenaUniqueID") for item in ship_result.get("items", [])
+            )
+            print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
 
         # 検索実行
         result = dynamodb.search_replays(
@@ -70,7 +86,7 @@ def handle(event, context):
             win_loss=win_loss,
             date_from=date_from,
             date_to=date_to,
-            limit=limit,
+            limit=limit if not ship_filtered_arena_ids else limit * 3,  # 艦艇フィルタ用に多めに取得
             last_evaluated_key=last_evaluated_key,
         )
 
@@ -79,6 +95,11 @@ def handle(event, context):
         for item in items:
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
                 item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
+
+        # 艦艇フィルタを適用（インデックステーブルで取得したarenaUniqueIDでフィルタ）
+        if ship_filtered_arena_ids is not None:
+            items = [item for item in items if item.get("arenaUniqueID") in ship_filtered_arena_ids]
+            print(f"After ship filter: {len(items)} items")
 
         # 試合単位でグループ化（プレイヤーセットベース）
         matches = {}
@@ -211,28 +232,7 @@ def handle(event, context):
         if enemy_clan_tag:
             match_list = [m for m in match_list if m.get("enemyMainClanTag") == enemy_clan_tag]
 
-        # 艦艇名でフィルタリング（部分一致、大文字小文字区別なし）
-        if ship_name:
-            ship_name_lower = ship_name.lower()
-
-            def match_has_ship(match):
-                # ownPlayerの艦艇をチェック
-                own_player = match.get("ownPlayer", {})
-                if own_player and ship_name_lower in (own_player.get("shipName", "") or "").lower():
-                    return True
-                # 味方の艦艇をチェック
-                allies = match.get("allies", []) or []
-                for ally in allies:
-                    if ship_name_lower in (ally.get("shipName", "") or "").lower():
-                        return True
-                # 敵の艦艇をチェック
-                enemies = match.get("enemies", []) or []
-                for enemy in enemies:
-                    if ship_name_lower in (enemy.get("shipName", "") or "").lower():
-                        return True
-                return False
-
-            match_list = [m for m in match_list if match_has_ship(m)]
+        # 艦艇フィルタは既にship_filtered_arena_idsで適用済み
 
         # レスポンス
         return {

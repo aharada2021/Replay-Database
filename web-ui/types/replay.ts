@@ -141,6 +141,8 @@ export interface SearchQuery {
   allyClanTag?: string
   enemyClanTag?: string
   shipName?: string
+  shipTeam?: 'ally' | 'enemy' | ''  // 艦艇チーム条件
+  shipMinCount?: number  // 艦艇最小数
   winLoss?: string
   dateFrom?: string
   dateTo?: string

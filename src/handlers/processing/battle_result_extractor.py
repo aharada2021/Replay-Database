@@ -238,6 +238,24 @@ def handle(event, context):
 
                 print(f"Successfully migrated and updated record: arena {arena_unique_id}, player {player_id}")
 
+                # 艦艇-試合インデックスを作成
+                own_player = old_record.get("ownPlayer", {})
+                if isinstance(own_player, list):
+                    own_player = own_player[0] if own_player else {}
+
+                try:
+                    dynamodb.put_ship_match_index_entries(
+                        arena_unique_id=str(arena_unique_id),
+                        date_time=old_record.get("dateTime", ""),
+                        game_type=old_record.get("gameType", ""),
+                        map_id=old_record.get("mapId", ""),
+                        allies=old_record.get("allies", []),
+                        enemies=old_record.get("enemies", []),
+                        own_player=own_player,
+                    )
+                except Exception as ship_idx_err:
+                    print(f"Warning: Failed to create ship index entries: {ship_idx_err}")
+
                 # 動画生成チェック: 同じ試合の既存リプレイで動画があるかチェック
                 check_and_trigger_video_generation(arena_unique_id, player_id)
 
