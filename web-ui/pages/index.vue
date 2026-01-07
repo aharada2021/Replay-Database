@@ -1,96 +1,106 @@
 <template>
   <div>
-    <v-card class="mb-4">
-      <v-card-title>リプレイ検索</v-card-title>
-      <v-card-text>
+    <v-card class="mb-2" density="compact">
+      <v-card-text class="py-2">
         <v-form @submit.prevent="handleSearch">
-          <v-row>
+          <v-row dense align="center">
             <!-- ゲームタイプ -->
-            <v-col cols="12" md="3">
+            <v-col cols="6" sm="4" md="2">
               <v-select
                 v-model="searchStore.query.gameType"
                 :items="gameTypes"
                 label="ゲームタイプ"
                 clearable
+                density="compact"
+                hide-details
                 item-title="text"
                 item-value="value"
               ></v-select>
             </v-col>
 
             <!-- マップ -->
-            <v-col cols="12" md="3">
+            <v-col cols="6" sm="4" md="2">
               <v-select
                 v-model="searchStore.query.mapId"
                 :items="mapList"
                 label="マップ"
                 clearable
+                density="compact"
+                hide-details
                 item-title="text"
                 item-value="value"
               ></v-select>
             </v-col>
 
             <!-- 勝敗 -->
-            <v-col cols="12" md="3">
+            <v-col cols="6" sm="4" md="1">
               <v-select
                 v-model="searchStore.query.winLoss"
                 :items="winLossTypes"
                 label="勝敗"
                 clearable
+                density="compact"
+                hide-details
                 item-title="text"
                 item-value="value"
               ></v-select>
             </v-col>
 
             <!-- 味方クランタグ -->
-            <v-col cols="12" md="3">
+            <v-col cols="6" sm="4" md="1">
               <v-text-field
                 v-model="searchStore.query.allyClanTag"
-                label="味方クランタグ"
+                label="味方"
+                placeholder="クランタグ"
                 clearable
-                hint="クラン戦のみ有効"
+                density="compact"
+                hide-details
               ></v-text-field>
             </v-col>
 
             <!-- 敵クランタグ -->
-            <v-col cols="12" md="3">
+            <v-col cols="6" sm="4" md="1">
               <v-text-field
                 v-model="searchStore.query.enemyClanTag"
-                label="敵クランタグ"
+                label="敵"
+                placeholder="クランタグ"
                 clearable
-                hint="クラン戦のみ有効"
+                density="compact"
+                hide-details
               ></v-text-field>
             </v-col>
 
             <!-- 日時範囲 From -->
-            <v-col cols="12" md="3">
+            <v-col cols="6" sm="4" md="2">
               <v-text-field
                 v-model="searchStore.query.dateFrom"
-                label="日時From"
+                label="From"
                 clearable
+                density="compact"
+                hide-details
                 type="date"
               ></v-text-field>
             </v-col>
 
             <!-- 日時範囲 To -->
-            <v-col cols="12" md="3">
+            <v-col cols="6" sm="4" md="2">
               <v-text-field
                 v-model="searchStore.query.dateTo"
-                label="日時To"
+                label="To"
                 clearable
+                density="compact"
+                hide-details
                 type="date"
               ></v-text-field>
             </v-col>
-          </v-row>
 
-          <v-row>
-            <v-col>
-              <v-btn color="primary" type="submit" :loading="searchStore.loading">
-                <v-icon left>mdi-magnify</v-icon>
-                検索
+            <!-- ボタン -->
+            <v-col cols="12" md="1" class="d-flex">
+              <v-btn color="primary" type="submit" :loading="searchStore.loading" size="small" class="mr-1">
+                <v-icon size="small">mdi-magnify</v-icon>
               </v-btn>
-              <v-btn class="ml-2" @click="handleReset">
-                <v-icon left>mdi-refresh</v-icon>
-                リセット
+              <v-btn @click="handleReset" size="small">
+                <v-icon size="small">mdi-refresh</v-icon>
               </v-btn>
             </v-col>
           </v-row>
