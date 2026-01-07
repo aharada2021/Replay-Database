@@ -273,7 +273,11 @@ def handle(event, context):
 
         # マッチのリストに変換（日時順にソート）
         # DD.MM.YYYY形式は文字列比較で正しくソートされないため、parse_datetime_for_sortを使用
-        match_list = sorted(matches.values(), key=lambda x: parse_datetime_for_sort(x.get("dateTime", "")), reverse=True)
+        match_list = sorted(
+            matches.values(),
+            key=lambda x: parse_datetime_for_sort(x.get("dateTime", "")),
+            reverse=True,
+        )
 
         # クランタグでフィルタリング（クライアント側フィルタ）
         if ally_clan_tag:
