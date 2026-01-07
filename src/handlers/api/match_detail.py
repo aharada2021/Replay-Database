@@ -128,7 +128,7 @@ def handle(event, context):
             "replays": [],
         }
 
-        # 全リプレイ情報を追加
+        # 全リプレイ情報を追加（BattleStatsを含む）
         for item in items:
             match_info["replays"].append(
                 {
@@ -143,6 +143,28 @@ def handle(event, context):
                     "mp4S3Key": item.get("mp4S3Key"),
                     "mp4GeneratedAt": item.get("mp4GeneratedAt"),
                     "ownPlayer": item.get("ownPlayer"),
+                    # BattleStats - 基本統計
+                    "damage": item.get("damage"),
+                    "receivedDamage": item.get("receivedDamage"),
+                    "spottingDamage": item.get("spottingDamage"),
+                    "potentialDamage": item.get("potentialDamage"),
+                    "kills": item.get("kills"),
+                    "fires": item.get("fires"),
+                    "floods": item.get("floods"),
+                    "baseXP": item.get("baseXP"),
+                    # BattleStats - 命中数内訳
+                    "hitsAP": item.get("hitsAP"),
+                    "hitsHE": item.get("hitsHE"),
+                    "hitsSecondaries": item.get("hitsSecondaries"),
+                    # BattleStats - ダメージ内訳
+                    "damageAP": item.get("damageAP"),
+                    "damageHE": item.get("damageHE"),
+                    "damageHESecondaries": item.get("damageHESecondaries"),
+                    "damageTorps": item.get("damageTorps"),
+                    "damageDeepWaterTorps": item.get("damageDeepWaterTorps"),
+                    "damageOther": item.get("damageOther"),
+                    "damageFire": item.get("damageFire"),
+                    "damageFlooding": item.get("damageFlooding"),
                 }
             )
 
