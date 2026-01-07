@@ -68,6 +68,17 @@
               ></v-text-field>
             </div>
 
+            <!-- 艦艇名 -->
+            <div class="filter-item filter-item--ship">
+              <v-text-field
+                v-model="searchStore.query.shipName"
+                label="艦艇名"
+                clearable
+                density="compact"
+                hide-details
+              ></v-text-field>
+            </div>
+
             <!-- 日時範囲 From -->
             <div class="filter-item filter-item--date">
               <v-text-field
@@ -164,34 +175,26 @@
           </div>
         </template>
 
-        <!-- 味方クラン -->
-        <template v-slot:item.allies="{ item }">
-          <v-chip
-            v-if="(item?.gameType || item?.raw?.gameType) === 'clan' && (item?.allyMainClanTag || item?.raw?.allyMainClanTag)"
-            size="small"
-          >
-            [{{ item?.allyMainClanTag ?? item?.raw?.allyMainClanTag }}]
-          </v-chip>
-          <span v-else>-</span>
+        <!-- 味方艦艇 -->
+        <template v-slot:item.allyShips="{ item }">
+          <div class="ship-list">
+            <span
+              v-for="(ship, idx) in getShipList(item?.allies || item?.raw?.allies)"
+              :key="idx"
+              class="ship-name text-caption"
+            >{{ ship }}</span>
+          </div>
         </template>
 
-        <!-- 敵クラン -->
-        <template v-slot:item.enemies="{ item }">
-          <v-chip
-            v-if="(item?.gameType || item?.raw?.gameType) === 'clan' && (item?.enemyMainClanTag || item?.raw?.enemyMainClanTag)"
-            size="small"
-            color="error"
-          >
-            [{{ item?.enemyMainClanTag ?? item?.raw?.enemyMainClanTag }}]
-          </v-chip>
-          <span v-else>-</span>
-        </template>
-
-        <!-- リプレイ数 -->
-        <template v-slot:item.replayCount="{ item }">
-          <v-chip size="small" color="info">
-            {{ item?.replayCount ?? item?.raw?.replayCount ?? 1 }} 件
-          </v-chip>
+        <!-- 敵艦艇 -->
+        <template v-slot:item.enemyShips="{ item }">
+          <div class="ship-list ship-list--enemy">
+            <span
+              v-for="(ship, idx) in getShipList(item?.enemies || item?.raw?.enemies)"
+              :key="idx"
+              class="ship-name text-caption"
+            >{{ ship }}</span>
+          </div>
         </template>
 
         <!-- 展開時の詳細表示 -->
@@ -314,10 +317,9 @@ const headers = [
   { title: 'マップ', key: 'mapDisplayName', sortable: true },
   { title: 'ゲームタイプ', key: 'gameType', sortable: true },
   { title: '勝敗', key: 'winLoss', sortable: true },
-  { title: '自分', key: 'ownPlayer', sortable: false },
-  { title: '味方クラン', key: 'allies', sortable: false },
-  { title: '敵クラン', key: 'enemies', sortable: false },
-  { title: 'リプレイ数', key: 'replayCount', sortable: true },
+  { title: '初回アップロード者', key: 'ownPlayer', sortable: false },
+  { title: '味方艦艇', key: 'allyShips', sortable: false },
+  { title: '敵艦艇', key: 'enemyShips', sortable: false },
 ]
 
 // ハンドラー
@@ -401,8 +403,11 @@ const getWinLossColor = (winLoss?: string) => {
   return colors[winLoss || 'unknown'] || 'grey'
 }
 
-// getAllyClanTags と getEnemyClanTags 関数は削除
-// クラン戦の場合は allyMainClanTag と enemyMainClanTag を直接表示するため不要
+// 艦艇リストを取得（艦名のみの配列を返す）
+const getShipList = (players: PlayerInfo[] | undefined): string[] => {
+  if (!players || players.length === 0) return []
+  return players.map(p => p.shipName || '-').filter(Boolean)
+}
 </script>
 
 <style scoped>
@@ -477,5 +482,21 @@ const getWinLossColor = (winLoss?: string) => {
   .filter-item--date {
     width: 100%;
   }
+}
+
+/* 艦艇リスト表示 */
+.ship-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  max-width: 200px;
+}
+
+.ship-list .ship-name {
+  color: rgba(var(--v-theme-success), 0.9);
+}
+
+.ship-list--enemy .ship-name {
+  color: rgba(var(--v-theme-error), 0.9);
 }
 </style>

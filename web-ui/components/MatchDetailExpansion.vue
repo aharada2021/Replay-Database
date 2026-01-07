@@ -125,6 +125,10 @@
             <span class="text-blue">{{ item.floods || 0 }}</span>
           </template>
 
+          <template v-slot:item.citadels="{ item }">
+            <span class="text-purple font-weight-bold">{{ item.citadels || 0 }}</span>
+          </template>
+
           <template v-slot:item.baseXP="{ item }">
             <span class="text-amber">{{ formatNumber(item.baseXP) }}</span>
           </template>
@@ -303,6 +307,7 @@ const scoreboardHeaders = [
   { title: '命中', key: 'totalHits', sortable: true, align: 'end' as const, width: '40px' },
   { title: '火', key: 'fires', sortable: true, align: 'end' as const, width: '30px' },
   { title: '浸', key: 'floods', sortable: true, align: 'end' as const, width: '30px' },
+  { title: 'Crits', key: 'citadels', sortable: true, align: 'end' as const, width: '35px' },
   { title: 'XP', key: 'baseXP', sortable: true, align: 'end' as const, width: '50px' },
 ]
 

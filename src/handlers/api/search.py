@@ -150,6 +150,8 @@ def handle(event, context):
                     "damageOther": item.get("damageOther"),
                     "damageFire": item.get("damageFire"),
                     "damageFlooding": item.get("damageFlooding"),
+                    # Citadel
+                    "citadels": item.get("citadels"),
                 }
             )
 
@@ -197,6 +199,7 @@ def handle(event, context):
             match["damageOther"] = representative.get("damageOther")
             match["damageFire"] = representative.get("damageFire")
             match["damageFlooding"] = representative.get("damageFlooding")
+            match["citadels"] = representative.get("citadels")
 
         # マッチのリストに変換（日時順にソート）
         match_list = sorted(matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True)

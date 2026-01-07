@@ -216,6 +216,8 @@ def handle(event, context):
                         old_record["damageOther"] = stats_data.get("damageOther", 0)
                         old_record["damageFire"] = stats_data.get("damageFire", 0)
                         old_record["damageFlooding"] = stats_data.get("damageFlooding", 0)
+                        # Citadel
+                        old_record["citadels"] = stats_data.get("citadels", 0)
 
                         dmg = stats_data.get("damage")
                         kls = stats_data.get("kills")

@@ -166,6 +166,8 @@ def handle(event, context):
                     "damageOther": item.get("damageOther"),
                     "damageFire": item.get("damageFire"),
                     "damageFlooding": item.get("damageFlooding"),
+                    # Citadel
+                    "citadels": item.get("citadels"),
                 }
             )
 

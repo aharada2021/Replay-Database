@@ -20,6 +20,7 @@ export interface BattleStats {
   fires?: number
   floods?: number
   baseXP?: number
+  citadels?: number
   // 命中数内訳
   hitsAP?: number
   hitsHE?: number
@@ -139,6 +140,7 @@ export interface SearchQuery {
   mapId?: string
   allyClanTag?: string
   enemyClanTag?: string
+  shipName?: string
   winLoss?: string
   dateFrom?: string
   dateTo?: string

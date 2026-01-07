@@ -47,6 +47,8 @@ class BattleStatsParser:
         # 総ダメージ統計
         "received_damage": 204,
         "damage": 429,
+        # Citadel（バイタル）
+        "citadels": 264,  # 与えたCitadel数
         # 経験値・スポットダメージ
         "base_xp": 406,
         "spotting_damage": 415,
@@ -205,6 +207,8 @@ class BattleStatsParser:
             "damageOther": stats.get("damage_other", 0),
             "damageFire": stats.get("damage_fire", 0),
             "damageFlooding": stats.get("damage_flooding", 0),
+            # Citadel
+            "citadels": stats.get("citadels", 0),
         }
 
 
