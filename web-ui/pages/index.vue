@@ -253,6 +253,7 @@ const gameTypes = [
   { text: 'クラン戦', value: 'clan' },
   { text: 'ランダム戦', value: 'pvp' },
   { text: 'ランク戦', value: 'ranked' },
+  { text: 'コープ戦', value: 'cooperative' },
 ]
 
 const winLossTypes = [
@@ -381,6 +382,7 @@ const getGameTypeText = (type: string) => {
     clan: 'クラン戦',
     pvp: 'ランダム',
     ranked: 'ランク戦',
+    cooperative: 'コープ',
   }
   return types[type] || type
 }
@@ -390,6 +392,7 @@ const getGameTypeColor = (type: string) => {
     clan: 'purple',
     pvp: 'blue',
     ranked: 'orange',
+    cooperative: 'green',
   }
   return colors[type] || 'grey'
 }
