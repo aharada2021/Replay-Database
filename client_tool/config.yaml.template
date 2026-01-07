@@ -1,18 +1,13 @@
 # WoWS Replay Auto Uploader 設定ファイル
+# ※このファイルはセットアップウィザードで自動生成されます
 
-# API設定
-api_url: https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com/api/upload
-api_key: YOUR_API_KEY_HERE  # ← ここにAPI Keyを入力してください
+# API Key（必須）
+api_key: ''
 
-# 監視設定
-# リプレイフォルダのパス（Windows環境変数が使用できます）
-replays_folder: '%APPDATA%\Wargaming.net\WorldOfWarships\replays'
+# リプレイフォルダのパス
+replays_folder: ''
 
-# 自動起動設定
-auto_start: true
-
-# ユーザー設定（オプション）
-# Discord連携用のUser IDを設定できます
+# Discord User ID（オプション）
 discord_user_id: ''
 
 # リトライ設定

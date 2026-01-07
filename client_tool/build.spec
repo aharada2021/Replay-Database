@@ -7,9 +7,7 @@ a = Analysis(
     ['wows_replay_uploader.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('config.yaml.template', '.'),
-    ],
+    datas=[],
     hiddenimports=[
         'watchdog.observers',
         'watchdog.observers.polling',

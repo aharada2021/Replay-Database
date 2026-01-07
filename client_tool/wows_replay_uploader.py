@@ -13,80 +13,452 @@ import json
 import logging
 import requests
 import multiprocessing
+import winreg
+import webbrowser
+import tempfile
+import subprocess
+import re
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
+
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
 from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent
 
-# ログ設定
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('wows_replay_uploader.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# ========================================
+# 定数
+# ========================================
 
+# APIエンドポイント（ハードコード）
+API_BASE_URL = "https://wows-replay.mirage0926.com"
+API_UPLOAD_URL = "https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com/api/upload"
+API_VERSION_URL = "https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com/api/download?file=uploader"
+
+# バージョン情報
+VERSION = "1.1.0"
+
+# デフォルトのリプレイフォルダ
+DEFAULT_REPLAYS_FOLDER = os.path.expandvars('%APPDATA%\\Wargaming.net\\WorldOfWarships\\replays')
+
+# 設定ファイルパス
+CONFIG_FILE = 'config.yaml'
+
+# ログ設定
+def setup_logging():
+    """ログ設定を初期化"""
+    log_file = Path(os.path.dirname(os.path.abspath(sys.argv[0]))) / 'wows_replay_uploader.log'
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger(__name__)
+
+logger = None
+
+
+# ========================================
+# 初回セットアップウィザード
+# ========================================
+
+class SetupWizard:
+    """初回セットアップウィザード"""
+
+    def __init__(self):
+        self.config = {}
+
+    def run(self) -> Dict[str, Any]:
+        """セットアップウィザードを実行"""
+        self._clear_screen()
+        self._print_header()
+
+        print("\n初回セットアップを開始します。\n")
+
+        # API Key入力
+        self.config['api_key'] = self._get_api_key()
+
+        # リプレイフォルダ設定
+        self.config['replays_folder'] = self._get_replays_folder()
+
+        # Discord User ID（オプション）
+        self.config['discord_user_id'] = self._get_discord_user_id()
+
+        # スタートアップ登録
+        self._prompt_startup_registration()
+
+        # 設定を保存
+        self._save_config()
+
+        print("\n" + "=" * 60)
+        print("セットアップが完了しました！")
+        print("=" * 60)
+        print("\nリプレイファイルの自動アップロードを開始します...")
+        time.sleep(2)
+
+        return self.config
+
+    def _clear_screen(self):
+        """画面をクリア"""
+        os.system('cls' if os.name == 'nt' else 'clear')
+
+    def _print_header(self):
+        """ヘッダーを表示"""
+        print("=" * 60)
+        print("  WoWS Replay Auto Uploader - 初回セットアップ")
+        print(f"  Version {VERSION}")
+        print("=" * 60)
+
+    def _get_api_key(self) -> str:
+        """API Keyを取得"""
+        print("-" * 40)
+        print("【ステップ 1/3】API Keyの設定")
+        print("-" * 40)
+        print(f"\nAPI Keyは {API_BASE_URL} で取得できます。")
+        print("※ Discordサーバーのメンバーである必要があります。\n")
+
+        while True:
+            api_key = input("API Key を入力してください: ").strip()
+            if api_key:
+                return api_key
+            print("エラー: API Keyは必須です。\n")
+
+    def _get_replays_folder(self) -> str:
+        """リプレイフォルダを取得"""
+        print("\n" + "-" * 40)
+        print("【ステップ 2/3】リプレイフォルダの設定")
+        print("-" * 40)
+
+        # デフォルトフォルダの確認
+        if os.path.exists(DEFAULT_REPLAYS_FOLDER):
+            print(f"\nデフォルトのリプレイフォルダが見つかりました:")
+            print(f"  {DEFAULT_REPLAYS_FOLDER}")
+            choice = input("\nこのフォルダを使用しますか? (Y/n): ").strip().lower()
+            if choice != 'n':
+                return DEFAULT_REPLAYS_FOLDER
+
+        # カスタムパス入力
+        print("\nリプレイフォルダのパスを入力してください。")
+        print("例: C:\\Games\\World_of_Warships\\replays")
+
+        while True:
+            folder = input("\nリプレイフォルダ: ").strip()
+            folder = os.path.expandvars(folder)
+
+            if os.path.exists(folder):
+                return folder
+            else:
+                print(f"エラー: フォルダが見つかりません: {folder}")
+                create = input("フォルダを作成しますか? (y/N): ").strip().lower()
+                if create == 'y':
+                    try:
+                        os.makedirs(folder, exist_ok=True)
+                        return folder
+                    except Exception as e:
+                        print(f"フォルダ作成エラー: {e}")
+
+    def _get_discord_user_id(self) -> str:
+        """Discord User ID を取得（オプション）"""
+        print("\n" + "-" * 40)
+        print("【ステップ 3/3】Discord連携（オプション）")
+        print("-" * 40)
+        print("\nDiscord User IDを設定すると、アップロード時にあなたのID情報が")
+        print("関連付けられます。空欄でもOKです。")
+
+        user_id = input("\nDiscord User ID (空欄可): ").strip()
+        return user_id
+
+    def _prompt_startup_registration(self):
+        """スタートアップ登録を促す"""
+        print("\n" + "-" * 40)
+        print("【スタートアップ登録】")
+        print("-" * 40)
+        print("\nWindows起動時にこのツールを自動で起動するよう設定できます。")
+        choice = input("スタートアップに登録しますか? (Y/n): ").strip().lower()
+
+        if choice != 'n':
+            if self._register_startup():
+                print("✓ スタートアップに登録しました。")
+            else:
+                print("※ スタートアップ登録に失敗しました。後で手動で設定できます。")
+        else:
+            print("スキップしました。後からメニューで登録できます。")
+
+    def _register_startup(self) -> bool:
+        """スタートアップに登録"""
+        try:
+            # 実行ファイルのパスを取得
+            if getattr(sys, 'frozen', False):
+                exe_path = sys.executable
+            else:
+                exe_path = os.path.abspath(sys.argv[0])
+
+            # レジストリに登録
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                0,
+                winreg.KEY_SET_VALUE
+            )
+            winreg.SetValueEx(key, "WoWSReplayUploader", 0, winreg.REG_SZ, f'"{exe_path}"')
+            winreg.CloseKey(key)
+            return True
+        except Exception as e:
+            if logger:
+                logger.error(f"スタートアップ登録エラー: {e}")
+            return False
+
+    def _save_config(self):
+        """設定を保存"""
+        config_data = {
+            'api_key': self.config['api_key'],
+            'replays_folder': self.config['replays_folder'],
+            'discord_user_id': self.config.get('discord_user_id', ''),
+            'retry_count': 3,
+            'retry_delay': 5,
+            'use_polling': True
+        }
+
+        config_path = Path(os.path.dirname(os.path.abspath(sys.argv[0]))) / CONFIG_FILE
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config_data, f, allow_unicode=True, default_flow_style=False)
+
+
+# ========================================
+# 設定管理
+# ========================================
 
 class Config:
     """設定管理クラス"""
 
     DEFAULT_CONFIG = {
-        'api_url': 'https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com/api/upload',
-        'api_key': 'YOUR_API_KEY_HERE',
-        'replays_folder': os.path.expandvars('%APPDATA%\\Wargaming.net\\WorldOfWarships\\replays'),
-        'auto_start': True,
+        'api_key': '',
+        'replays_folder': DEFAULT_REPLAYS_FOLDER,
         'discord_user_id': '',
         'retry_count': 3,
         'retry_delay': 5,
-        'use_polling': True  # PollingObserverを使用（安定性向上）
+        'use_polling': True
     }
 
-    def __init__(self, config_path: str = 'config.yaml'):
-        self.config_path = config_path
+    def __init__(self):
+        self.config_path = Path(os.path.dirname(os.path.abspath(sys.argv[0]))) / CONFIG_FILE
         self.config = self._load_config()
 
     def _load_config(self) -> Dict[str, Any]:
         """設定ファイルを読み込み"""
-        if not os.path.exists(self.config_path):
-            logger.warning(f"設定ファイルが見つかりません: {self.config_path}")
-            logger.info("デフォルト設定で新規作成します")
-            self._create_default_config()
-            return self.DEFAULT_CONFIG.copy()
+        if not self.config_path.exists():
+            return None  # 初回セットアップが必要
 
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
-                logger.info(f"設定ファイルを読み込みました: {self.config_path}")
+                if logger:
+                    logger.info(f"設定ファイルを読み込みました: {self.config_path}")
                 return {**self.DEFAULT_CONFIG, **config}
         except Exception as e:
-            logger.error(f"設定ファイルの読み込みエラー: {e}")
-            return self.DEFAULT_CONFIG.copy()
+            if logger:
+                logger.error(f"設定ファイルの読み込みエラー: {e}")
+            return None
 
-    def _create_default_config(self):
-        """デフォルト設定ファイルを作成"""
-        try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
-                yaml.dump(self.DEFAULT_CONFIG, f, allow_unicode=True, default_flow_style=False)
-            logger.info(f"デフォルト設定ファイルを作成しました: {self.config_path}")
-        except Exception as e:
-            logger.error(f"設定ファイルの作成エラー: {e}")
+    def is_configured(self) -> bool:
+        """設定が完了しているか確認"""
+        if self.config is None:
+            return False
+        api_key = self.config.get('api_key', '')
+        return bool(api_key and api_key != 'YOUR_API_KEY_HERE')
 
     def get(self, key: str, default=None):
         """設定値を取得"""
+        if self.config is None:
+            return default
         return self.config.get(key, default)
 
+    def update(self, new_config: Dict[str, Any]):
+        """設定を更新"""
+        self.config = {**self.DEFAULT_CONFIG, **new_config}
+
+
+# ========================================
+# 自動アップデート
+# ========================================
+
+class AutoUpdater:
+    """自動アップデートクラス"""
+
+    def __init__(self):
+        self.current_version = VERSION
+        self.latest_version = None
+        self.download_url = None
+
+    @staticmethod
+    def parse_version(version_str: str) -> Tuple[int, ...]:
+        """バージョン文字列をタプルに変換（比較用）"""
+        try:
+            # "1.2.0" -> (1, 2, 0)
+            return tuple(int(x) for x in version_str.split('.'))
+        except (ValueError, AttributeError):
+            return (0, 0, 0)
+
+    @staticmethod
+    def extract_version_from_filename(filename: str) -> Optional[str]:
+        """ファイル名からバージョンを抽出"""
+        # 例: wows_replay_uploader-1.2.0.zip -> 1.2.0
+        match = re.search(r'-(\d+\.\d+\.\d+)\.', filename)
+        if match:
+            return match.group(1)
+        return None
+
+    def is_newer_version(self, latest: str, current: str) -> bool:
+        """最新バージョンが現在より新しいか確認"""
+        latest_tuple = self.parse_version(latest)
+        current_tuple = self.parse_version(current)
+        return latest_tuple > current_tuple
+
+    def check_for_updates(self) -> bool:
+        """アップデートを確認。新しいバージョンがあればTrueを返す"""
+        try:
+            response = requests.get(API_VERSION_URL, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                download_url = data.get('url', '')
+                filename = data.get('filename', '')
+
+                # ファイル名からバージョンを抽出
+                latest_version = self.extract_version_from_filename(filename)
+
+                if latest_version:
+                    self.latest_version = latest_version
+                    self.download_url = download_url
+
+                    # バージョン比較
+                    if self.is_newer_version(latest_version, self.current_version):
+                        if logger:
+                            logger.info(f"新しいバージョンを検出: {latest_version} (現在: {self.current_version})")
+                        return True
+                    else:
+                        if logger:
+                            logger.debug(f"最新バージョンです: {self.current_version}")
+                        return False
+        except Exception as e:
+            if logger:
+                logger.debug(f"アップデート確認エラー: {e}")
+        return False
+
+    def prompt_update(self):
+        """アップデートを促す"""
+        print("\n" + "=" * 60)
+        print("  新しいバージョンが利用可能です！")
+        print("=" * 60)
+        print(f"\n現在のバージョン: {self.current_version}")
+        if self.latest_version:
+            print(f"最新バージョン:   {self.latest_version}")
+        print("\nアップデートをダウンロードしますか?")
+        choice = input("(Y/n): ").strip().lower()
+
+        if choice != 'n':
+            self._download_update()
+
+    def _download_update(self):
+        """アップデートをダウンロード"""
+        if not self.download_url:
+            print("ダウンロードURLが取得できませんでした。")
+            return
+
+        try:
+            print("\nブラウザでダウンロードページを開きます...")
+            # 署名付きURLで直接ダウンロード
+            webbrowser.open(self.download_url)
+            print("\nダウンロード完了後、現在のアプリを終了して新しいバージョンに置き換えてください。")
+        except Exception as e:
+            print(f"エラー: {e}")
+            print(f"\n手動でダウンロードしてください: {API_BASE_URL}")
+
+
+# ========================================
+# スタートアップ管理
+# ========================================
+
+class StartupManager:
+    """スタートアップ管理クラス"""
+
+    REG_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    APP_NAME = "WoWSReplayUploader"
+
+    @classmethod
+    def is_registered(cls) -> bool:
+        """スタートアップに登録されているか確認"""
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                cls.REG_PATH,
+                0,
+                winreg.KEY_READ
+            )
+            try:
+                winreg.QueryValueEx(key, cls.APP_NAME)
+                winreg.CloseKey(key)
+                return True
+            except FileNotFoundError:
+                winreg.CloseKey(key)
+                return False
+        except Exception:
+            return False
+
+    @classmethod
+    def register(cls) -> bool:
+        """スタートアップに登録"""
+        try:
+            if getattr(sys, 'frozen', False):
+                exe_path = sys.executable
+            else:
+                exe_path = os.path.abspath(sys.argv[0])
+
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                cls.REG_PATH,
+                0,
+                winreg.KEY_SET_VALUE
+            )
+            winreg.SetValueEx(key, cls.APP_NAME, 0, winreg.REG_SZ, f'"{exe_path}"')
+            winreg.CloseKey(key)
+            return True
+        except Exception as e:
+            if logger:
+                logger.error(f"スタートアップ登録エラー: {e}")
+            return False
+
+    @classmethod
+    def unregister(cls) -> bool:
+        """スタートアップから削除"""
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                cls.REG_PATH,
+                0,
+                winreg.KEY_SET_VALUE
+            )
+            winreg.DeleteValue(key, cls.APP_NAME)
+            winreg.CloseKey(key)
+            return True
+        except Exception as e:
+            if logger:
+                logger.error(f"スタートアップ削除エラー: {e}")
+            return False
+
+
+# ========================================
+# リプレイアップロード
+# ========================================
 
 class ReplayUploader:
     """リプレイアップロードクラス"""
 
     def __init__(self, config: Config):
         self.config = config
-        self.api_url = config.get('api_url')
+        self.api_url = API_UPLOAD_URL  # ハードコード
         self.api_key = config.get('api_key')
         self.discord_user_id = config.get('discord_user_id', '')
         self.retry_count = config.get('retry_count', 3)
@@ -97,22 +469,13 @@ class ReplayUploader:
         self.failed_uploads = []
 
     def upload_replay(self, file_path: Path) -> Dict[str, Any]:
-        """
-        リプレイファイルをアップロード
-
-        Args:
-            file_path: リプレイファイルのパス
-
-        Returns:
-            APIレスポンス
-        """
+        """リプレイファイルをアップロード"""
         if not file_path.exists():
             logger.error(f"ファイルが見つかりません: {file_path}")
             return {'status': 'error', 'message': 'File not found'}
 
         logger.info(f"アップロード開始: {file_path.name}")
 
-        # ヘッダー
         headers = {
             'X-Api-Key': self.api_key
         }
@@ -120,12 +483,10 @@ class ReplayUploader:
         if self.discord_user_id:
             headers['X-User-Id'] = self.discord_user_id
 
-        # ファイルをアップロード
         for attempt in range(1, self.retry_count + 1):
             try:
                 with open(file_path, 'rb') as f:
                     files = {'file': (file_path.name, f, 'application/octet-stream')}
-
                     response = requests.post(
                         self.api_url,
                         headers=headers,
@@ -137,7 +498,6 @@ class ReplayUploader:
                     result = response.json()
                     logger.info(f"アップロード成功: {file_path.name}")
 
-                    # 履歴に追加
                     self.upload_history.append({
                         'file': file_path.name,
                         'timestamp': datetime.now().isoformat(),
@@ -156,7 +516,6 @@ class ReplayUploader:
 
             except requests.exceptions.RequestException as e:
                 logger.error(f"ネットワークエラー (試行 {attempt}/{self.retry_count}): {e}")
-
                 if attempt < self.retry_count:
                     logger.info(f"{self.retry_delay}秒後にリトライします...")
                     time.sleep(self.retry_delay)
@@ -165,7 +524,6 @@ class ReplayUploader:
                 logger.error(f"予期しないエラー: {e}")
                 break
 
-        # 失敗リストに追加
         self.failed_uploads.append({
             'file': str(file_path),
             'timestamp': datetime.now().isoformat()
@@ -174,11 +532,14 @@ class ReplayUploader:
         return {'status': 'error', 'message': 'Upload failed after retries'}
 
 
+# ========================================
+# ファイル監視
+# ========================================
+
 class ReplayFileHandler(PatternMatchingEventHandler):
     """リプレイファイル監視ハンドラー"""
 
     def __init__(self, uploader: ReplayUploader):
-        # *.wowsreplayファイルのみを監視、temp.wowsreplayは除外
         super().__init__(
             patterns=["*.wowsreplay"],
             ignore_patterns=["temp.wowsreplay"],
@@ -186,7 +547,7 @@ class ReplayFileHandler(PatternMatchingEventHandler):
             case_sensitive=False
         )
         self.uploader = uploader
-        self.processing_files = set()  # 処理中のファイル
+        self.processing_files = set()
 
     def on_created(self, event: FileCreatedEvent):
         """ファイル作成イベント"""
@@ -195,42 +556,27 @@ class ReplayFileHandler(PatternMatchingEventHandler):
 
         file_path = Path(event.src_path)
 
-        # 既に処理中の場合はスキップ
         if str(file_path) in self.processing_files:
             return
 
         logger.info(f"新しいリプレイファイルを検出: {file_path.name}")
-
-        # 処理中リストに追加
         self.processing_files.add(str(file_path))
 
         try:
-            # ファイル書き込み完了を待つ
             self._wait_for_file_complete(file_path)
-
-            # アップロード
             result = self.uploader.upload_replay(file_path)
 
-            # 重複チェック
             if result.get('status') == 'duplicate':
                 logger.warning(f"重複: このゲームは既に {result.get('originalUploader')} さんがアップロードしています")
-                logger.warning(f"アップロード日時: {result.get('uploadedAt')}")
 
         except Exception as e:
             logger.error(f"ファイル処理エラー: {e}")
 
         finally:
-            # 処理中リストから削除
             self.processing_files.discard(str(file_path))
 
     def _wait_for_file_complete(self, file_path: Path, timeout: int = 30):
-        """
-        ファイル書き込み完了を待つ
-
-        Args:
-            file_path: ファイルパス
-            timeout: タイムアウト（秒）
-        """
+        """ファイル書き込み完了を待つ"""
         logger.debug(f"ファイル書き込み完了待機中: {file_path.name}")
 
         last_size = -1
@@ -240,25 +586,20 @@ class ReplayFileHandler(PatternMatchingEventHandler):
         while time.time() - start_time < timeout:
             try:
                 current_size = file_path.stat().st_size
-
                 if current_size == last_size:
                     stable_count += 1
-
-                    # 5秒間サイズが変化しなければ完了とみなす
                     if stable_count >= 5:
-                        logger.debug(f"ファイル書き込み完了: {file_path.name} ({current_size} bytes)")
+                        logger.debug(f"ファイル書き込み完了: {file_path.name}")
                         return
                 else:
                     stable_count = 0
                     last_size = current_size
-
                 time.sleep(1)
-
             except FileNotFoundError:
                 logger.warning(f"ファイルが見つかりません: {file_path}")
                 return
 
-        logger.warning(f"タイムアウト: ファイル書き込み完了を確認できませんでした: {file_path.name}")
+        logger.warning(f"タイムアウト: {file_path.name}")
 
 
 class ReplayMonitor:
@@ -272,25 +613,20 @@ class ReplayMonitor:
 
     def start(self):
         """監視を開始"""
-        # リプレイフォルダの存在確認
         if not os.path.exists(self.replays_folder):
             logger.error(f"リプレイフォルダが見つかりません: {self.replays_folder}")
-            logger.error("設定ファイル (config.yaml) を確認してください")
             return
 
         logger.info(f"リプレイフォルダを監視開始: {self.replays_folder}")
-        logger.info(f"API URL: {self.config.get('api_url')}")
+        logger.info(f"API URL: {API_UPLOAD_URL}")
 
-        # Observerの選択（PollingObserverの方が安定）
         use_polling = self.config.get('use_polling', True)
         if use_polling:
-            logger.info("PollingObserverを使用します（安定性重視）")
+            logger.info("PollingObserverを使用します")
             self.observer = PollingObserver()
         else:
-            logger.info("標準Observerを使用します")
             self.observer = Observer()
 
-        # ファイル監視を開始
         event_handler = ReplayFileHandler(self.uploader)
         self.observer.schedule(event_handler, self.replays_folder, recursive=False)
         self.observer.start()
@@ -298,12 +634,6 @@ class ReplayMonitor:
         try:
             while True:
                 time.sleep(10)
-                # 定期的にステータスを表示
-                if len(self.uploader.upload_history) > 0:
-                    logger.debug(f"アップロード済み: {len(self.uploader.upload_history)}件")
-                if len(self.uploader.failed_uploads) > 0:
-                    logger.debug(f"失敗: {len(self.uploader.failed_uploads)}件")
-
         except KeyboardInterrupt:
             logger.info("監視を停止します...")
             self.observer.stop()
@@ -312,29 +642,42 @@ class ReplayMonitor:
         logger.info("監視を終了しました")
 
 
+# ========================================
+# メイン
+# ========================================
+
 def main():
     """メイン関数"""
+    global logger
+
     # PyInstallerでのマルチプロセシング対応
     multiprocessing.freeze_support()
 
+    # ログ設定
+    logger = setup_logging()
+
     logger.info("=" * 60)
-    logger.info("WoWS Replay Auto Uploader")
+    logger.info(f"WoWS Replay Auto Uploader v{VERSION}")
     logger.info("=" * 60)
 
-    # 設定ファイルを読み込み
-    config_path = 'config.yaml'
-    if len(sys.argv) > 1:
-        config_path = sys.argv[1]
+    # 設定を読み込み
+    config = Config()
 
-    config = Config(config_path)
+    # 初回セットアップが必要か確認
+    if not config.is_configured():
+        wizard = SetupWizard()
+        new_config = wizard.run()
+        config.update(new_config)
 
-    # API Key確認
-    api_key = config.get('api_key')
-    if not api_key or api_key == 'YOUR_API_KEY_HERE':
-        logger.error("API Keyが設定されていません")
-        logger.error(f"設定ファイル ({config_path}) にAPI Keyを設定してください")
-        input("\n終了するにはEnterキーを押してください...")
-        sys.exit(1)
+    # アップデート確認
+    updater = AutoUpdater()
+    if updater.check_for_updates():
+        updater.prompt_update()
+
+    # スタートアップ登録状態を確認
+    if not StartupManager.is_registered():
+        print("\n※ スタートアップに登録されていません。")
+        print("  Windows起動時に自動で起動させたい場合は、後から設定できます。\n")
 
     # 監視開始
     monitor = ReplayMonitor(config)
