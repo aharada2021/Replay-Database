@@ -3,9 +3,9 @@
     <v-card class="mb-2" density="compact">
       <v-card-text class="py-2">
         <v-form @submit.prevent="handleSearch">
-          <v-row dense align="center">
+          <div class="search-filters">
             <!-- ゲームタイプ -->
-            <v-col cols="6" sm="4" md="2">
+            <div class="filter-item filter-item--medium">
               <v-select
                 v-model="searchStore.query.gameType"
                 :items="gameTypes"
@@ -16,10 +16,10 @@
                 item-title="text"
                 item-value="value"
               ></v-select>
-            </v-col>
+            </div>
 
             <!-- マップ -->
-            <v-col cols="6" sm="4" md="2">
+            <div class="filter-item filter-item--wide">
               <v-select
                 v-model="searchStore.query.mapId"
                 :items="mapList"
@@ -30,10 +30,10 @@
                 item-title="text"
                 item-value="value"
               ></v-select>
-            </v-col>
+            </div>
 
             <!-- 勝敗 -->
-            <v-col cols="6" sm="4" md="1">
+            <div class="filter-item filter-item--small">
               <v-select
                 v-model="searchStore.query.winLoss"
                 :items="winLossTypes"
@@ -44,10 +44,10 @@
                 item-title="text"
                 item-value="value"
               ></v-select>
-            </v-col>
+            </div>
 
             <!-- 味方クランタグ -->
-            <v-col cols="6" sm="4" md="1">
+            <div class="filter-item filter-item--small">
               <v-text-field
                 v-model="searchStore.query.allyClanTag"
                 label="味方"
@@ -56,10 +56,10 @@
                 density="compact"
                 hide-details
               ></v-text-field>
-            </v-col>
+            </div>
 
             <!-- 敵クランタグ -->
-            <v-col cols="6" sm="4" md="1">
+            <div class="filter-item filter-item--small">
               <v-text-field
                 v-model="searchStore.query.enemyClanTag"
                 label="敵"
@@ -68,10 +68,10 @@
                 density="compact"
                 hide-details
               ></v-text-field>
-            </v-col>
+            </div>
 
             <!-- 日時範囲 From -->
-            <v-col cols="6" sm="4" md="2">
+            <div class="filter-item filter-item--date">
               <v-text-field
                 v-model="searchStore.query.dateFrom"
                 label="From"
@@ -80,10 +80,10 @@
                 hide-details
                 type="date"
               ></v-text-field>
-            </v-col>
+            </div>
 
             <!-- 日時範囲 To -->
-            <v-col cols="6" sm="4" md="2">
+            <div class="filter-item filter-item--date">
               <v-text-field
                 v-model="searchStore.query.dateTo"
                 label="To"
@@ -92,18 +92,18 @@
                 hide-details
                 type="date"
               ></v-text-field>
-            </v-col>
+            </div>
 
             <!-- ボタン -->
-            <v-col cols="12" md="1" class="d-flex">
+            <div class="filter-item filter-item--buttons">
               <v-btn color="primary" type="submit" :loading="searchStore.loading" size="small" class="mr-1">
                 <v-icon size="small">mdi-magnify</v-icon>
               </v-btn>
               <v-btn @click="handleReset" size="small">
                 <v-icon size="small">mdi-refresh</v-icon>
               </v-btn>
-            </v-col>
-          </v-row>
+            </div>
+          </div>
         </v-form>
       </v-card-text>
     </v-card>
@@ -428,5 +428,64 @@ const getWinLossColor = (winLoss?: string) => {
 
 .clickable-rows :deep(tbody tr:not(.v-data-table__expanded__content):hover) {
   background-color: rgba(var(--v-theme-primary), 0.08);
+}
+
+/* 検索フィルターのレイアウト */
+.search-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.filter-item {
+  flex-shrink: 0;
+}
+
+/* サイズバリエーション */
+.filter-item--small {
+  width: 100px;
+}
+
+.filter-item--medium {
+  width: 130px;
+}
+
+.filter-item--wide {
+  width: 180px;
+}
+
+.filter-item--date {
+  width: 150px;
+}
+
+.filter-item--buttons {
+  display: flex;
+  gap: 4px;
+}
+
+/* モバイル対応 */
+@media (max-width: 960px) {
+  .filter-item--small,
+  .filter-item--medium,
+  .filter-item--wide,
+  .filter-item--date {
+    width: calc(50% - 4px);
+    min-width: 120px;
+  }
+
+  .filter-item--buttons {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 600px) {
+  .filter-item--small,
+  .filter-item--medium,
+  .filter-item--wide,
+  .filter-item--date {
+    width: 100%;
+  }
 }
 </style>
