@@ -50,8 +50,7 @@
             <div class="filter-item filter-item--clan">
               <v-text-field
                 v-model="searchStore.query.allyClanTag"
-                label="味方"
-                placeholder="味方クラン"
+                label="味方クラン"
                 clearable
                 density="compact"
                 hide-details
@@ -62,8 +61,7 @@
             <div class="filter-item filter-item--clan">
               <v-text-field
                 v-model="searchStore.query.enemyClanTag"
-                label="敵"
-                placeholder="敵クラン"
+                label="敵クラン"
                 clearable
                 density="compact"
                 hide-details
@@ -430,7 +428,7 @@ const getWinLossColor = (winLoss?: string) => {
 
 /* サイズバリエーション */
 .filter-item--small {
-  width: 130px;
+  width: 145px;
 }
 
 .filter-item--medium {
