@@ -40,7 +40,46 @@
           </template>
 
           <template v-slot:item.damage="{ item }">
-            <span class="font-weight-bold">{{ formatNumber(item.damage) }}</span>
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props" class="font-weight-bold cursor-help">{{ formatNumber(item.damage) }}</span>
+              </template>
+              <div class="tooltip-content">
+                <div class="tooltip-title">ダメージ内訳</div>
+                <div class="tooltip-row">
+                  <span>主砲 AP:</span>
+                  <span>{{ formatNumber(item.damageAP) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>主砲 HE:</span>
+                  <span>{{ formatNumber(item.damageHE) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>副砲 HE:</span>
+                  <span>{{ formatNumber(item.damageHESecondaries) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>魚雷:</span>
+                  <span>{{ formatNumber(item.damageTorps) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>深水魚雷:</span>
+                  <span>{{ formatNumber(item.damageDeepWaterTorps) }}</span>
+                </div>
+                <div class="tooltip-row text-orange">
+                  <span>火災:</span>
+                  <span>{{ formatNumber(item.damageFire) }}</span>
+                </div>
+                <div class="tooltip-row text-blue">
+                  <span>浸水:</span>
+                  <span>{{ formatNumber(item.damageFlooding) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>その他:</span>
+                  <span>{{ formatNumber(item.damageOther) }}</span>
+                </div>
+              </div>
+            </v-tooltip>
           </template>
 
           <template v-slot:item.spottingDamage="{ item }">
@@ -56,7 +95,26 @@
           </template>
 
           <template v-slot:item.totalHits="{ item }">
-            {{ item.totalHits || 0 }}
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props" class="cursor-help">{{ item.totalHits || 0 }}</span>
+              </template>
+              <div class="tooltip-content">
+                <div class="tooltip-title">命中数内訳</div>
+                <div class="tooltip-row">
+                  <span>主砲 AP:</span>
+                  <span>{{ item.hitsAP || 0 }} 発</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>主砲 HE:</span>
+                  <span>{{ item.hitsHE || 0 }} 発</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>副砲 HE:</span>
+                  <span>{{ item.hitsSecondaries || 0 }} 発</span>
+                </div>
+              </div>
+            </v-tooltip>
           </template>
 
           <template v-slot:item.fires="{ item }">
@@ -460,5 +518,30 @@ const formatDateTime = (dateTime: string) => {
   width: 100%;
   max-height: calc(100vh - 200px);
   object-fit: contain;
+}
+
+.cursor-help {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.tooltip-content {
+  min-width: 140px;
+}
+
+.tooltip-title {
+  font-weight: bold;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 </style>
