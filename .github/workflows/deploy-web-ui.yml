@@ -48,6 +48,8 @@ jobs:
         run: rm -f package-lock.json && npm install
 
       - name: Build Nuxt 3 application
+        env:
+          API_BASE_URL: https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com
         run: npm run generate
 
       - name: Configure AWS credentials

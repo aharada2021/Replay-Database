@@ -116,7 +116,7 @@ const downloadUploader = async () => {
 
   isDownloading.value = true
   try {
-    const response = await fetch(`${config.public.apiBase}/api/download?file=uploader`)
+    const response = await fetch(`${config.public.apiBaseUrl}/api/download?file=uploader`)
     if (!response.ok) {
       throw new Error('ダウンロードURLの取得に失敗しました')
     }
