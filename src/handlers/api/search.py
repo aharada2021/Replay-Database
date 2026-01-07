@@ -6,7 +6,7 @@ Web UIからの検索リクエストを処理
 
 import json
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from utils import dynamodb
 from utils.match_key import generate_match_key
@@ -34,6 +34,26 @@ def parse_datetime_for_sort(date_str: str) -> datetime:
             return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         except ValueError:
             return datetime.min
+
+
+def parse_frontend_date(date_str: str) -> datetime:
+    """
+    フロントエンドの日付文字列をパース
+
+    Args:
+        date_str: "YYYY-MM-DD" 形式の日付文字列
+
+    Returns:
+        datetime オブジェクト（パース失敗時はNone）
+    """
+    if not date_str:
+        return None
+
+    try:
+        # "YYYY-MM-DD" 形式
+        return datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return None
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -107,8 +127,11 @@ def handle(event, context):
         # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
         # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
         # そのため多めにデータを取得し、Python側で正しくソートし直す
-        # また、cursor_date_timeはDynamoDBのdate_toとして使用しない（文字列比較が正しく動作しないため）
-        # カーソルによるフィルタリングはPython側で行う
+        # また、日付フィルタはDynamoDBに渡さない:
+        # - フロントエンドはYYYY-MM-DD形式で送信
+        # - DynamoDBはDD.MM.YYYY HH:MM:SS形式で保存
+        # - 形式が異なるため、DynamoDBの文字列比較が正しく動作しない
+        # - カーソル・日付によるフィルタリングはPython側で行う
         fetch_multiplier = 10
         if ally_clan_tag or enemy_clan_tag:
             fetch_multiplier = 15  # クランフィルタがある場合はさらに多めに
@@ -116,13 +139,15 @@ def handle(event, context):
             fetch_multiplier = 15
         if cursor_date_time:
             fetch_multiplier = 20  # カーソルページネーション時はさらに多めに取得
+        if date_from or date_to:
+            fetch_multiplier = 20  # 日付フィルタがある場合もさらに多めに取得
 
         result = dynamodb.search_replays(
             game_type=game_type,
             map_id=map_id,
             win_loss=win_loss,
-            date_from=date_from,
-            date_to=date_to,  # ユーザー指定のdate_toのみ使用（cursor_date_timeは使わない）
+            date_from=None,  # 日付フィルタはPython側で行う（形式が異なるため）
+            date_to=None,  # 日付フィルタはPython側で行う（形式が異なるため）
             limit=limit * fetch_multiplier,
         )
 
@@ -273,6 +298,20 @@ def handle(event, context):
             cursor_dt = parse_datetime_for_sort(cursor_date_time)
             # カーソルより前（古い）のデータのみを取得
             match_list = [m for m in match_list if parse_datetime_for_sort(m.get("dateTime", "")) < cursor_dt]
+
+        # 日付範囲フィルタリング（Python側で行う）
+        # フロントエンドはYYYY-MM-DD形式、DynamoDBはDD.MM.YYYY形式のため
+        if date_from:
+            from_dt = parse_frontend_date(date_from)
+            if from_dt:
+                # date_fromの日の0:00:00以降のデータを取得
+                match_list = [m for m in match_list if parse_datetime_for_sort(m.get("dateTime", "")) >= from_dt]
+        if date_to:
+            to_dt = parse_frontend_date(date_to)
+            if to_dt:
+                # date_toの日の23:59:59以前のデータを取得（翌日の0:00:00未満）
+                to_dt_end = to_dt + timedelta(days=1)
+                match_list = [m for m in match_list if parse_datetime_for_sort(m.get("dateTime", "")) < to_dt_end]
 
         # クランタグでフィルタリング（クライアント側フィルタ）
         if ally_clan_tag:
