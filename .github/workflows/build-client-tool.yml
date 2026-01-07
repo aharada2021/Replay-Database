@@ -1,0 +1,113 @@
+name: Build Client Tool
+
+on:
+  # タグがプッシュされた時に実行
+  push:
+    tags:
+      - 'client-v*'
+  # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: client_tool/requirements.txt
+
+      - name: Install dependencies
+        working-directory: client_tool
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        working-directory: client_tool
+        run: |
+          pyinstaller build.spec
+
+      - name: Prepare release files
+        working-directory: client_tool
+        run: |
+          # Create release directory
+          mkdir release
+
+          # Copy built executable
+          copy dist\wows_replay_uploader.exe release\
+
+          # Copy config template
+          copy config.yaml.template release\
+
+          # Copy README
+          copy README.md release\
+
+      - name: Create ZIP archive
+        working-directory: client_tool
+        run: |
+          Compress-Archive -Path release\* -DestinationPath wows_replay_uploader.zip
+
+      - name: Get version
+        id: version
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            echo "VERSION=${{ github.event.inputs.version }}" >> $env:GITHUB_OUTPUT
+          } else {
+            $tag = "${{ github.ref_name }}"
+            $version = $tag -replace "client-v", ""
+            echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wows_replay_uploader-${{ steps.version.outputs.VERSION }}
+          path: client_tool/release/
+          retention-days: 30
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          name: WoWS Replay Uploader v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## WoWS Replay Auto Uploader v${{ steps.version.outputs.VERSION }}
+
+            ### Download
+            - `wows_replay_uploader.zip` をダウンロードして展開してください
+
+            ### 含まれるファイル
+            - `wows_replay_uploader.exe` - 実行ファイル
+            - `config.yaml.template` - 設定ファイルテンプレート
+            - `README.md` - 使用方法
+
+            ### 使い方
+            1. `config.yaml.template` を `config.yaml` にリネーム
+            2. `config.yaml` を編集してAPI KeyとReplay Directoryを設定
+            3. `wows_replay_uploader.exe` を実行
+          files: |
+            client_tool/wows_replay_uploader.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset (manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wows_replay_uploader-${{ steps.version.outputs.VERSION }}-zip
+          path: client_tool/wows_replay_uploader.zip
+          retention-days: 30
