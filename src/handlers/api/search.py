@@ -74,9 +74,7 @@ def handle(event, context):
                 min_count=ship_min_count,
                 limit=500,  # 十分な数を取得
             )
-            ship_filtered_arena_ids = set(
-                item.get("arenaUniqueID") for item in ship_result.get("items", [])
-            )
+            ship_filtered_arena_ids = set(item.get("arenaUniqueID") for item in ship_result.get("items", []))
             print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
 
         # 検索実行

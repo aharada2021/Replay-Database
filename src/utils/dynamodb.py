@@ -389,7 +389,7 @@ def put_ship_match_index_entries(
         ship_counts[ship_name]["ally"] += 1
 
     # 敵の艦艇
-    for player in (enemies or []):
+    for player in enemies or []:
         ship_name = player.get("shipName")
         if not ship_name:
             continue

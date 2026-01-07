@@ -544,10 +544,12 @@ def handle_apikey(event, context):
                 **cors_headers,
                 "Content-Type": "application/json",
             },
-            "body": json.dumps({
-                "apiKey": UPLOAD_API_KEY,
-                "discordUserId": session.get("discordUserId"),
-            }),
+            "body": json.dumps(
+                {
+                    "apiKey": UPLOAD_API_KEY,
+                    "discordUserId": session.get("discordUserId"),
+                }
+            ),
         }
 
     except Exception as e:
