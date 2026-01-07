@@ -422,7 +422,10 @@ def handle_auth_me(event, context):
 
         return {
             "statusCode": 200,
-            "headers": cors_headers,
+            "headers": {
+                **cors_headers,
+                "Content-Type": "application/json",
+            },
             "body": json.dumps(user_info),
         }
 
@@ -465,6 +468,7 @@ def handle_logout(event, context):
             "statusCode": 200,
             "headers": {
                 **cors_headers,
+                "Content-Type": "application/json",
                 "Set-Cookie": set_cookie_header("session_id", "", max_age=0),
             },
             "body": json.dumps({"success": True}),
