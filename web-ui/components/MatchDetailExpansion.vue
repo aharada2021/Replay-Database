@@ -33,16 +33,36 @@
         </template>
 
         <!-- 数値フォーマット -->
-        <template v-slot:item.damage="{ item }">
-          <span class="font-weight-bold">{{ formatNumber(item.damage) }}</span>
-        </template>
-
         <template v-slot:item.kills="{ item }">
           <span class="text-error font-weight-bold">{{ item.kills || 0 }}</span>
         </template>
 
+        <template v-slot:item.damage="{ item }">
+          <span class="font-weight-bold">{{ formatNumber(item.damage) }}</span>
+        </template>
+
         <template v-slot:item.spottingDamage="{ item }">
           {{ formatNumber(item.spottingDamage) }}
+        </template>
+
+        <template v-slot:item.receivedDamage="{ item }">
+          {{ formatNumber(item.receivedDamage) }}
+        </template>
+
+        <template v-slot:item.potentialDamage="{ item }">
+          {{ formatNumber(item.potentialDamage) }}
+        </template>
+
+        <template v-slot:item.totalHits="{ item }">
+          {{ item.totalHits || 0 }}
+        </template>
+
+        <template v-slot:item.fires="{ item }">
+          <span class="text-orange">{{ item.fires || 0 }}</span>
+        </template>
+
+        <template v-slot:item.floods="{ item }">
+          <span class="text-blue">{{ item.floods || 0 }}</span>
         </template>
 
         <template v-slot:item.baseXP="{ item }">
@@ -312,19 +332,31 @@ const hasBattleStats = computed(() => {
 
 // スコアボードのヘッダー
 const scoreboardHeaders = [
-  { title: '', key: 'team', sortable: true, width: '50px' },
-  { title: 'プレイヤー', key: 'playerName', sortable: true },
-  { title: '艦船', key: 'shipName', sortable: true },
-  { title: 'ダメージ', key: 'damage', sortable: true, align: 'end' as const },
-  { title: '撃沈', key: 'kills', sortable: true, align: 'end' as const },
-  { title: '偵察', key: 'spottingDamage', sortable: true, align: 'end' as const },
-  { title: 'XP', key: 'baseXP', sortable: true, align: 'end' as const },
+  { title: '', key: 'team', sortable: true, width: '40px' },
+  { title: 'プレイヤー', key: 'playerName', sortable: true, width: '180px' },
+  { title: '艦船', key: 'shipName', sortable: true, width: '120px' },
+  { title: '撃沈', key: 'kills', sortable: true, align: 'end' as const, width: '50px' },
+  { title: '与ダメ', key: 'damage', sortable: true, align: 'end' as const, width: '80px' },
+  { title: '観測', key: 'spottingDamage', sortable: true, align: 'end' as const, width: '70px' },
+  { title: '被ダメ', key: 'receivedDamage', sortable: true, align: 'end' as const, width: '70px' },
+  { title: '潜在', key: 'potentialDamage', sortable: true, align: 'end' as const, width: '80px' },
+  { title: '命中', key: 'totalHits', sortable: true, align: 'end' as const, width: '50px' },
+  { title: '火災', key: 'fires', sortable: true, align: 'end' as const, width: '50px' },
+  { title: '浸水', key: 'floods', sortable: true, align: 'end' as const, width: '50px' },
+  { title: 'XP', key: 'baseXP', sortable: true, align: 'end' as const, width: '60px' },
 ]
 
-// ダメージ順にソートされたプレイヤー統計
-const sortedPlayersStats = computed<PlayerStats[]>(() => {
+// 命中数を計算するヘルパー
+const getTotalHits = (player: PlayerStats): number => {
+  return (player.hitsAP || 0) + (player.hitsHE || 0) + (player.hitsSecondaries || 0)
+}
+
+// ダメージ順にソートされたプレイヤー統計（totalHitsを追加）
+const sortedPlayersStats = computed(() => {
   if (!props.match.allPlayersStats) return []
-  return [...props.match.allPlayersStats].sort((a, b) => (b.damage || 0) - (a.damage || 0))
+  return [...props.match.allPlayersStats]
+    .map(p => ({ ...p, totalHits: getTotalHits(p) }))
+    .sort((a, b) => (b.damage || 0) - (a.damage || 0))
 })
 
 // 数値をカンマ区切りでフォーマット
@@ -382,7 +414,13 @@ const formatDateTime = (dateTime: string) => {
 
 <style scoped>
 .scoreboard-table {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
+}
+
+.scoreboard-table :deep(th),
+.scoreboard-table :deep(td) {
+  padding: 4px 6px !important;
+  white-space: nowrap;
 }
 
 .video-container {
