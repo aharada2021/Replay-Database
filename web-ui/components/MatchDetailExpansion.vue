@@ -1,7 +1,124 @@
 <template>
   <div class="pa-4">
-    <!-- 戦闘統計 -->
+    <!-- プレイヤー一覧 + ミニマップ動画 (優先表示) -->
+    <v-row>
+      <!-- プレイヤー一覧 -->
+      <v-col cols="12" md="6">
+        <h3 class="mb-2">プレイヤー一覧</h3>
+        <v-row dense>
+          <!-- 自分 -->
+          <v-col cols="12">
+            <v-card variant="outlined" density="compact">
+              <v-card-title class="text-caption bg-primary py-1">自分</v-card-title>
+              <v-card-text class="pa-2">
+                <div class="text-body-2">
+                  <span v-if="match.ownPlayer.clanTag" class="text-primary font-weight-bold">
+                    [{{ match.ownPlayer.clanTag }}]
+                  </span>
+                  {{ match.ownPlayer.name }}
+                  <span class="text-caption text-grey ml-2">{{ match.ownPlayer.shipName }}</span>
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <!-- 味方 -->
+          <v-col cols="6">
+            <v-card variant="outlined" density="compact">
+              <v-card-title class="text-caption bg-success py-1">味方 ({{ match.allies?.length || 0 }}名)</v-card-title>
+              <v-card-text class="pa-2">
+                <div v-for="(player, idx) in match.allies" :key="idx" class="mb-1">
+                  <div class="text-body-2">
+                    <span v-if="player.clanTag" class="text-primary font-weight-bold">
+                      [{{ player.clanTag }}]
+                    </span>
+                    {{ player.name }}
+                  </div>
+                  <div class="text-caption text-grey">{{ player.shipName }}</div>
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <!-- 敵 -->
+          <v-col cols="6">
+            <v-card variant="outlined" density="compact">
+              <v-card-title class="text-caption bg-error py-1">敵 ({{ match.enemies?.length || 0 }}名)</v-card-title>
+              <v-card-text class="pa-2">
+                <div v-for="(player, idx) in match.enemies" :key="idx" class="mb-1">
+                  <div class="text-body-2">
+                    <span v-if="player.clanTag" class="text-error font-weight-bold">
+                      [{{ player.clanTag }}]
+                    </span>
+                    {{ player.name }}
+                  </div>
+                  <div class="text-caption text-grey">{{ player.shipName }}</div>
+                </div>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-col>
+
+      <!-- 動画プレーヤー -->
+      <v-col cols="12" md="6">
+        <h3 class="mb-2">ミニマップ動画</h3>
+        <div v-if="videoReplay">
+          <video controls width="100%" :src="getVideoUrl(videoReplay.mp4S3Key)">
+            お使いのブラウザは動画タグをサポートしていません。
+          </video>
+          <div class="mt-1 text-caption">
+            <v-icon size="small">mdi-account</v-icon>
+            {{ videoReplay.playerName }} のリプレイ
+          </div>
+        </div>
+        <v-alert v-else type="info" density="compact">
+          この試合の動画はまだ生成されていません
+        </v-alert>
+      </v-col>
+    </v-row>
+
+    <v-divider class="my-3"></v-divider>
+
+    <!-- リプレイ提供者 -->
+    <h3 class="mb-2">リプレイ提供者</h3>
+    <v-list density="compact" class="py-0">
+      <v-list-item v-for="(replay, index) in match.replays" :key="index" class="px-0">
+        <template v-slot:prepend>
+          <v-avatar size="small" color="primary">
+            <v-icon v-if="replay.mp4S3Key" size="small">mdi-video</v-icon>
+            <v-icon v-else size="small">mdi-account</v-icon>
+          </v-avatar>
+        </template>
+
+        <v-list-item-title>
+          <span v-if="replay.ownPlayer?.clanTag" class="text-primary font-weight-bold">
+            [{{ replay.ownPlayer.clanTag }}]
+          </span>
+          {{ replay.playerName }}
+          <v-chip v-if="replay.mp4S3Key" size="x-small" color="success" class="ml-1">
+            動画あり
+          </v-chip>
+          <span class="text-caption text-grey ml-2">
+            {{ replay.ownPlayer?.shipName || '-' }} | {{ formatDateTime(replay.uploadedAt) }}
+          </span>
+        </v-list-item-title>
+
+        <template v-slot:append>
+          <v-btn
+            size="x-small"
+            variant="text"
+            icon="mdi-download"
+            @click="downloadReplay(replay.s3Key)"
+          ></v-btn>
+        </template>
+      </v-list-item>
+    </v-list>
+
+    <!-- 戦闘統計 (下部に移動) -->
     <div v-if="hasBattleStats">
+      <v-divider class="my-3"></v-divider>
+
       <h3 class="mb-3">戦闘統計</h3>
       <v-row>
         <!-- 基本統計 -->
@@ -114,123 +231,7 @@
           </v-card>
         </v-col>
       </v-row>
-
-      <v-divider class="my-4"></v-divider>
     </div>
-
-    <v-row>
-      <!-- プレイヤー一覧 -->
-      <v-col cols="12" md="6">
-        <h3 class="mb-2">プレイヤー一覧</h3>
-        <v-row dense>
-          <!-- 自分 -->
-          <v-col cols="12">
-            <v-card variant="outlined" density="compact">
-              <v-card-title class="text-caption bg-primary py-1">自分</v-card-title>
-              <v-card-text class="pa-2">
-                <div class="text-body-2">
-                  <span v-if="match.ownPlayer.clanTag" class="text-primary font-weight-bold">
-                    [{{ match.ownPlayer.clanTag }}]
-                  </span>
-                  {{ match.ownPlayer.name }}
-                  <span class="text-caption text-grey ml-2">{{ match.ownPlayer.shipName }}</span>
-                </div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-
-          <!-- 味方 -->
-          <v-col cols="6">
-            <v-card variant="outlined" density="compact">
-              <v-card-title class="text-caption bg-success py-1">味方 ({{ match.allies?.length || 0 }}名)</v-card-title>
-              <v-card-text class="pa-2" style="max-height: 200px; overflow-y: auto">
-                <div v-for="(player, idx) in match.allies" :key="idx" class="mb-1">
-                  <div class="text-body-2">
-                    <span v-if="player.clanTag" class="text-primary font-weight-bold">
-                      [{{ player.clanTag }}]
-                    </span>
-                    {{ player.name }}
-                  </div>
-                  <div class="text-caption text-grey">{{ player.shipName }}</div>
-                </div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-
-          <!-- 敵 -->
-          <v-col cols="6">
-            <v-card variant="outlined" density="compact">
-              <v-card-title class="text-caption bg-error py-1">敵 ({{ match.enemies?.length || 0 }}名)</v-card-title>
-              <v-card-text class="pa-2" style="max-height: 200px; overflow-y: auto">
-                <div v-for="(player, idx) in match.enemies" :key="idx" class="mb-1">
-                  <div class="text-body-2">
-                    <span v-if="player.clanTag" class="text-error font-weight-bold">
-                      [{{ player.clanTag }}]
-                    </span>
-                    {{ player.name }}
-                  </div>
-                  <div class="text-caption text-grey">{{ player.shipName }}</div>
-                </div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-col>
-
-      <!-- 動画プレーヤー -->
-      <v-col cols="12" md="6">
-        <h3 class="mb-2">ミニマップ動画</h3>
-        <div v-if="videoReplay">
-          <video controls width="100%" :src="getVideoUrl(videoReplay.mp4S3Key)">
-            お使いのブラウザは動画タグをサポートしていません。
-          </video>
-          <div class="mt-1 text-caption">
-            <v-icon size="small">mdi-account</v-icon>
-            {{ videoReplay.playerName }} のリプレイ
-          </div>
-        </div>
-        <v-alert v-else type="info" density="compact">
-          この試合の動画はまだ生成されていません
-        </v-alert>
-      </v-col>
-    </v-row>
-
-    <v-divider class="my-3"></v-divider>
-
-    <!-- リプレイ提供者 -->
-    <h3 class="mb-2">リプレイ提供者</h3>
-    <v-list density="compact" class="py-0">
-      <v-list-item v-for="(replay, index) in match.replays" :key="index" class="px-0">
-        <template v-slot:prepend>
-          <v-avatar size="small" color="primary">
-            <v-icon v-if="replay.mp4S3Key" size="small">mdi-video</v-icon>
-            <v-icon v-else size="small">mdi-account</v-icon>
-          </v-avatar>
-        </template>
-
-        <v-list-item-title>
-          <span v-if="replay.ownPlayer?.clanTag" class="text-primary font-weight-bold">
-            [{{ replay.ownPlayer.clanTag }}]
-          </span>
-          {{ replay.playerName }}
-          <v-chip v-if="replay.mp4S3Key" size="x-small" color="success" class="ml-1">
-            動画あり
-          </v-chip>
-          <span class="text-caption text-grey ml-2">
-            {{ replay.ownPlayer?.shipName || '-' }} | {{ formatDateTime(replay.uploadedAt) }}
-          </span>
-        </v-list-item-title>
-
-        <template v-slot:append>
-          <v-btn
-            size="x-small"
-            variant="text"
-            icon="mdi-download"
-            @click="downloadReplay(replay.s3Key)"
-          ></v-btn>
-        </template>
-      </v-list-item>
-    </v-list>
   </div>
 </template>
 

@@ -35,6 +35,16 @@ export interface BattleStats {
   damageFlooding?: number
 }
 
+// 全プレイヤーの統計（チーム情報付き）
+export interface PlayerStats extends BattleStats {
+  playerName: string
+  clanTag?: string
+  shipId?: number
+  shipName?: string
+  team: 'ally' | 'enemy' | 'unknown'
+  isOwn?: boolean
+}
+
 export interface ReplayProvider extends BattleStats {
   arenaUniqueID: string
   playerID: number

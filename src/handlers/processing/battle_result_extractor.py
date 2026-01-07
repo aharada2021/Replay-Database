@@ -27,6 +27,75 @@ s3_client = boto3.client("s3")
 lambda_client = boto3.client("lambda")
 
 
+def build_all_players_stats(all_stats: dict, record: dict) -> list:
+    """
+    全プレイヤーの統計情報をチーム情報と紐付けて配列で返す
+
+    Args:
+        all_stats: BattleStatsParser.parse_all_players()の結果
+        record: DynamoDBレコード（allies, enemies, ownPlayerを含む）
+
+    Returns:
+        全プレイヤーの統計情報リスト（チーム、艦船情報付き）
+    """
+    # プレイヤー名からチーム情報と艦船情報をマッピング
+    player_team_map = {}  # player_name -> {"team": str, "shipId": int, "shipName": str}
+
+    # ownPlayer
+    own_player = record.get("ownPlayer", {})
+    if isinstance(own_player, list):
+        own_player = own_player[0] if own_player else {}
+    if own_player and own_player.get("name"):
+        player_team_map[own_player["name"]] = {
+            "team": "ally",  # 自分は味方チーム
+            "shipId": own_player.get("shipId", 0),
+            "shipName": own_player.get("shipName", ""),
+            "isOwn": True,
+        }
+
+    # allies
+    for ally in record.get("allies", []):
+        if ally.get("name"):
+            player_team_map[ally["name"]] = {
+                "team": "ally",
+                "shipId": ally.get("shipId", 0),
+                "shipName": ally.get("shipName", ""),
+                "isOwn": False,
+            }
+
+    # enemies
+    for enemy in record.get("enemies", []):
+        if enemy.get("name"):
+            player_team_map[enemy["name"]] = {
+                "team": "enemy",
+                "shipId": enemy.get("shipId", 0),
+                "shipName": enemy.get("shipName", ""),
+                "isOwn": False,
+            }
+
+    # 全プレイヤーの統計を作成
+    result = []
+    for player_id, stats in all_stats.items():
+        player_name = stats.get("player_name", "")
+        team_info = player_team_map.get(player_name, {"team": "unknown", "shipId": 0, "shipName": ""})
+
+        # DynamoDB形式に変換
+        stats_data = BattleStatsParser.to_dynamodb_format(stats)
+
+        # チーム情報と艦船情報を追加
+        stats_data["team"] = team_info["team"]
+        stats_data["shipId"] = team_info.get("shipId", 0)
+        stats_data["shipName"] = team_info.get("shipName", "")
+        stats_data["isOwn"] = team_info.get("isOwn", False)
+
+        result.append(stats_data)
+
+    # ダメージ降順でソート
+    result.sort(key=lambda x: x.get("damage", 0), reverse=True)
+
+    return result
+
+
 def handle(event, context):
     """
     S3イベントハンドラー
@@ -151,6 +220,12 @@ def handle(event, context):
                         dmg = stats_data.get("damage")
                         kls = stats_data.get("kills")
                         print(f"Added battle stats for {player_name}: damage={dmg}, kills={kls}")
+
+                    # 全プレイヤーの統計情報を作成
+                    all_players_stats = build_all_players_stats(all_stats, old_record)
+                    if all_players_stats:
+                        old_record["allPlayersStats"] = all_players_stats
+                        print(f"Added all players stats: {len(all_players_stats)} players")
 
                 # 新しいレコードを作成
                 dynamodb_table = dynamodb.get_table()

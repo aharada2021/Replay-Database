@@ -111,6 +111,8 @@ def handle(event, context):
                     # クラン情報
                     "allyMainClanTag": item.get("allyMainClanTag"),
                     "enemyMainClanTag": item.get("enemyMainClanTag"),
+                    # 全プレイヤー統計
+                    "allPlayersStats": item.get("allPlayersStats", []),
                 }
 
             # リプレイ提供者情報を追加（BattleStatsを含む）

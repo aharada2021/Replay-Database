@@ -125,6 +125,7 @@ def handle(event, context):
             "enemies": first_replay.get("enemies", []),
             "allyMainClanTag": first_replay.get("allyMainClanTag"),
             "enemyMainClanTag": first_replay.get("enemyMainClanTag"),
+            "allPlayersStats": first_replay.get("allPlayersStats", []),
             "replays": [],
         }
 
