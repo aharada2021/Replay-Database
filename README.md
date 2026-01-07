@@ -38,7 +38,8 @@ project/
 ├── scripts/                      # ユーティリティスクリプト
 │   ├── deploy_lambda.sh          # Lambdaデプロイスクリプト
 │   ├── setup_lambda.sh           # Lambda初期セットアップ
-│   └── install_aws_cli.sh        # AWS CLI インストール
+│   ├── install_aws_cli.sh        # AWS CLI インストール
+│   └── backfill_ship_index.py    # 艦艇インデックス再構築
 │
 ├── minimap_renderer/             # WoWS Minimap Renderer（サブモジュール）
 ├── replays_unpack_upstream/      # リプレイアンパックライブラリ
@@ -123,6 +124,22 @@ cd scripts
 詳細は [docs/QUICKSTART_LAMBDA.md](docs/QUICKSTART_LAMBDA.md) を参照してください。
 
 ## アーキテクチャ
+
+### DynamoDBテーブル構成
+
+| テーブル名 | 用途 |
+|-----------|------|
+| `wows-replays-{stage}` | リプレイデータ本体（試合情報、プレイヤー情報） |
+| `wows-ship-match-index-{stage}` | 艦艇検索用インデックス（艦艇名→試合ID） |
+| `wows-sessions-{stage}` | ユーザーセッション管理 |
+
+**艦艇インデックスの再構築:**
+
+既存のリプレイデータから艦艇インデックスを再構築する場合:
+
+```bash
+python3 scripts/backfill_ship_index.py
+```
 
 ### Lambda関数構成
 
@@ -218,10 +235,28 @@ https://wows-replay.mirage0926.com/
 
 | メソッド | パス | 説明 |
 |---------|------|------|
-| POST | `/api/search` | リプレイ検索 |
+| GET | `/api/search` | リプレイ検索 |
 | GET | `/api/match/{arenaUniqueID}` | 試合詳細取得 |
 | POST | `/api/upload` | リプレイアップロード |
 | POST | `/api/generate-video` | 動画生成 |
+
+### 検索機能
+
+Web UIでは以下の検索フィルターをサポート:
+
+| フィルター | 説明 |
+|-----------|------|
+| ゲームタイプ | クラン戦 / ランダム戦 / ランク戦 |
+| マップ | マップ名で絞り込み |
+| 味方クラン / 敵クラン | クランタグで絞り込み |
+| 艦艇名 | 試合に参加した艦艇で検索（大文字小文字区別なし） |
+| 日付範囲 | 開始日〜終了日で絞り込み |
+| 勝敗 | 勝ち / 負けで絞り込み |
+
+**技術的な実装:**
+- カーソルベースのページネーション（30件/ページ）
+- 艦艇検索は専用インデックステーブル（`wows-ship-match-index-*`）を使用
+- 日付検索はPython側でフィルタリング（DynamoDBの日付形式との互換性のため）
 
 ### CloudFront設定
 
