@@ -119,9 +119,11 @@
         show-expand
         :expanded="expanded"
         @update:expanded="onExpandedChange"
+        @click:row="onRowClick"
         item-value="matchKey"
         v-model:sort-by="sortBy"
         density="compact"
+        class="clickable-rows"
       >
         <!-- カスタムヘッダー: 検索結果タイトルを追加 -->
         <template v-slot:top>
@@ -267,6 +269,17 @@ const onExpandedChange = (newExpanded: any[]) => {
   expanded.value = newExpanded
 }
 
+// 行クリック時の展開トグル
+const onRowClick = (_event: Event, { item }: { item: any }) => {
+  const matchKey = item.matchKey
+  const index = expanded.value.indexOf(matchKey)
+  if (index === -1) {
+    expanded.value = [...expanded.value, matchKey]
+  } else {
+    expanded.value = expanded.value.filter((key: string) => key !== matchKey)
+  }
+}
+
 // ソート状態
 const sortBy = ref([{ key: 'dateTime', order: 'desc' }])
 
@@ -404,3 +417,13 @@ const getWinLossColor = (winLoss?: string) => {
 // getAllyClanTags と getEnemyClanTags 関数は削除
 // クラン戦の場合は allyMainClanTag と enemyMainClanTag を直接表示するため不要
 </script>
+
+<style scoped>
+.clickable-rows :deep(tbody tr:not(.v-data-table__expanded__content)) {
+  cursor: pointer;
+}
+
+.clickable-rows :deep(tbody tr:not(.v-data-table__expanded__content):hover) {
+  background-color: rgba(var(--v-theme-primary), 0.08);
+}
+</style>
