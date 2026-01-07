@@ -299,6 +299,26 @@ functions:
     environment:
       SESSIONS_TABLE: ${self:custom.sessionsTable}
 
+  # ========================================
+  # ダウンロードAPI
+  # ========================================
+
+  # クライアントツールダウンロード
+  download-api:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.download.handle
+    architecture: arm64
+    timeout: 10
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/download
+          method: get
+    environment:
+      TEMP_BUCKET: ${self:custom.bucketName}
+
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
 resources:
   Resources:
