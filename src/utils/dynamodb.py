@@ -283,11 +283,17 @@ def search_replays(
         # Note: dateTime is a DynamoDB reserved keyword, so we use #dateTime alias
         uses_date_filter = False
 
-        if date_from:
+        # 日付範囲フィルタ: BETWEENを使用（1つのキーに複数条件は不可）
+        if date_from and date_to:
+            key_condition += " AND #dateTime BETWEEN :df AND :dt"
+            expression_values[":df"] = date_from
+            expression_values[":dt"] = date_to
+            uses_date_filter = True
+        elif date_from:
             key_condition += " AND #dateTime >= :df"
             expression_values[":df"] = date_from
             uses_date_filter = True
-        if date_to:
+        elif date_to:
             key_condition += " AND #dateTime <= :dt"
             expression_values[":dt"] = date_to
             uses_date_filter = True
@@ -314,11 +320,17 @@ def search_replays(
         expression_values = {":mid": map_id}
         uses_date_filter = False
 
-        if date_from:
+        # 日付範囲フィルタ: BETWEENを使用（1つのキーに複数条件は不可）
+        if date_from and date_to:
+            key_condition += " AND #dateTime BETWEEN :df AND :dt"
+            expression_values[":df"] = date_from
+            expression_values[":dt"] = date_to
+            uses_date_filter = True
+        elif date_from:
             key_condition += " AND #dateTime >= :df"
             expression_values[":df"] = date_from
             uses_date_filter = True
-        if date_to:
+        elif date_to:
             key_condition += " AND #dateTime <= :dt"
             expression_values[":dt"] = date_to
             uses_date_filter = True
