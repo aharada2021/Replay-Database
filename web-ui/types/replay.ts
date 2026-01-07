@@ -147,14 +147,14 @@ export interface SearchQuery {
   dateFrom?: string
   dateTo?: string
   limit?: number
-  lastEvaluatedKey?: any  // DynamoDB cursor for pagination
+  cursorDateTime?: string | null  // カーソルベースのページネーション用
 }
 
 export interface SearchResponse {
   items: MatchRecord[]
   count: number
-  scannedCount?: number
-  lastEvaluatedKey?: any
+  cursorDateTime?: string | null  // 次のページ用カーソル
+  hasMore?: boolean  // 次のページがあるか
 }
 
 export interface MatchDetailResponse {

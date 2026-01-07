@@ -18,7 +18,7 @@ export const useSearchStore = defineStore('search', {
       dateFrom: '',
       dateTo: '',
       limit: ITEMS_PER_PAGE,
-      lastEvaluatedKey: null as any,
+      cursorDateTime: null as string | null,
     } as SearchQuery,
     results: [] as MatchRecord[],
     loading: false,
@@ -26,8 +26,9 @@ export const useSearchStore = defineStore('search', {
     totalCount: 0,
     // ページング用の状態
     currentPageNum: 1,
-    lastEvaluatedKeyHistory: [] as any[],  // 各ページのlastEvaluatedKeyを保存
-    lastEvaluatedKeyFromResponse: null as any,  // 最新のレスポンスからのlastEvaluatedKey
+    cursorHistory: [] as (string | null)[],  // 各ページのカーソルを保存
+    cursorFromResponse: null as string | null,  // 最新のレスポンスからのカーソル
+    hasMoreFromResponse: false,  // 次のページがあるか
   }),
 
   actions: {
@@ -48,11 +49,12 @@ export const useSearchStore = defineStore('search', {
         dateFrom: '',
         dateTo: '',
         limit: ITEMS_PER_PAGE,
-        lastEvaluatedKey: null,
+        cursorDateTime: null,
       }
       this.currentPageNum = 1
-      this.lastEvaluatedKeyHistory = []
-      this.lastEvaluatedKeyFromResponse = null
+      this.cursorHistory = []
+      this.cursorFromResponse = null
+      this.hasMoreFromResponse = false
     },
 
     async search(resetPagination: boolean = true) {
@@ -62,8 +64,8 @@ export const useSearchStore = defineStore('search', {
       // 新規検索の場合はページング状態をリセット
       if (resetPagination) {
         this.currentPageNum = 1
-        this.lastEvaluatedKeyHistory = []
-        this.query.lastEvaluatedKey = null
+        this.cursorHistory = []
+        this.query.cursorDateTime = null
       }
 
       try {
@@ -72,13 +74,15 @@ export const useSearchStore = defineStore('search', {
 
         this.results = response.items
         this.totalCount = response.count
-        this.lastEvaluatedKeyFromResponse = response.lastEvaluatedKey || null
+        this.cursorFromResponse = response.cursorDateTime || null
+        this.hasMoreFromResponse = response.hasMore || false
       } catch (err: any) {
         console.error('[Store] Search error:', err)
         this.error = err.message || 'Search failed'
         this.results = []
         this.totalCount = 0
-        this.lastEvaluatedKeyFromResponse = null
+        this.cursorFromResponse = null
+        this.hasMoreFromResponse = false
       } finally {
         this.loading = false
       }
@@ -87,11 +91,11 @@ export const useSearchStore = defineStore('search', {
     async nextPage() {
       if (!this.hasNextPage) return
 
-      // 現在のlastEvaluatedKeyを履歴に保存（戻るボタン用）
-      this.lastEvaluatedKeyHistory.push(this.query.lastEvaluatedKey)
+      // 現在のカーソルを履歴に保存（戻るボタン用）
+      this.cursorHistory.push(this.query.cursorDateTime)
 
-      // 次のページのキーを設定
-      this.query.lastEvaluatedKey = this.lastEvaluatedKeyFromResponse
+      // 次のページのカーソルを設定
+      this.query.cursorDateTime = this.cursorFromResponse
       this.currentPageNum++
 
       await this.search(false)
@@ -102,11 +106,11 @@ export const useSearchStore = defineStore('search', {
 
       this.currentPageNum--
 
-      // 履歴から前のページのキーを取得
-      if (this.lastEvaluatedKeyHistory.length > 0) {
-        this.query.lastEvaluatedKey = this.lastEvaluatedKeyHistory.pop()
+      // 履歴から前のページのカーソルを取得
+      if (this.cursorHistory.length > 0) {
+        this.query.cursorDateTime = this.cursorHistory.pop() || null
       } else {
-        this.query.lastEvaluatedKey = null
+        this.query.cursorDateTime = null
       }
 
       await this.search(false)
@@ -118,16 +122,16 @@ export const useSearchStore = defineStore('search', {
 
     totalPages: (state) => {
       // カーソルベースのページングでは総ページ数は不明
-      // hasNextPageがtrueなら少なくとも次のページがある
-      if (state.lastEvaluatedKeyFromResponse) {
+      // hasMoreがtrueなら少なくとも次のページがある
+      if (state.hasMoreFromResponse) {
         return state.currentPageNum + 1  // 最低でも次のページがある
       }
       return state.currentPageNum
     },
 
     hasNextPage: (state) => {
-      // レスポンスにlastEvaluatedKeyがあれば次のページがある
-      return !!state.lastEvaluatedKeyFromResponse
+      // レスポンスのhasMoreフラグを使用
+      return state.hasMoreFromResponse
     },
 
     hasPrevPage: (state) => {

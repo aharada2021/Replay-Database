@@ -6,9 +6,34 @@ Web UIからの検索リクエストを処理
 
 import json
 from decimal import Decimal
+from datetime import datetime
 
 from utils import dynamodb
 from utils.match_key import generate_match_key
+
+
+def parse_datetime_for_sort(date_str: str) -> datetime:
+    """
+    日時文字列をソート用にパース
+
+    Args:
+        date_str: "DD.MM.YYYY HH:MM:SS" 形式の日時文字列
+
+    Returns:
+        datetime オブジェクト（パース失敗時は最小値）
+    """
+    if not date_str:
+        return datetime.min
+
+    try:
+        # "DD.MM.YYYY HH:MM:SS" 形式
+        return datetime.strptime(date_str, "%d.%m.%Y %H:%M:%S")
+    except ValueError:
+        try:
+            # ISO形式のフォールバック
+            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        except ValueError:
+            return datetime.min
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -63,7 +88,9 @@ def handle(event, context):
         date_from = params.get("dateFrom")
         date_to = params.get("dateTo")
         limit = params.get("limit", 50)
-        last_evaluated_key = params.get("lastEvaluatedKey")
+        # カーソルベースのページネーション
+        # cursorDateTime: 前回の最後のマッチのdateTime（これより前のデータを取得）
+        cursor_date_time = params.get("cursorDateTime")
 
         # 艦艇検索の場合、インデックステーブルを使用
         ship_filtered_arena_ids = None
@@ -77,15 +104,35 @@ def handle(event, context):
             ship_filtered_arena_ids = set(item.get("arenaUniqueID") for item in ship_result.get("items", []))
             print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
 
-        # 検索実行
+        # カーソルが指定されている場合、date_toとして使用（厳密な不等式で重複を避ける）
+        effective_date_to = date_to
+        if cursor_date_time:
+            # cursorDateTimeより前のデータを取得
+            # 同じ時刻のデータを除外するため、1秒引く
+            try:
+                cursor_dt = parse_datetime_for_sort(cursor_date_time)
+                from datetime import timedelta
+                # 1秒前の時刻を計算して文字列に変換
+                prev_dt = cursor_dt - timedelta(seconds=1)
+                effective_date_to = prev_dt.strftime("%d.%m.%Y %H:%M:%S")
+            except Exception:
+                # パースに失敗した場合はそのまま使用
+                effective_date_to = cursor_date_time
+
+        # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
+        fetch_multiplier = 3
+        if ally_clan_tag or enemy_clan_tag:
+            fetch_multiplier = 5  # クランフィルタがある場合はさらに多めに
+        if ship_filtered_arena_ids is not None:
+            fetch_multiplier = 5
+
         result = dynamodb.search_replays(
             game_type=game_type,
             map_id=map_id,
             win_loss=win_loss,
             date_from=date_from,
-            date_to=date_to,
-            limit=limit if not ship_filtered_arena_ids else limit * 3,  # 艦艇フィルタ用に多めに取得
-            last_evaluated_key=last_evaluated_key,
+            date_to=effective_date_to,
+            limit=limit * fetch_multiplier,
         )
 
         # 既存レコードのownPlayerが配列の場合、単一オブジェクトに変換
@@ -232,15 +279,26 @@ def handle(event, context):
 
         # 艦艇フィルタは既にship_filtered_arena_idsで適用済み
 
+        # ページネーション: limit件を返し、次のページのカーソルを設定
+        has_more = len(match_list) > limit
+        paginated_list = match_list[:limit]
+
+        # 次のページ用カーソル（最後のマッチのdateTime）
+        next_cursor = None
+        if has_more and paginated_list:
+            last_match = paginated_list[-1]
+            next_cursor = last_match.get("dateTime")
+
         # レスポンス
         return {
             "statusCode": 200,
             "headers": cors_headers,
             "body": json.dumps(
                 {
-                    "items": match_list,
-                    "lastEvaluatedKey": result["last_evaluated_key"],
-                    "count": len(match_list),
+                    "items": paginated_list,
+                    "cursorDateTime": next_cursor,
+                    "hasMore": has_more,
+                    "count": len(paginated_list),
                 },
                 cls=DecimalEncoder,
             ),
