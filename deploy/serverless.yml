@@ -77,6 +77,7 @@ provider:
             - dynamodb:DeleteItem
             - dynamodb:Query
             - dynamodb:Scan
+            - dynamodb:BatchWriteItem
           Resource:
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}/index/*
