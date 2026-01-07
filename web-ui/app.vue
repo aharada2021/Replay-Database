@@ -17,8 +17,8 @@
           prepend-icon="mdi-download"
           title="自動アップローダー"
           subtitle="リプレイを自動でアップロード"
-          :href="uploaderDownloadUrl"
-          target="_blank"
+          :loading="isDownloading"
+          @click="downloadUploader"
         ></v-list-item>
 
         <v-divider class="my-2"></v-divider>
@@ -87,15 +87,16 @@
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const config = useRuntimeConfig()
 
 // ナビゲーションドロワーの状態
 const drawer = ref(false)
 
+// ダウンロード状態
+const isDownloading = ref(false)
+
 // ログインページではヘッダー・フッターを非表示
 const showAppBar = computed(() => route.path !== '/login')
-
-// アップローダーのダウンロードURL（GitHub Releases）
-const uploaderDownloadUrl = 'https://github.com/aharada2021/WoWS-Replay-Classification-Bot/releases/latest/download/wows_replay_uploader.zip'
 
 // 初回マウント時にユーザー情報を取得
 onMounted(async () => {
@@ -107,5 +108,27 @@ onMounted(async () => {
 const handleLogout = async () => {
   await auth.logout()
   router.push('/login')
+}
+
+// アップローダーのダウンロード
+const downloadUploader = async () => {
+  if (isDownloading.value) return
+
+  isDownloading.value = true
+  try {
+    const response = await fetch(`${config.public.apiBase}/api/download?file=uploader`)
+    if (!response.ok) {
+      throw new Error('ダウンロードURLの取得に失敗しました')
+    }
+    const data = await response.json()
+
+    // 署名付きURLでダウンロードを開始
+    window.location.href = data.url
+  } catch (error) {
+    console.error('ダウンロードエラー:', error)
+    alert('ダウンロードに失敗しました。しばらく待ってから再度お試しください。')
+  } finally {
+    isDownloading.value = false
+  }
 }
 </script>
