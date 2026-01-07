@@ -172,7 +172,7 @@ class ReplayMetadataParser:
         try:
             url = (
                 f"https://api.worldofwarships.asia/wows/encyclopedia/ships/"
-                f"?application_id={cls.WOWS_API_APP_ID}&ship_id={ship_id}&fields=name"
+                f"?application_id={cls.WOWS_API_APP_ID}&ship_id={ship_id}&fields=name&language=en"
             )
 
             with urllib.request.urlopen(url, timeout=5) as response:

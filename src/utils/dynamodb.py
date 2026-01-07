@@ -14,6 +14,7 @@ from collections import Counter
 # DynamoDBクライアント（遅延初期化）
 _dynamodb = None
 REPLAYS_TABLE_NAME = os.environ.get("REPLAYS_TABLE", "wows-replays-dev")
+SHIP_MATCH_INDEX_TABLE_NAME = os.environ.get("SHIP_MATCH_INDEX_TABLE", "wows-ship-match-index-dev")
 
 
 def get_dynamodb_resource():

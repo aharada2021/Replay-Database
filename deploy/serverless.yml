@@ -408,6 +408,23 @@ resources:
           AttributeName: expiresAt
           Enabled: true
 
+    # DynamoDBテーブル（艦艇-試合インデックス用）
+    ShipMatchIndexTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.shipMatchIndexTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: shipName
+            AttributeType: S
+          - AttributeName: arenaUniqueID
+            AttributeType: S
+        KeySchema:
+          - AttributeName: shipName
+            KeyType: HASH
+          - AttributeName: arenaUniqueID
+            KeyType: RANGE
+
 # Dockerイメージを使用するため、pluginsは不要
 # plugins:
 #   - serverless-python-requirements
