@@ -113,7 +113,7 @@ def handle(event, context):
                     "enemyMainClanTag": item.get("enemyMainClanTag"),
                 }
 
-            # リプレイ提供者情報を追加
+            # リプレイ提供者情報を追加（BattleStatsを含む）
             matches[match_key]["replays"].append(
                 {
                     "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
@@ -126,6 +126,28 @@ def handle(event, context):
                     "fileSize": item.get("fileSize"),
                     "mp4S3Key": item.get("mp4S3Key"),
                     "mp4GeneratedAt": item.get("mp4GeneratedAt"),
+                    # BattleStats - 基本統計
+                    "damage": item.get("damage"),
+                    "receivedDamage": item.get("receivedDamage"),
+                    "spottingDamage": item.get("spottingDamage"),
+                    "potentialDamage": item.get("potentialDamage"),
+                    "kills": item.get("kills"),
+                    "fires": item.get("fires"),
+                    "floods": item.get("floods"),
+                    "baseXP": item.get("baseXP"),
+                    # BattleStats - 命中数内訳
+                    "hitsAP": item.get("hitsAP"),
+                    "hitsHE": item.get("hitsHE"),
+                    "hitsSecondaries": item.get("hitsSecondaries"),
+                    # BattleStats - ダメージ内訳
+                    "damageAP": item.get("damageAP"),
+                    "damageHE": item.get("damageHE"),
+                    "damageHESecondaries": item.get("damageHESecondaries"),
+                    "damageTorps": item.get("damageTorps"),
+                    "damageDeepWaterTorps": item.get("damageDeepWaterTorps"),
+                    "damageOther": item.get("damageOther"),
+                    "damageFire": item.get("damageFire"),
+                    "damageFlooding": item.get("damageFlooding"),
                 }
             )
 
@@ -152,6 +174,27 @@ def handle(event, context):
             match["mp4S3Key"] = representative.get("mp4S3Key")
             match["mp4GeneratedAt"] = representative.get("mp4GeneratedAt")
             match["replayCount"] = len(replays)
+
+            # 代表リプレイのBattleStatsをマッチレベルにも追加
+            match["damage"] = representative.get("damage")
+            match["receivedDamage"] = representative.get("receivedDamage")
+            match["spottingDamage"] = representative.get("spottingDamage")
+            match["potentialDamage"] = representative.get("potentialDamage")
+            match["kills"] = representative.get("kills")
+            match["fires"] = representative.get("fires")
+            match["floods"] = representative.get("floods")
+            match["baseXP"] = representative.get("baseXP")
+            match["hitsAP"] = representative.get("hitsAP")
+            match["hitsHE"] = representative.get("hitsHE")
+            match["hitsSecondaries"] = representative.get("hitsSecondaries")
+            match["damageAP"] = representative.get("damageAP")
+            match["damageHE"] = representative.get("damageHE")
+            match["damageHESecondaries"] = representative.get("damageHESecondaries")
+            match["damageTorps"] = representative.get("damageTorps")
+            match["damageDeepWaterTorps"] = representative.get("damageDeepWaterTorps")
+            match["damageOther"] = representative.get("damageOther")
+            match["damageFire"] = representative.get("damageFire")
+            match["damageFlooding"] = representative.get("damageFlooding")
 
         # マッチのリストに変換（日時順にソート）
         match_list = sorted(matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True)

@@ -1,24 +1,24 @@
 <template>
   <v-app>
-    <v-app-bar v-if="showAppBar" color="primary" prominent>
-      <v-app-bar-nav-icon></v-app-bar-nav-icon>
-      <v-toolbar-title>WoWS Replay Database</v-toolbar-title>
+    <v-app-bar v-if="showAppBar" color="primary" density="compact" height="48">
+      <v-app-bar-nav-icon size="small"></v-app-bar-nav-icon>
+      <v-toolbar-title class="text-body-1">WoWS Replay Database</v-toolbar-title>
       <v-spacer></v-spacer>
 
       <!-- ユーザーメニュー -->
       <template v-if="auth.isAuthenticated && auth.user">
         <v-menu offset-y>
           <template v-slot:activator="{ props }">
-            <v-btn v-bind="props" variant="text" class="text-none">
-              <v-avatar size="32" class="mr-2">
+            <v-btn v-bind="props" variant="text" class="text-none" size="small">
+              <v-avatar size="24" class="mr-1">
                 <v-img v-if="auth.user.avatar" :src="auth.user.avatar" :alt="auth.displayName"></v-img>
-                <v-icon v-else>mdi-account-circle</v-icon>
+                <v-icon v-else size="small">mdi-account-circle</v-icon>
               </v-avatar>
-              <span class="d-none d-sm-inline">{{ auth.displayName }}</span>
-              <v-icon end>mdi-menu-down</v-icon>
+              <span class="d-none d-sm-inline text-caption">{{ auth.displayName }}</span>
+              <v-icon end size="small">mdi-menu-down</v-icon>
             </v-btn>
           </template>
-          <v-list>
+          <v-list density="compact">
             <v-list-item>
               <v-list-item-title class="text-caption text-grey">
                 {{ auth.user.username }}
@@ -27,9 +27,9 @@
             <v-divider></v-divider>
             <v-list-item @click="handleLogout">
               <template v-slot:prepend>
-                <v-icon>mdi-logout</v-icon>
+                <v-icon size="small">mdi-logout</v-icon>
               </template>
-              <v-list-item-title>ログアウト</v-list-item-title>
+              <v-list-item-title class="text-body-2">ログアウト</v-list-item-title>
             </v-list-item>
           </v-list>
         </v-menu>
@@ -42,9 +42,9 @@
       </v-container>
     </v-main>
 
-    <v-footer v-if="showAppBar" app>
+    <v-footer v-if="showAppBar" app class="py-1">
       <v-spacer></v-spacer>
-      <span>&copy; 2026 WoWS Replay Bot</span>
+      <span class="text-caption">&copy; 2026 WoWS Replay Bot</span>
     </v-footer>
   </v-app>
 </template>
