@@ -193,6 +193,22 @@
           </v-chip>
         </template>
 
+        <!-- 味方クラン -->
+        <template v-slot:item.allyMainClanTag="{ item }">
+          <span v-if="item?.allyMainClanTag || item?.raw?.allyMainClanTag" class="text-success font-weight-medium">
+            [{{ item?.allyMainClanTag || item?.raw?.allyMainClanTag }}]
+          </span>
+          <span v-else class="text-grey">-</span>
+        </template>
+
+        <!-- 敵クラン -->
+        <template v-slot:item.enemyMainClanTag="{ item }">
+          <span v-if="item?.enemyMainClanTag || item?.raw?.enemyMainClanTag" class="text-error font-weight-medium">
+            [{{ item?.enemyMainClanTag || item?.raw?.enemyMainClanTag }}]
+          </span>
+          <span v-else class="text-grey">-</span>
+        </template>
+
         <!-- 自分 -->
         <template v-slot:item.ownPlayer="{ item }">
           <div v-if="item?.ownPlayer || item?.raw?.ownPlayer">
@@ -357,6 +373,8 @@ const headers = [
   { title: 'マップ', key: 'mapDisplayName', sortable: true },
   { title: 'ゲームタイプ', key: 'gameType', sortable: true },
   { title: '勝敗', key: 'winLoss', sortable: true },
+  { title: '味方クラン', key: 'allyMainClanTag', sortable: true },
+  { title: '敵クラン', key: 'enemyMainClanTag', sortable: true },
   { title: '初回アップロード者', key: 'ownPlayer', sortable: false },
   { title: '味方艦艇', key: 'allyShips', sortable: false },
   { title: '敵艦艇', key: 'enemyShips', sortable: false },
