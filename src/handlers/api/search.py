@@ -121,11 +121,13 @@ def handle(event, context):
                 effective_date_to = cursor_date_time
 
         # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
-        fetch_multiplier = 3
+        # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
+        # そのため多めにデータを取得し、Python側で正しくソートし直す
+        fetch_multiplier = 10
         if ally_clan_tag or enemy_clan_tag:
-            fetch_multiplier = 5  # クランフィルタがある場合はさらに多めに
+            fetch_multiplier = 15  # クランフィルタがある場合はさらに多めに
         if ship_filtered_arena_ids is not None:
-            fetch_multiplier = 5
+            fetch_multiplier = 15
 
         result = dynamodb.search_replays(
             game_type=game_type,
@@ -270,7 +272,8 @@ def handle(event, context):
             match["citadels"] = representative.get("citadels")
 
         # マッチのリストに変換（日時順にソート）
-        match_list = sorted(matches.values(), key=lambda x: x.get("dateTime", ""), reverse=True)
+        # DD.MM.YYYY形式は文字列比較で正しくソートされないため、parse_datetime_for_sortを使用
+        match_list = sorted(matches.values(), key=lambda x: parse_datetime_for_sort(x.get("dateTime", "")), reverse=True)
 
         # クランタグでフィルタリング（クライアント側フィルタ）
         if ally_clan_tag:
