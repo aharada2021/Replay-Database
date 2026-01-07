@@ -81,12 +81,15 @@ provider:
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}/index/*
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.sessionsTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.shipMatchIndexTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.shipMatchIndexTable}/index/*
 
 # カスタム変数
 custom:
   bucketName: wows-replay-bot-${self:provider.stage}-temp
   replaysTable: wows-replays-${self:provider.stage}
   sessionsTable: wows-sessions-${self:provider.stage}
+  shipMatchIndexTable: wows-ship-match-index-${self:provider.stage}
   # Dockerイメージを使用するため、pythonRequirementsは不要
   # pythonRequirements:
   #   dockerizePip: true
@@ -298,6 +301,23 @@ functions:
           method: post
     environment:
       SESSIONS_TABLE: ${self:custom.sessionsTable}
+
+  # API Key取得
+  auth-apikey:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.auth.handle_apikey
+    architecture: arm64
+    timeout: 10
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/auth/apikey
+          method: get
+    environment:
+      SESSIONS_TABLE: ${self:custom.sessionsTable}
+      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
 
   # ========================================
   # ダウンロードAPI

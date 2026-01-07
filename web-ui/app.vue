@@ -21,6 +21,15 @@
           @click="downloadUploader"
         ></v-list-item>
 
+        <v-list-item
+          v-if="auth.isAuthenticated"
+          prepend-icon="mdi-key"
+          title="API Key"
+          subtitle="アップローダー用のAPI Key"
+          :loading="isLoadingApiKey"
+          @click="showApiKeyDialog"
+        ></v-list-item>
+
         <v-divider class="my-2"></v-divider>
 
         <v-list-subheader>リンク</v-list-subheader>
@@ -33,6 +42,67 @@
         ></v-list-item>
       </v-list>
     </v-navigation-drawer>
+
+    <!-- API Key ダイアログ -->
+    <v-dialog v-model="apiKeyDialog" max-width="500">
+      <v-card>
+        <v-card-title class="text-h6">
+          <v-icon start>mdi-key</v-icon>
+          API Key
+        </v-card-title>
+        <v-card-text>
+          <p class="text-body-2 mb-3">
+            自動アップローダーで使用するAPI Keyです。他の人には共有しないでください。
+          </p>
+          <v-text-field
+            v-model="apiKeyData.apiKey"
+            label="API Key"
+            readonly
+            variant="outlined"
+            density="compact"
+            :append-inner-icon="showApiKey ? 'mdi-eye-off' : 'mdi-eye'"
+            :type="showApiKey ? 'text' : 'password'"
+            @click:append-inner="showApiKey = !showApiKey"
+          >
+            <template v-slot:append>
+              <v-btn
+                icon="mdi-content-copy"
+                variant="text"
+                size="small"
+                @click="copyApiKey"
+              ></v-btn>
+            </template>
+          </v-text-field>
+          <v-text-field
+            v-model="apiKeyData.discordUserId"
+            label="Discord User ID"
+            readonly
+            variant="outlined"
+            density="compact"
+          >
+            <template v-slot:append>
+              <v-btn
+                icon="mdi-content-copy"
+                variant="text"
+                size="small"
+                @click="copyDiscordUserId"
+              ></v-btn>
+            </template>
+          </v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" variant="text" @click="apiKeyDialog = false">
+            閉じる
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- コピー成功スナックバー -->
+    <v-snackbar v-model="copySnackbar" :timeout="2000" color="success">
+      クリップボードにコピーしました
+    </v-snackbar>
 
     <v-app-bar v-if="showAppBar" color="primary" density="compact" height="48">
       <v-app-bar-nav-icon size="small" @click="drawer = !drawer"></v-app-bar-nav-icon>
@@ -95,6 +165,16 @@ const drawer = ref(false)
 // ダウンロード状態
 const isDownloading = ref(false)
 
+// API Key関連の状態
+const isLoadingApiKey = ref(false)
+const apiKeyDialog = ref(false)
+const showApiKey = ref(false)
+const copySnackbar = ref(false)
+const apiKeyData = ref({
+  apiKey: '',
+  discordUserId: ''
+})
+
 // ログインページではヘッダー・フッターを非表示
 const showAppBar = computed(() => route.path !== '/login')
 
@@ -129,6 +209,53 @@ const downloadUploader = async () => {
     alert('ダウンロードに失敗しました。しばらく待ってから再度お試しください。')
   } finally {
     isDownloading.value = false
+  }
+}
+
+// API Key表示ダイアログを開く
+const showApiKeyDialog = async () => {
+  if (isLoadingApiKey.value) return
+
+  isLoadingApiKey.value = true
+  try {
+    const response = await fetch(`${config.public.apiBaseUrl}/api/auth/apikey`, {
+      credentials: 'include'
+    })
+    if (!response.ok) {
+      throw new Error('API Keyの取得に失敗しました')
+    }
+    const data = await response.json()
+    apiKeyData.value = {
+      apiKey: data.apiKey || '',
+      discordUserId: data.discordUserId || ''
+    }
+    showApiKey.value = false
+    apiKeyDialog.value = true
+  } catch (error) {
+    console.error('API Key取得エラー:', error)
+    alert('API Keyの取得に失敗しました。再度ログインしてください。')
+  } finally {
+    isLoadingApiKey.value = false
+  }
+}
+
+// API Keyをクリップボードにコピー
+const copyApiKey = async () => {
+  try {
+    await navigator.clipboard.writeText(apiKeyData.value.apiKey)
+    copySnackbar.value = true
+  } catch (error) {
+    console.error('コピーエラー:', error)
+  }
+}
+
+// Discord User IDをクリップボードにコピー
+const copyDiscordUserId = async () => {
+  try {
+    await navigator.clipboard.writeText(apiKeyData.value.discordUserId)
+    copySnackbar.value = true
+  } catch (error) {
+    console.error('コピーエラー:', error)
   }
 }
 </script>

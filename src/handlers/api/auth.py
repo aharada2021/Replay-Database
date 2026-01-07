@@ -19,6 +19,7 @@ DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wows-replay.mirage0926.com")
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "wows-sessions-dev")
 ALLOWED_GUILD_ID = os.environ.get("ALLOWED_GUILD_ID", "1457376632921788550")
+UPLOAD_API_KEY = os.environ.get("UPLOAD_API_KEY", "")
 
 # DynamoDB
 dynamodb = boto3.resource("dynamodb")
@@ -476,6 +477,81 @@ def handle_logout(event, context):
 
     except Exception as e:
         print(f"Error in handle_logout: {e}")
+        return {
+            "statusCode": 500,
+            "headers": get_cors_headers(),
+            "body": json.dumps({"error": str(e)}),
+        }
+
+
+def handle_apikey(event, context):
+    """
+    API Key取得
+
+    認証済みユーザーにアップロード用のAPI Keyを返す
+    """
+    try:
+        origin = event.get("headers", {}).get("origin") or event.get("headers", {}).get("Origin")
+        cors_headers = get_cors_headers(origin)
+
+        # OPTIONSリクエスト
+        http_method = event.get("requestContext", {}).get("http", {}).get("method")
+        if http_method == "OPTIONS":
+            return {"statusCode": 200, "headers": cors_headers, "body": ""}
+
+        # セッションID取得
+        session_id = get_cookie(event, "session_id")
+
+        if not session_id:
+            return {
+                "statusCode": 401,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Not authenticated"}),
+            }
+
+        # セッション取得
+        try:
+            response = sessions_table.get_item(Key={"sessionId": session_id})
+            session = response.get("Item")
+        except Exception as e:
+            print(f"Session lookup error: {e}")
+            return {
+                "statusCode": 401,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Session error"}),
+            }
+
+        if not session:
+            return {
+                "statusCode": 401,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Session not found"}),
+            }
+
+        # 有効期限チェック
+        if session.get("expiresAt", 0) < int(time.time()):
+            sessions_table.delete_item(Key={"sessionId": session_id})
+            return {
+                "statusCode": 401,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Session expired"}),
+            }
+
+        # API Keyを返す
+        return {
+            "statusCode": 200,
+            "headers": {
+                **cors_headers,
+                "Content-Type": "application/json",
+            },
+            "body": json.dumps({
+                "apiKey": UPLOAD_API_KEY,
+                "discordUserId": session.get("discordUserId"),
+            }),
+        }
+
+    except Exception as e:
+        print(f"Error in handle_apikey: {e}")
         return {
             "statusCode": 500,
             "headers": get_cors_headers(),
