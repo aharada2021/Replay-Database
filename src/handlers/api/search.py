@@ -112,6 +112,7 @@ def handle(event, context):
             try:
                 cursor_dt = parse_datetime_for_sort(cursor_date_time)
                 from datetime import timedelta
+
                 # 1秒前の時刻を計算して文字列に変換
                 prev_dt = cursor_dt - timedelta(seconds=1)
                 effective_date_to = prev_dt.strftime("%d.%m.%Y %H:%M:%S")
