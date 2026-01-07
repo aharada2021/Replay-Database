@@ -276,22 +276,26 @@ def search_replays(
     table = get_table()
 
     # GSIを使用した検索
+    # Note: dateTime is a DynamoDB reserved keyword, so we use #dateTime alias
+    expression_attr_names = {"#dateTime": "dateTime"}
+
     if game_type:
         # GameTypeIndexを使用
         key_condition = "gameType = :gt"
         expression_values = {":gt": game_type}
 
         if date_from:
-            key_condition += " AND dateTime >= :df"
+            key_condition += " AND #dateTime >= :df"
             expression_values[":df"] = date_from
         if date_to:
-            key_condition += " AND dateTime <= :dt"
+            key_condition += " AND #dateTime <= :dt"
             expression_values[":dt"] = date_to
 
         query_params = {
             "IndexName": "GameTypeIndex",
             "KeyConditionExpression": key_condition,
             "ExpressionAttributeValues": expression_values,
+            "ExpressionAttributeNames": expression_attr_names,
             "Limit": limit,
             "ScanIndexForward": False,  # 降順（新しい順）
         }
@@ -307,16 +311,17 @@ def search_replays(
         expression_values = {":mid": map_id}
 
         if date_from:
-            key_condition += " AND dateTime >= :df"
+            key_condition += " AND #dateTime >= :df"
             expression_values[":df"] = date_from
         if date_to:
-            key_condition += " AND dateTime <= :dt"
+            key_condition += " AND #dateTime <= :dt"
             expression_values[":dt"] = date_to
 
         query_params = {
             "IndexName": "MapIdIndex",
             "KeyConditionExpression": key_condition,
             "ExpressionAttributeValues": expression_values,
+            "ExpressionAttributeNames": expression_attr_names,
             "Limit": limit,
             "ScanIndexForward": False,
         }
