@@ -1,7 +1,41 @@
 <template>
   <v-app>
+    <!-- ナビゲーションドロワー -->
+    <v-navigation-drawer v-model="drawer" temporary>
+      <v-list density="compact" nav>
+        <v-list-item
+          prepend-icon="mdi-home"
+          title="ホーム"
+          to="/"
+        ></v-list-item>
+
+        <v-divider class="my-2"></v-divider>
+
+        <v-list-subheader>ツール</v-list-subheader>
+
+        <v-list-item
+          prepend-icon="mdi-download"
+          title="自動アップローダー"
+          subtitle="リプレイを自動でアップロード"
+          :href="uploaderDownloadUrl"
+          target="_blank"
+        ></v-list-item>
+
+        <v-divider class="my-2"></v-divider>
+
+        <v-list-subheader>リンク</v-list-subheader>
+
+        <v-list-item
+          prepend-icon="mdi-github"
+          title="GitHub"
+          href="https://github.com/aharada2021/WoWS-Replay-Classification-Bot"
+          target="_blank"
+        ></v-list-item>
+      </v-list>
+    </v-navigation-drawer>
+
     <v-app-bar v-if="showAppBar" color="primary" density="compact" height="48">
-      <v-app-bar-nav-icon size="small"></v-app-bar-nav-icon>
+      <v-app-bar-nav-icon size="small" @click="drawer = !drawer"></v-app-bar-nav-icon>
       <v-toolbar-title class="text-body-1">WoWS Replay Database</v-toolbar-title>
       <v-spacer></v-spacer>
 
@@ -54,8 +88,14 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
+// ナビゲーションドロワーの状態
+const drawer = ref(false)
+
 // ログインページではヘッダー・フッターを非表示
 const showAppBar = computed(() => route.path !== '/login')
+
+// アップローダーのダウンロードURL（GitHub Releases）
+const uploaderDownloadUrl = 'https://github.com/aharada2021/WoWS-Replay-Classification-Bot/releases/latest/download/wows_replay_uploader.zip'
 
 // 初回マウント時にユーザー情報を取得
 onMounted(async () => {
