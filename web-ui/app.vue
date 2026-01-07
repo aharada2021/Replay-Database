@@ -59,13 +59,9 @@ const showAppBar = computed(() => route.path !== '/login')
 
 // 初回マウント時にユーザー情報を取得
 onMounted(async () => {
-  console.log('[App] onMounted - isLoading:', auth.isLoading)
   if (auth.isLoading) {
     await auth.fetchUser()
   }
-  console.log('[App] After fetchUser - isAuthenticated:', auth.isAuthenticated)
-  console.log('[App] After fetchUser - user:', auth.user)
-  console.log('[App] After fetchUser - avatar:', auth.user?.avatar)
 })
 
 const handleLogout = async () => {

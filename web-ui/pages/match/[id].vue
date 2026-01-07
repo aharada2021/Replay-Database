@@ -247,8 +247,6 @@ const hasVideo = computed(() => {
 
 onMounted(async () => {
   const arenaUniqueID = route.params.id as string
-  console.log('[Detail] Route params:', route.params)
-  console.log('[Detail] Arena ID from route:', arenaUniqueID)
 
   if (!arenaUniqueID) {
     error.value = '無効なIDです'

@@ -40,21 +40,15 @@ export const useSearchStore = defineStore('search', {
     },
 
     async search() {
-      console.log('[Store] Starting search with query:', this.query)
       this.loading = true
       this.error = null
 
       try {
         const api = useApi()
-        console.log('[Store] Calling API...')
         const response = await api.searchReplays(this.query)
-        console.log('[Store] API response:', response)
-        console.log('[Store] Items count:', response.items?.length)
 
         this.results = response.items
         this.totalCount = response.count
-
-        console.log('[Store] State updated - results:', this.results?.length, 'totalCount:', this.totalCount)
       } catch (err: any) {
         console.error('[Store] Search error:', err)
         this.error = err.message || 'Search failed'
@@ -62,7 +56,6 @@ export const useSearchStore = defineStore('search', {
         this.totalCount = 0
       } finally {
         this.loading = false
-        console.log('[Store] Search completed, loading:', this.loading)
       }
     },
 

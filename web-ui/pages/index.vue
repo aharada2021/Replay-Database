@@ -227,35 +227,9 @@ const { getMapName, getMapList } = useMapNames()
 // マップ一覧
 const mapList = getMapList()
 
-// Store初期化確認
-console.log('SearchStore initialized:', searchStore)
-console.log('Initial state - results:', searchStore.results)
-console.log('Initial state - loading:', searchStore.loading)
-console.log('Initial state - error:', searchStore.error)
-
 // 初回検索
 onMounted(async () => {
-  console.log('Mounted, starting search...')
-  console.log('Store before search:', {
-    results: searchStore.results,
-    loading: searchStore.loading,
-    error: searchStore.error
-  })
-
   await searchStore.search()
-
-  console.log('Search completed')
-  console.log('Store after search:', {
-    results: searchStore.results,
-    resultsLength: searchStore.results?.length,
-    loading: searchStore.loading,
-    totalCount: searchStore.totalCount,
-    error: searchStore.error
-  })
-
-  if (searchStore.results && searchStore.results.length > 0) {
-    console.log('First item:', searchStore.results[0])
-  }
 })
 
 // フォーム選択肢
