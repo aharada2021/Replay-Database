@@ -12,5 +12,6 @@ lxml>=4.9.3
 # AWS SDK
 boto3>=1.34.0
 
-# replay_unpack依存（暗号化解除用）
+# replay_unpack依存
 pycryptodomex>=3.20.0
+packaging>=23.0
