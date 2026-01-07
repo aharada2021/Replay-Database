@@ -57,6 +57,13 @@ const router = useRouter()
 // ログインページではヘッダー・フッターを非表示
 const showAppBar = computed(() => route.path !== '/login')
 
+// 初回マウント時にユーザー情報を取得
+onMounted(async () => {
+  if (auth.isLoading) {
+    await auth.fetchUser()
+  }
+})
+
 const handleLogout = async () => {
   await auth.logout()
   router.push('/login')
