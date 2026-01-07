@@ -104,37 +104,25 @@ def handle(event, context):
             ship_filtered_arena_ids = set(item.get("arenaUniqueID") for item in ship_result.get("items", []))
             print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
 
-        # カーソルが指定されている場合、date_toとして使用（厳密な不等式で重複を避ける）
-        effective_date_to = date_to
-        if cursor_date_time:
-            # cursorDateTimeより前のデータを取得
-            # 同じ時刻のデータを除外するため、1秒引く
-            try:
-                cursor_dt = parse_datetime_for_sort(cursor_date_time)
-                from datetime import timedelta
-
-                # 1秒前の時刻を計算して文字列に変換
-                prev_dt = cursor_dt - timedelta(seconds=1)
-                effective_date_to = prev_dt.strftime("%d.%m.%Y %H:%M:%S")
-            except Exception:
-                # パースに失敗した場合はそのまま使用
-                effective_date_to = cursor_date_time
-
         # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
         # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
         # そのため多めにデータを取得し、Python側で正しくソートし直す
+        # また、cursor_date_timeはDynamoDBのdate_toとして使用しない（文字列比較が正しく動作しないため）
+        # カーソルによるフィルタリングはPython側で行う
         fetch_multiplier = 10
         if ally_clan_tag or enemy_clan_tag:
             fetch_multiplier = 15  # クランフィルタがある場合はさらに多めに
         if ship_filtered_arena_ids is not None:
             fetch_multiplier = 15
+        if cursor_date_time:
+            fetch_multiplier = 20  # カーソルページネーション時はさらに多めに取得
 
         result = dynamodb.search_replays(
             game_type=game_type,
             map_id=map_id,
             win_loss=win_loss,
             date_from=date_from,
-            date_to=effective_date_to,
+            date_to=date_to,  # ユーザー指定のdate_toのみ使用（cursor_date_timeは使わない）
             limit=limit * fetch_multiplier,
         )
 
@@ -278,6 +266,13 @@ def handle(event, context):
             key=lambda x: parse_datetime_for_sort(x.get("dateTime", "")),
             reverse=True,
         )
+
+        # カーソルによるフィルタリング（Python側で行う）
+        # DynamoDBのDD.MM.YYYY形式では文字列比較が正しく動作しないため
+        if cursor_date_time:
+            cursor_dt = parse_datetime_for_sort(cursor_date_time)
+            # カーソルより前（古い）のデータのみを取得
+            match_list = [m for m in match_list if parse_datetime_for_sort(m.get("dateTime", "")) < cursor_dt]
 
         # クランタグでフィルタリング（クライアント側フィルタ）
         if ally_clan_tag:
