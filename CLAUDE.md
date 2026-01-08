@@ -204,7 +204,7 @@ python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
   - 80種類以上のスキル名マッピング（WoWS 14.x準拠）
 - **統合**: `battle_result_extractor.py`で`allPlayersStats`に含める
   - `captainSkills`: スキル名の配列
-- **注意**: 敵プレイヤーのデータは取得不可（ゲームの仕様）
+- **注意**: 全プレイヤー（味方・敵問わず）のデータが取得可能
 
 ### 艦長スキル表示バグ修正と艦種表示追加（2026-01-09完了）
 - **バグ**: 艦長スキルが誤った艦種のスキルセットを表示していた
@@ -227,6 +227,19 @@ python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
   - データソース: WoWS公式Wiki（日本語版）
 - **バックフィル実行**: 237試合、24,503件のスキル名を日本語化（`scripts/backfill_skills_japanese.py`）
 - **注意**: 新規リプレイは自動的に日本語で保存される
+
+### アップグレード（近代化改修）表示機能（2026-01-09完了）
+- **概要**: リプレイから各プレイヤーのアップグレード（近代化改修）情報を抽出・表示
+- **実装内容**:
+  - `src/utils/upgrades.py`: アップグレード抽出ユーティリティ
+    - `decode_ship_config_dump()`: リプレイの`shipConfigDump`バイナリをデコード
+    - `map_player_to_upgrades()`: プレイヤー名→アップグレードリスト
+    - PCMコード→日本語名マッピング（118アップグレード対応）
+  - `src/utils/modernizations.json`: アップグレードID→PCMコードマッピング
+  - `battle_result_extractor.py`: `allPlayersStats`に`upgrades`配列を追加
+  - フロントエンド: プレイヤー名ホバーでアップグレード表示（青色チップ）
+- **データソース**: `minimap_renderer/src/renderer/data/modernizations.json`
+- **注意**: 艦長スキル同様、全プレイヤー（味方・敵問わず）のデータが取得可能
 
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
