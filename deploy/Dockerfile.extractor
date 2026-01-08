@@ -1,7 +1,7 @@
 # AWS Lambda Python 3.10 base image
 FROM public.ecr.aws/lambda/python:3.10
 
-# システムパッケージのインストール（軽量版）
+# システムパッケージのインストール（変更頻度: 低）
 RUN yum update -y && \
     yum install -y \
     gcc gcc-c++ make \
@@ -11,17 +11,19 @@ RUN yum update -y && \
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-# pipとsetuptoolsをアップグレード、依存関係をインストール
-COPY config/requirements_lambda.txt .
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements_lambda.txt
+# pipをアップグレード（変更頻度: 非常に低）
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# replays_unpack_upstreamをコピーしてパッチ適用
+# Python依存関係をインストール（変更頻度: 低〜中）
+COPY config/requirements_lambda.txt .
+RUN pip install --no-cache-dir -r requirements_lambda.txt
+
+# replays_unpack_upstreamをコピーしてパッチ適用（変更頻度: 低）
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
 RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
     ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
 
-# アプリケーションコードをまとめてコピー
+# アプリケーションコードをまとめてコピー（変更頻度: 高）
 COPY src/handlers/ ./handlers/
 COPY src/core/ ./core/
 COPY src/parsers/ ./parsers/

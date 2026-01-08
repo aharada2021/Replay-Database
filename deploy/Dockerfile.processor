@@ -1,37 +1,40 @@
 # AWS Lambda Python 3.10 base image
 FROM public.ecr.aws/lambda/python:3.10
 
-# システムパッケージのインストール
+# システムパッケージ + FFmpegを1つのレイヤーに統合（変更頻度: 低）
+# これにより、どちらかが変更されても1回のキャッシュ無効化で済む
 RUN yum update -y && \
     yum install -y \
     git gcc gcc-c++ make \
     libxml2-devel libxslt-devel python3-devel \
     wget tar xz \
-    && yum clean all
-
-# FFmpegのインストール (ARM64用 - John Van Sickle's static builds)
-RUN cd /tmp && \
-    wget -O ffmpeg-release-arm64-static.tar.xz "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz" && \
+    && yum clean all && \
+    cd /tmp && \
+    wget -q -O ffmpeg-release-arm64-static.tar.xz "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz" && \
     tar xf ffmpeg-release-arm64-static.tar.xz && \
-    FFMPEG_BIN=$(find . -type f -name "ffmpeg" | head -n 1) && \
-    chmod +x "$FFMPEG_BIN" && \
-    mv "$FFMPEG_BIN" /usr/local/bin/ffmpeg && \
+    mv $(find . -type f -name "ffmpeg" | head -n 1) /usr/local/bin/ffmpeg && \
+    chmod +x /usr/local/bin/ffmpeg && \
     rm -rf /tmp/*
 
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-# pipとsetuptoolsをアップグレード、依存関係をインストール
+# pipをアップグレード（変更頻度: 非常に低）
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Python依存関係をインストール（変更頻度: 低〜中）
 COPY config/requirements_lambda.txt .
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements_lambda.txt
+RUN pip install --no-cache-dir -r requirements_lambda.txt
 
-# minimap_renderer (replay_unpack含む) をインストール
+# minimap_renderer をインストール（変更頻度: 低〜中）
+# requirements.txtを先にコピーしてキャッシュ効率を上げる
+COPY minimap_renderer/requirements.txt ./minimap_renderer/requirements.txt
+RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt
+
 COPY minimap_renderer/ ./minimap_renderer/
-RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt && \
-    pip install --no-cache-dir ./minimap_renderer/
+RUN pip install --no-cache-dir ./minimap_renderer/
 
-# アプリケーションコードをまとめてコピー
+# アプリケーションコードをまとめてコピー（変更頻度: 高）
 COPY src/handlers/ ./handlers/
 COPY src/core/ ./core/
 COPY src/utils/ ./utils/
