@@ -154,23 +154,15 @@ def send_replay_notification(
 
         # クラン情報
         if clan_text:
-            embed["fields"].append(
-                {"name": "クラン", "value": clan_text, "inline": False}
-            )
+            embed["fields"].append({"name": "クラン", "value": clan_text, "inline": False})
 
         # 味方・敵メンバーを横並びで表示
-        embed["fields"].append(
-            {"name": "🔵 味方", "value": ally_list, "inline": True}
-        )
-        embed["fields"].append(
-            {"name": "🔴 敵", "value": enemy_list, "inline": True}
-        )
+        embed["fields"].append({"name": "🔵 味方", "value": ally_list, "inline": True})
+        embed["fields"].append({"name": "🔴 敵", "value": enemy_list, "inline": True})
 
         # 詳細リンク
         detail_url = f"{web_ui_base_url}/match/{arena_unique_id}"
-        embed["fields"].append(
-            {"name": "📊 詳細", "value": f"[Web UIで見る]({detail_url})", "inline": False}
-        )
+        embed["fields"].append({"name": "📊 詳細", "value": f"[Web UIで見る]({detail_url})", "inline": False})
 
         embeds = [embed]
 
@@ -197,22 +189,16 @@ def send_replay_notification(
                 data = {
                     "payload_json": json.dumps({"embeds": embeds}),
                 }
-                response = requests.post(
-                    url, headers=headers, files=files, data=data, timeout=120
-                )
+                response = requests.post(url, headers=headers, files=files, data=data, timeout=120)
             except Exception as e:
                 print(f"Failed to attach MP4, sending without video: {e}")
                 # 動画添付に失敗した場合はテキストのみ送信
                 headers["Content-Type"] = "application/json"
-                response = requests.post(
-                    url, headers=headers, json={"embeds": embeds}, timeout=30
-                )
+                response = requests.post(url, headers=headers, json={"embeds": embeds}, timeout=30)
         else:
             # 動画なしの場合
             headers["Content-Type"] = "application/json"
-            response = requests.post(
-                url, headers=headers, json={"embeds": embeds}, timeout=30
-            )
+            response = requests.post(url, headers=headers, json={"embeds": embeds}, timeout=30)
 
         response.raise_for_status()
 

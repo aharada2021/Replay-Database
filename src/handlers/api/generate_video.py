@@ -43,9 +43,7 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
-            "http", {}
-        ).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -64,9 +62,7 @@ def handle(event, context):
             return {
                 "statusCode": 400,
                 "headers": cors_headers,
-                "body": json.dumps(
-                    {"error": "arenaUniqueID and playerID are required"}
-                ),
+                "body": json.dumps({"error": "arenaUniqueID and playerID are required"}),
             }
 
         # DynamoDBからレコードを取得
@@ -104,9 +100,7 @@ def handle(event, context):
         s3_key = record["s3Key"]
         print(f"Downloading replay from s3://{REPLAYS_BUCKET}/{s3_key}")
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".wowsreplay", delete=False
-        ) as tmp_replay:
+        with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_replay:
             replay_path = Path(tmp_replay.name)
             s3_client.download_fileobj(REPLAYS_BUCKET, s3_key, tmp_replay)
 
@@ -125,9 +119,7 @@ def handle(event, context):
                     raise Exception("MP4 generation failed")
 
                 # S3にアップロード
-                mp4_s3_key = (
-                    f"videos/{arena_unique_id}/{player_id}/{replay_path.stem}.mp4"
-                )
+                mp4_s3_key = f"videos/{arena_unique_id}/{player_id}/{replay_path.stem}.mp4"
                 print(f"Uploading MP4 to s3://{REPLAYS_BUCKET}/{mp4_s3_key}")
 
                 with open(mp4_path, "rb") as f:
@@ -155,9 +147,7 @@ def handle(event, context):
                 # Discord通知を送信（Auto-uploader経由のアップロード時、クラン戦のみ）
                 if NOTIFICATION_CHANNEL_ID and DISCORD_BOT_TOKEN:
                     # 最新のレコードを取得（統計情報が含まれている）
-                    updated_record = dynamodb.get_replay_record(
-                        str(arena_unique_id), int(player_id)
-                    )
+                    updated_record = dynamodb.get_replay_record(str(arena_unique_id), int(player_id))
                     if updated_record and updated_record.get("gameType") == "clan":
                         send_replay_notification(
                             channel_id=NOTIFICATION_CHANNEL_ID,
