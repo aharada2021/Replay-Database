@@ -34,18 +34,6 @@
                 </span>
               </template>
               <div class="player-details-tooltip">
-                <!-- 艦艇コンポーネント -->
-                <div v-if="item.shipComponents && Object.keys(item.shipComponents).length > 0" class="mb-2">
-                  <div class="tooltip-title">
-                    <v-icon size="small" class="mr-1">mdi-cog</v-icon>
-                    艦艇モジュール
-                  </div>
-                  <div class="ship-components">
-                    <span v-for="(value, key) in item.shipComponents" :key="key" class="component-chip">
-                      {{ getComponentLabel(key) }} {{ value }}
-                    </span>
-                  </div>
-                </div>
                 <!-- 艦長スキル -->
                 <div v-if="item.captainSkills?.length">
                   <div class="tooltip-title">
@@ -450,26 +438,7 @@ const formatNumber = (value: number | undefined | null): string => {
 
 // プレイヤー詳細情報があるかどうか
 const hasPlayerDetails = (player: PlayerStats): boolean => {
-  return !!(player.captainSkills?.length || (player.shipComponents && Object.keys(player.shipComponents).length > 0))
-}
-
-// コンポーネントキーを日本語ラベルに変換
-const componentLabels: Record<string, string> = {
-  hull: '船体',
-  artillery: '主砲',
-  torpedoes: '魚雷',
-  fireControl: '射撃管制',
-  engine: 'エンジン',
-  atba: '副砲',
-  airDefense: '対空',
-  finders: '探知機',
-  directors: '測距儀',
-  depthCharges: '爆雷',
-  radars: 'レーダー',
-}
-
-const getComponentLabel = (key: string): string => {
-  return componentLabels[key] || key
+  return !!(player.captainSkills?.length)
 }
 
 // 動画があるリプレイを取得
@@ -595,21 +564,6 @@ const formatDateTime = (dateTime: string) => {
   display: flex;
   align-items: center;
   color: #000000;
-}
-
-.ship-components {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.component-chip {
-  background: #e0e0e0;
-  color: #000000;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  white-space: nowrap;
 }
 
 .captain-skills {

@@ -78,10 +78,9 @@ aws logs tail /aws/lambda/wows-replay-bot-dev-battle-result-extractor --region a
 python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
 python3 scripts/backfill_search_optimization.py  # 検索最適化フィールド追加（matchKey, dateTimeSortable）
 python3 scripts/backfill_battlestats.py  # BattleStats詳細フィールド追加（被ダメ内訳、潜在内訳、crits等）
-python3 scripts/backfill_captain_skills.py  # 艦長スキル・艦艇コンポーネント追加
+python3 scripts/backfill_captain_skills.py  # 艦長スキル追加
 python3 scripts/backfill_ship_class.py  # 艦種（shipClass）追加
 python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
-python3 scripts/backfill_component_calibers.py  # 主砲・魚雷の口径表示
 # DRY_RUN=true で実行すると、書き込みなしで対象レコードを確認可能
 ```
 
@@ -199,18 +198,13 @@ python3 scripts/backfill_component_calibers.py  # 主砲・魚雷の口径表示
 - **注意**: DynamoDBは1回の更新で1つのGSIしか追加できない
 - 更新ファイル: `deploy/serverless.yml`, `src/utils/dynamodb.py`
 
-### 艦長スキル・艦艇コンポーネント抽出機能（2026-01-08完了）
+### 艦長スキル抽出機能（2026-01-08完了）
 - **艦長スキル**: `hidden['crew']['learned_skills']`から抽出
   - 内部名→表示名マッピング: `src/utils/captain_skills.py`
   - 80種類以上のスキル名マッピング（WoWS 14.x準拠）
-- **艦艇コンポーネント**: `hidden['players'][id]['shipComponents']`から抽出
-  - 船体、主砲、魚雷、エンジン等のバリアント（A, B, AB1等）
-  - `src/utils/ship_modules.py`
 - **統合**: `battle_result_extractor.py`で`allPlayersStats`に含める
   - `captainSkills`: スキル名の配列
-  - `shipComponents`: コンポーネント辞書（`{"hull": "A", "artillery": "B", ...}`）
 - **注意**: 敵プレイヤーのデータは取得不可（ゲームの仕様）
-- **未実装**: アップグレード（近代化改修）はゲームデータファイルが必要
 
 ### 艦長スキル表示バグ修正と艦種表示追加（2026-01-09完了）
 - **バグ**: 艦長スキルが誤った艦種のスキルセットを表示していた
@@ -234,18 +228,8 @@ python3 scripts/backfill_component_calibers.py  # 主砲・魚雷の口径表示
 - **バックフィル実行**: 237試合、24,503件のスキル名を日本語化（`scripts/backfill_skills_japanese.py`）
 - **注意**: 新規リプレイは自動的に日本語で保存される
 
-### 主砲・魚雷口径表示（2026-01-09完了）
-- **概要**: コンポーネントの「主砲 A」「魚雷 B」を「主砲 460mm」「魚雷 610mm」に変更
-- **実装内容**:
-  - 口径マッピングデータ生成: `src/utils/ship_component_calibers.json`（516艦）
-  - `get_component_caliber()`関数追加: `src/utils/ship_modules.py`
-  - GameParams.dataから砲塔の`barrelDiameter`属性を抽出
-- **バックフィル実行**: 237試合、3,307件のコンポーネントを口径表示に更新（`scripts/backfill_component_calibers.py`）
-- **注意**: 新規リプレイは自動的に口径表示で保存される
-
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
-- アップグレード（近代化改修）抽出機能（ゲームデータファイル連携が必要）
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
 - 複数テナント化（マルチテナント）設計

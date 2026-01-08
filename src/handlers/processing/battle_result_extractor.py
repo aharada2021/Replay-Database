@@ -23,7 +23,6 @@ from parsers.battlestats_parser import BattleStatsParser
 from utils import dynamodb
 from utils.match_key import generate_match_key, format_sortable_datetime
 from utils.captain_skills import map_player_to_skills, get_ship_class_from_params_id
-from utils.ship_modules import map_player_to_modules
 
 # S3クライアント
 s3_client = boto3.client("s3")
@@ -41,7 +40,7 @@ def build_all_players_stats(
     Args:
         all_stats: BattleStatsParser.parse_all_players()の結果
         record: DynamoDBレコード（allies, enemies, ownPlayerを含む）
-        hidden_data: リプレイのhiddenデータ（艦長スキル、艦艇コンポーネント用）
+        hidden_data: リプレイのhiddenデータ（艦長スキル用）
 
     Returns:
         全プレイヤーの統計情報リスト（チーム、艦船情報付き）
@@ -81,19 +80,13 @@ def build_all_players_stats(
                 "isOwn": False,
             }
 
-    # hiddenデータから艦長スキルと艦艇コンポーネントを抽出
+    # hiddenデータから艦長スキルを抽出
     player_skills_map = {}
-    player_modules_map = {}
     if hidden_data:
         try:
             player_skills_map = map_player_to_skills(hidden_data)
         except Exception as e:
             print(f"Warning: Failed to extract captain skills: {e}")
-
-        try:
-            player_modules_map = map_player_to_modules(hidden_data)
-        except Exception as e:
-            print(f"Warning: Failed to extract ship modules: {e}")
 
     # 全プレイヤーの統計を作成
     result = []
@@ -120,11 +113,6 @@ def build_all_players_stats(
         # 艦長スキルを追加（味方のみ利用可能）
         if player_name in player_skills_map:
             stats_data["captainSkills"] = player_skills_map[player_name]
-
-        # 艦艇コンポーネントを追加（味方のみ利用可能）
-        if player_name in player_modules_map:
-            modules_info = player_modules_map[player_name]
-            stats_data["shipComponents"] = modules_info.get("components", {})
 
         result.append(stats_data)
 

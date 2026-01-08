@@ -26,7 +26,6 @@ sys.path.insert(0, str(SRC_PATH))
 from parsers.battle_stats_extractor import extract_battle_stats, extract_hidden_data
 from parsers.battlestats_parser import BattleStatsParser
 from utils.captain_skills import map_player_to_skills
-from utils.ship_modules import map_player_to_modules
 
 # 環境変数
 REPLAYS_TABLE = os.environ.get("REPLAYS_TABLE", "wows-replays-dev")
@@ -121,19 +120,13 @@ def build_all_players_stats(all_stats: dict, record: dict, hidden_data: dict = N
                 "isOwn": False,
             }
 
-    # hiddenデータから艦長スキルと艦艇コンポーネントを抽出
+    # hiddenデータから艦長スキルを抽出
     player_skills_map = {}
-    player_modules_map = {}
     if hidden_data:
         try:
             player_skills_map = map_player_to_skills(hidden_data)
         except Exception as e:
             print(f"    Warning: Failed to extract captain skills: {e}")
-
-        try:
-            player_modules_map = map_player_to_modules(hidden_data)
-        except Exception as e:
-            print(f"    Warning: Failed to extract ship modules: {e}")
 
     # 全プレイヤーの統計を作成
     result = []
@@ -153,11 +146,6 @@ def build_all_players_stats(all_stats: dict, record: dict, hidden_data: dict = N
         # 艦長スキルを追加
         if player_name in player_skills_map:
             stats_data["captainSkills"] = player_skills_map[player_name]
-
-        # 艦艇コンポーネントを追加
-        if player_name in player_modules_map:
-            modules_info = player_modules_map[player_name]
-            stats_data["shipComponents"] = modules_info.get("components", {})
 
         result.append(stats_data)
 

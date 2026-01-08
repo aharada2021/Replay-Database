@@ -47,21 +47,6 @@ export interface BattleStats {
   potentialDamageTpd?: number
 }
 
-// 艦艇コンポーネント（船体、主砲等のバリアント）
-export interface ShipComponents {
-  hull?: string
-  artillery?: string
-  torpedoes?: string
-  fireControl?: string
-  engine?: string
-  atba?: string
-  airDefense?: string
-  finders?: string
-  directors?: string
-  depthCharges?: string
-  radars?: string
-}
-
 // 艦種タイプ
 export type ShipClass = 'Destroyer' | 'Cruiser' | 'Battleship' | 'AirCarrier' | 'Submarine' | 'Auxiliary'
 
@@ -76,8 +61,6 @@ export interface PlayerStats extends BattleStats {
   isOwn?: boolean
   // 艦長スキル（味方のみ利用可能）
   captainSkills?: string[]
-  // 艦艇コンポーネント（味方のみ利用可能）
-  shipComponents?: ShipComponents
 }
 
 export interface ReplayProvider extends BattleStats {

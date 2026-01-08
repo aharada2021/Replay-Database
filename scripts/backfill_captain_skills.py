@@ -24,7 +24,6 @@ sys.path.insert(0, str(UNPACK_PATH))
 sys.path.insert(0, str(SRC_PATH))
 
 from utils.captain_skills import map_player_to_skills
-from utils.ship_modules import map_player_to_modules
 from parsers.battle_stats_extractor import extract_hidden_data
 from parsers.battlestats_parser import BattleStatsParser
 
@@ -96,24 +95,17 @@ def build_all_players_stats_with_skills(existing_stats, hidden_data):
     if not existing_stats or not hidden_data:
         return existing_stats
 
-    # プレイヤー名 -> スキル/モジュールのマッピングを作成
+    # プレイヤー名 -> スキルのマッピングを作成
     player_skills_map = {}
-    player_modules_map = {}
 
     try:
         player_skills_map = map_player_to_skills(hidden_data)
     except Exception as e:
         print(f"    スキルマッピングエラー: {e}")
 
-    try:
-        player_modules_map = map_player_to_modules(hidden_data)
-    except Exception as e:
-        print(f"    モジュールマッピングエラー: {e}")
-
     # 既存のstatsを更新
     updated_stats = []
     skills_added = 0
-    modules_added = 0
 
     for stats in existing_stats:
         player_name = stats.get("playerName", "")
@@ -124,16 +116,9 @@ def build_all_players_stats_with_skills(existing_stats, hidden_data):
             updated["captainSkills"] = player_skills_map[player_name]
             skills_added += 1
 
-        # 艦艇コンポーネントを追加
-        if player_name in player_modules_map:
-            modules_info = player_modules_map[player_name]
-            if modules_info and modules_info.get("components"):
-                updated["shipComponents"] = modules_info.get("components", {})
-                modules_added += 1
-
         updated_stats.append(updated)
 
-    return updated_stats, skills_added, modules_added
+    return updated_stats, skills_added, 0
 
 
 def process_match(s3_client, table, arena_id, records):
