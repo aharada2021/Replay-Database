@@ -240,6 +240,7 @@ python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
   - フロントエンド: プレイヤー名ホバーでアップグレード表示（青色チップ）
 - **データソース**: `minimap_renderer/src/renderer/data/modernizations.json`
 - **注意**: 艦長スキル同様、全プレイヤー（味方・敵問わず）のデータが取得可能
+- **バックフィル実行**: 237試合、3,431件のアップグレードを追加（`scripts/backfill_upgrades.py`）
 
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
