@@ -76,6 +76,8 @@ aws logs tail /aws/lambda/wows-replay-bot-dev-battle-result-extractor --region a
 ### バックフィル
 ```bash
 python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
+python3 scripts/backfill_search_optimization.py  # 検索最適化フィールド追加（matchKey, dateTimeSortable）
+# DRY_RUN=true で実行すると、書き込みなしで対象レコードを確認可能
 ```
 
 ## コーディング規約
@@ -100,6 +102,10 @@ python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
 - 艦艇名検索は `normalize_ship_name()` で正規化（大文字小文字対応）
 - 日付フィルタはPython側で実行（DynamoDB形式との互換性のため）
 - カーソルベースページネーション（30件/ページ）
+- **最適化フィールド（2026-01-08追加）**:
+  - `matchKey`: 試合グループ化キー（事前計算）
+  - `dateTimeSortable`: ソート可能な日時形式（YYYYMMDDHHMMSS）
+  - 新規レコードは自動追加、既存レコードはバックフィルスクリプトで追加
 
 ### IAM権限
 - Lambda関数がDynamoDBにアクセスする場合、`serverless.yml`のiamRoleStatementsに権限を追加
@@ -144,9 +150,26 @@ python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
 - OAuth2スコープに`guilds.members.read`を追加
 - 許可されたロールを持つユーザーのみアクセス可能に
 
+### 検索機能の高速化・最適化（2026-01-08完了）
+**短期改善（既存データ構造変更なし）**:
+- Lambda memorySize: 256MB → 512MB（CPU性能向上）
+- 日時パースのメモ化（`@lru_cache`）
+- 単一パスフィルタリング（4-5回の走査を1回に）
+- fetch_multiplier動的化（検索条件に応じて5-25で調整）
+
+**中期改善（データ構造拡張）**:
+- `matchKey`/`dateTimeSortable`の事前計算（`battle_result_extractor.py`で追加）
+- バックフィルスクリプト作成（`scripts/backfill_search_optimization.py`）
+- 検索ロジックで事前計算値を優先使用
+
+**期待効果**: レスポンス時間 50-70% 短縮（3-5秒 → 1-2秒）
+
+**バックフィル実行手順**:
+1. `DRY_RUN=true python3 scripts/backfill_search_optimization.py` で対象確認
+2. `python3 scripts/backfill_search_optimization.py` で本番実行
+
 ## 今後の予定
 - 被ダメ、潜在ダメージ、critsの数値修正
-- 検索機能の高速化、最適化設計
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
 - 複数テナント化（マルチテナント）設計

@@ -218,9 +218,7 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
-            "http", {}
-        ).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -258,12 +256,8 @@ def handle(event, context):
                 min_count=ship_min_count,
                 limit=500,  # 十分な数を取得
             )
-            ship_filtered_arena_ids = set(
-                item.get("arenaUniqueID") for item in ship_result.get("items", [])
-            )
-            print(
-                f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches"
-            )
+            ship_filtered_arena_ids = set(item.get("arenaUniqueID") for item in ship_result.get("items", []))
+            print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
 
         # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
         # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
@@ -276,11 +270,7 @@ def handle(event, context):
         fetch_multiplier = calculate_fetch_multiplier(
             ally_clan_tag=ally_clan_tag,
             enemy_clan_tag=enemy_clan_tag,
-            ship_filtered_count=(
-                len(ship_filtered_arena_ids)
-                if ship_filtered_arena_ids is not None
-                else None
-            ),
+            ship_filtered_count=(len(ship_filtered_arena_ids) if ship_filtered_arena_ids is not None else None),
             cursor_date_time=cursor_date_time,
             date_from=date_from,
             date_to=date_to,
@@ -303,11 +293,7 @@ def handle(event, context):
 
         # 艦艇フィルタを適用（インデックステーブルで取得したarenaUniqueIDでフィルタ）
         if ship_filtered_arena_ids is not None:
-            items = [
-                item
-                for item in items
-                if item.get("arenaUniqueID") in ship_filtered_arena_ids
-            ]
+            items = [item for item in items if item.get("arenaUniqueID") in ship_filtered_arena_ids]
             print(f"After ship filter: {len(items)} items")
 
         # 試合単位でグループ化（プレイヤーセットベース）
@@ -331,9 +317,7 @@ def handle(event, context):
                     "replays": [],
                     # 代表データ（最初のリプレイから取得）
                     "dateTime": item.get("dateTime"),
-                    "dateTimeSortable": item.get(
-                        "dateTimeSortable"
-                    ),  # 最適化: ソート用
+                    "dateTimeSortable": item.get("dateTimeSortable"),  # 最適化: ソート用
                     "mapId": item.get("mapId"),
                     "mapDisplayName": item.get("mapDisplayName"),
                     "gameType": item.get("gameType"),
@@ -353,9 +337,7 @@ def handle(event, context):
             # リプレイ提供者情報を追加（BattleStatsを含む）
             matches[match_key]["replays"].append(
                 {
-                    "arenaUniqueID": item.get(
-                        "arenaUniqueID"
-                    ),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),
@@ -445,9 +427,7 @@ def handle(event, context):
             sortable = match.get("dateTimeSortable")
             if sortable and sortable != "00000000000000":
                 return sortable
-            return parse_datetime_for_sort(match.get("dateTime", "")).strftime(
-                "%Y%m%d%H%M%S"
-            )
+            return parse_datetime_for_sort(match.get("dateTime", "")).strftime("%Y%m%d%H%M%S")
 
         match_list = sorted(
             matches.values(),
@@ -456,14 +436,10 @@ def handle(event, context):
         )
 
         # フィルタリング用のパラメータを準備
-        cursor_dt = (
-            parse_datetime_for_sort(cursor_date_time) if cursor_date_time else None
-        )
+        cursor_dt = parse_datetime_for_sort(cursor_date_time) if cursor_date_time else None
         date_from_dt = parse_frontend_date(date_from) if date_from else None
         date_to_dt = (
-            parse_frontend_date(date_to) + timedelta(days=1)
-            if date_to and parse_frontend_date(date_to)
-            else None
+            parse_frontend_date(date_to) + timedelta(days=1) if date_to and parse_frontend_date(date_to) else None
         )
 
         # 単一パスで全フィルタを適用（最適化: 複数回のリスト走査を回避）
