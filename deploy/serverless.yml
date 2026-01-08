@@ -366,6 +366,8 @@ resources:
             AttributeType: S
           - AttributeName: dateTime
             AttributeType: S
+          - AttributeName: dateTimeSortable
+            AttributeType: S
         KeySchema:
           - AttributeName: arenaUniqueID
             KeyType: HASH
@@ -393,6 +395,24 @@ resources:
               - AttributeName: mapId
                 KeyType: HASH
               - AttributeName: dateTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          # 新しいGSI: dateTimeSortable (YYYYMMDDHHMMSS形式) でソート
+          # 旧GSI (dateTime = DD.MM.YYYY形式) は年をまたぐと正しくソートされない
+          - IndexName: GameTypeSortableIndex
+            KeySchema:
+              - AttributeName: gameType
+                KeyType: HASH
+              - AttributeName: dateTimeSortable
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: MapIdSortableIndex
+            KeySchema:
+              - AttributeName: mapId
+                KeyType: HASH
+              - AttributeName: dateTimeSortable
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
