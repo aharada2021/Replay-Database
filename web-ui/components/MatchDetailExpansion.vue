@@ -21,12 +21,51 @@
             <v-icon v-if="item.isOwn" size="x-small" color="primary">mdi-star</v-icon>
           </template>
 
-          <!-- プレイヤー名 -->
+          <!-- プレイヤー名（艦長スキル・艦艇コンポーネントツールチップ付き） -->
           <template v-slot:item.playerName="{ item }">
-            <span v-if="item.clanTag" class="font-weight-bold" :class="item.team === 'ally' ? 'text-success' : 'text-error'">
-              [{{ item.clanTag }}]
+            <v-tooltip v-if="hasPlayerDetails(item)" location="right" max-width="350">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props" class="cursor-help">
+                  <span v-if="item.clanTag" class="font-weight-bold" :class="item.team === 'ally' ? 'text-success' : 'text-error'">
+                    [{{ item.clanTag }}]
+                  </span>
+                  {{ item.playerName }}
+                  <v-icon v-if="item.captainSkills?.length" size="x-small" color="amber" class="ml-1">mdi-star-circle</v-icon>
+                </span>
+              </template>
+              <div class="player-details-tooltip">
+                <!-- 艦艇コンポーネント -->
+                <div v-if="item.shipComponents && Object.keys(item.shipComponents).length > 0" class="mb-2">
+                  <div class="tooltip-title">
+                    <v-icon size="small" class="mr-1">mdi-cog</v-icon>
+                    艦艇モジュール
+                  </div>
+                  <div class="ship-components">
+                    <span v-for="(value, key) in item.shipComponents" :key="key" class="component-chip">
+                      {{ getComponentLabel(key) }} {{ value }}
+                    </span>
+                  </div>
+                </div>
+                <!-- 艦長スキル -->
+                <div v-if="item.captainSkills?.length">
+                  <div class="tooltip-title">
+                    <v-icon size="small" class="mr-1">mdi-account-star</v-icon>
+                    艦長スキル ({{ item.captainSkills.length }})
+                  </div>
+                  <div class="captain-skills">
+                    <span v-for="(skill, idx) in item.captainSkills" :key="idx" class="skill-chip">
+                      {{ skill }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </v-tooltip>
+            <span v-else>
+              <span v-if="item.clanTag" class="font-weight-bold" :class="item.team === 'ally' ? 'text-success' : 'text-error'">
+                [{{ item.clanTag }}]
+              </span>
+              {{ item.playerName }}
             </span>
-            {{ item.playerName }}
           </template>
 
           <!-- 艦船 -->
@@ -330,6 +369,30 @@ const formatNumber = (value: number | undefined | null): string => {
   return value.toLocaleString()
 }
 
+// プレイヤー詳細情報があるかどうか
+const hasPlayerDetails = (player: PlayerStats): boolean => {
+  return !!(player.captainSkills?.length || (player.shipComponents && Object.keys(player.shipComponents).length > 0))
+}
+
+// コンポーネントキーを日本語ラベルに変換
+const componentLabels: Record<string, string> = {
+  hull: '船体',
+  artillery: '主砲',
+  torpedoes: '魚雷',
+  fireControl: '射撃管制',
+  engine: 'エンジン',
+  atba: '副砲',
+  airDefense: '対空',
+  finders: '探知機',
+  directors: '測距儀',
+  depthCharges: '爆雷',
+  radars: 'レーダー',
+}
+
+const getComponentLabel = (key: string): string => {
+  return componentLabels[key] || key
+}
+
 // 動画があるリプレイを取得
 const videoReplay = computed(() => {
   if (!props.match.replays) return null
@@ -426,5 +489,48 @@ const formatDateTime = (dateTime: string) => {
   gap: 12px;
   font-size: 0.85rem;
   line-height: 1.4;
+}
+
+/* プレイヤー詳細ツールチップ */
+.player-details-tooltip {
+  max-width: 350px;
+}
+
+.player-details-tooltip .tooltip-title {
+  font-weight: bold;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+}
+
+.ship-components {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.component-chip {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.captain-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.skill-chip {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
 </style>

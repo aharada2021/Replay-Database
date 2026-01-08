@@ -36,6 +36,21 @@ export interface BattleStats {
   damageFlooding?: number
 }
 
+// 艦艇コンポーネント（船体、主砲等のバリアント）
+export interface ShipComponents {
+  hull?: string
+  artillery?: string
+  torpedoes?: string
+  fireControl?: string
+  engine?: string
+  atba?: string
+  airDefense?: string
+  finders?: string
+  directors?: string
+  depthCharges?: string
+  radars?: string
+}
+
 // 全プレイヤーの統計（チーム情報付き）
 export interface PlayerStats extends BattleStats {
   playerName: string
@@ -44,6 +59,10 @@ export interface PlayerStats extends BattleStats {
   shipName?: string
   team: 'ally' | 'enemy' | 'unknown'
   isOwn?: boolean
+  // 艦長スキル（味方のみ利用可能）
+  captainSkills?: string[]
+  // 艦艇コンポーネント（味方のみ利用可能）
+  shipComponents?: ShipComponents
 }
 
 export interface ReplayProvider extends BattleStats {
