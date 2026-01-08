@@ -34,6 +34,18 @@
                 </span>
               </template>
               <div class="player-details-tooltip">
+                <!-- アップグレード -->
+                <div v-if="item.upgrades?.length" class="mb-2">
+                  <div class="tooltip-title">
+                    <v-icon size="small" class="mr-1">mdi-wrench</v-icon>
+                    アップグレード ({{ item.upgrades.length }})
+                  </div>
+                  <div class="upgrades-list">
+                    <span v-for="(upgrade, idx) in item.upgrades" :key="idx" class="upgrade-chip">
+                      {{ upgrade }}
+                    </span>
+                  </div>
+                </div>
                 <!-- 艦長スキル -->
                 <div v-if="item.captainSkills?.length">
                   <div class="tooltip-title">
@@ -438,7 +450,7 @@ const formatNumber = (value: number | undefined | null): string => {
 
 // プレイヤー詳細情報があるかどうか
 const hasPlayerDetails = (player: PlayerStats): boolean => {
-  return !!(player.captainSkills?.length)
+  return !!(player.captainSkills?.length || player.upgrades?.length)
 }
 
 // 動画があるリプレイを取得
@@ -575,6 +587,21 @@ const formatDateTime = (dateTime: string) => {
 .skill-chip {
   background: #f0f0f0;
   color: #000000;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.upgrades-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.upgrade-chip {
+  background: #e3f2fd;
+  color: #1565c0;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.7rem;

@@ -59,8 +59,10 @@ export interface PlayerStats extends BattleStats {
   shipClass?: ShipClass
   team: 'ally' | 'enemy' | 'unknown'
   isOwn?: boolean
-  // 艦長スキル（味方のみ利用可能）
+  // 艦長スキル
   captainSkills?: string[]
+  // アップグレード
+  upgrades?: string[]
 }
 
 export interface ReplayProvider extends BattleStats {

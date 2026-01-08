@@ -23,6 +23,7 @@ from parsers.battlestats_parser import BattleStatsParser
 from utils import dynamodb
 from utils.match_key import generate_match_key, format_sortable_datetime
 from utils.captain_skills import map_player_to_skills, get_ship_class_from_params_id
+from utils.upgrades import map_player_to_upgrades
 
 # S3クライアント
 s3_client = boto3.client("s3")
@@ -80,13 +81,19 @@ def build_all_players_stats(
                 "isOwn": False,
             }
 
-    # hiddenデータから艦長スキルを抽出
+    # hiddenデータから艦長スキルとアップグレードを抽出
     player_skills_map = {}
+    player_upgrades_map = {}
     if hidden_data:
         try:
             player_skills_map = map_player_to_skills(hidden_data)
         except Exception as e:
             print(f"Warning: Failed to extract captain skills: {e}")
+
+        try:
+            player_upgrades_map = map_player_to_upgrades(hidden_data)
+        except Exception as e:
+            print(f"Warning: Failed to extract upgrades: {e}")
 
     # 全プレイヤーの統計を作成
     result = []
@@ -113,6 +120,10 @@ def build_all_players_stats(
         # 艦長スキルを追加（味方のみ利用可能）
         if player_name in player_skills_map:
             stats_data["captainSkills"] = player_skills_map[player_name]
+
+        # アップグレードを追加（味方のみ利用可能）
+        if player_name in player_upgrades_map:
+            stats_data["upgrades"] = player_upgrades_map[player_name]
 
         result.append(stats_data)
 
