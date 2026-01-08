@@ -184,7 +184,7 @@ def send_replay_notification(
         if mp4_url:
             try:
                 # Presigned URLから動画をダウンロード
-                print(f"Downloading MP4 from presigned URL...")
+                print("Downloading MP4 from presigned URL...")
                 video_response = requests.get(mp4_url, timeout=60)
                 video_response.raise_for_status()
 
