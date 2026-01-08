@@ -168,9 +168,7 @@ def extract_crew_skills(replay_hidden_data: Dict[str, Any]) -> Dict[int, Dict[st
         skills_by_ship_type = {}
         for ship_type, skills in learned_skills.items():
             if isinstance(skills, list):
-                skills_by_ship_type[ship_type] = [
-                    get_skill_display_name(skill) for skill in skills
-                ]
+                skills_by_ship_type[ship_type] = [get_skill_display_name(skill) for skill in skills]
 
         result[avatar_id] = {
             "crew_id": crew_id,

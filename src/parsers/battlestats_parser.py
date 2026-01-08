@@ -115,20 +115,24 @@ class BattleStatsParser:
                 stats[key] = 0 if key not in ["player_name", "clan_tag", "realm"] else ""
 
         # 被ダメージ合計を計算
-        stats["received_damage"] = sum([
-            stats.get("received_damage_ap", 0) or 0,
-            stats.get("received_damage_he", 0) or 0,
-            stats.get("received_damage_torps", 0) or 0,
-            stats.get("received_damage_he_secondaries", 0) or 0,
-            stats.get("received_damage_fire", 0) or 0,
-            stats.get("received_damage_flood", 0) or 0,
-        ])
+        stats["received_damage"] = sum(
+            [
+                stats.get("received_damage_ap", 0) or 0,
+                stats.get("received_damage_he", 0) or 0,
+                stats.get("received_damage_torps", 0) or 0,
+                stats.get("received_damage_he_secondaries", 0) or 0,
+                stats.get("received_damage_fire", 0) or 0,
+                stats.get("received_damage_flood", 0) or 0,
+            ]
+        )
 
         # 潜在ダメージ合計を計算
-        stats["potential_damage"] = sum([
-            stats.get("potential_damage_art", 0) or 0,
-            stats.get("potential_damage_tpd", 0) or 0,
-        ])
+        stats["potential_damage"] = sum(
+            [
+                stats.get("potential_damage_art", 0) or 0,
+                stats.get("potential_damage_tpd", 0) or 0,
+            ]
+        )
 
         return stats
 

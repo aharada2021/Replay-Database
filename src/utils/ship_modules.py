@@ -11,17 +11,17 @@ import struct
 
 # 艦艇コンポーネントの表示優先度（重要度順）
 COMPONENT_PRIORITY = [
-    "hull",           # 船体
-    "artillery",      # 主砲
-    "torpedoes",      # 魚雷
-    "fireControl",    # 射撃管制装置
-    "engine",         # エンジン
-    "atba",           # 副砲
-    "airDefense",     # 対空兵装
-    "finders",        # 探知機
-    "directors",      # 測距儀
-    "depthCharges",   # 爆雷
-    "radars",         # レーダー
+    "hull",  # 船体
+    "artillery",  # 主砲
+    "torpedoes",  # 魚雷
+    "fireControl",  # 射撃管制装置
+    "engine",  # エンジン
+    "atba",  # 副砲
+    "airDefense",  # 対空兵装
+    "finders",  # 探知機
+    "directors",  # 測距儀
+    "depthCharges",  # 爆雷
+    "radars",  # レーダー
 ]
 
 # コンポーネント名の日本語マッピング
@@ -207,7 +207,7 @@ def decode_ship_config_dump(config_dump: bytes) -> Dict[str, Any]:
     # モジュールIDを抽出
     offset = 16
     while offset + 4 <= len(config_dump):
-        module_id = struct.unpack("<I", config_dump[offset:offset+4])[0]
+        module_id = struct.unpack("<I", config_dump[offset : offset + 4])[0]
         if module_id != 0:
             result["moduleIds"].append(module_id)
         offset += 4
