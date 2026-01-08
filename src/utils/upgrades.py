@@ -10,7 +10,7 @@ import os
 import struct
 from io import BytesIO
 from functools import lru_cache
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 
 
 # PCMコード → 日本語名のマッピング
