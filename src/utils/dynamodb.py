@@ -304,6 +304,11 @@ def search_replays(
             "ScanIndexForward": False,  # 降順（新しい順）
         }
 
+        # map_idが指定されている場合、FilterExpressionで追加フィルタ
+        if map_id:
+            query_params["FilterExpression"] = "mapId = :mid"
+            expression_values[":mid"] = map_id
+
         if last_evaluated_key:
             query_params["ExclusiveStartKey"] = last_evaluated_key
 
