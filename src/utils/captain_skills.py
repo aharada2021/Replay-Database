@@ -32,14 +32,26 @@ def _get_ship_data() -> Dict[str, Dict]:
     task_root = os.environ.get("LAMBDA_TASK_ROOT", "")
     if task_root:
         ships_json_path = (
-            Path(task_root) / "minimap_renderer" / "src" / "renderer"
-            / "versions" / "14_11_0" / "resources" / "ships.json"
+            Path(task_root)
+            / "minimap_renderer"
+            / "src"
+            / "renderer"
+            / "versions"
+            / "14_11_0"
+            / "resources"
+            / "ships.json"
         )
     else:
         # ローカル開発環境
         ships_json_path = (
-            Path(__file__).parent.parent.parent / "minimap_renderer" / "src"
-            / "renderer" / "versions" / "14_11_0" / "resources" / "ships.json"
+            Path(__file__).parent.parent.parent
+            / "minimap_renderer"
+            / "src"
+            / "renderer"
+            / "versions"
+            / "14_11_0"
+            / "resources"
+            / "ships.json"
         )
 
     try:
