@@ -310,37 +310,29 @@ def search_replays(
         response = table.query(**query_params)
 
     elif map_id:
-        # MapIdIndexを使用（旧GSI - dateTime でソート）
-        # TODO: MapIdSortableIndex追加後に更新
+        # MapIdSortableIndexを使用（dateTimeSortable でソート）
         key_condition = "mapId = :mid"
         expression_values = {":mid": map_id}
-        uses_date_filter = False
 
-        # 日付範囲フィルタ: BETWEENを使用（1つのキーに複数条件は不可）
+        # 日付範囲フィルタ: dateTimeSortable形式 (YYYYMMDDHHMMSS) で比較
         if date_from and date_to:
-            key_condition += " AND #dateTime BETWEEN :df AND :dt"
+            key_condition += " AND dateTimeSortable BETWEEN :df AND :dt"
             expression_values[":df"] = date_from
             expression_values[":dt"] = date_to
-            uses_date_filter = True
         elif date_from:
-            key_condition += " AND #dateTime >= :df"
+            key_condition += " AND dateTimeSortable >= :df"
             expression_values[":df"] = date_from
-            uses_date_filter = True
         elif date_to:
-            key_condition += " AND #dateTime <= :dt"
+            key_condition += " AND dateTimeSortable <= :dt"
             expression_values[":dt"] = date_to
-            uses_date_filter = True
 
         query_params = {
-            "IndexName": "MapIdIndex",
+            "IndexName": "MapIdSortableIndex",
             "KeyConditionExpression": key_condition,
             "ExpressionAttributeValues": expression_values,
             "Limit": limit,
             "ScanIndexForward": False,
         }
-
-        if uses_date_filter:
-            query_params["ExpressionAttributeNames"] = {"#dateTime": "dateTime"}
 
         if last_evaluated_key:
             query_params["ExclusiveStartKey"] = last_evaluated_key
