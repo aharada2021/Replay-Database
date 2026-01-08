@@ -227,3 +227,4 @@ jobs:
 3. **Self-hosted runner**
    - 運用コストが高い
    - セキュリティ管理が必要
+# Trigger rebuild
