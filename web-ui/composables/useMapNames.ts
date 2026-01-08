@@ -48,13 +48,30 @@ const MAP_NAMES: Record<string, string> = {
 // 完全なマップID（spaces/XX_形式）→ 短縮形のマッピング
 // DynamoDBに実際に保存されている形式
 const FULL_MAP_IDS: Record<string, string> = {
+  'spaces/14_Atlantic': 'Atlantic',
+  'spaces/15_NE_north': 'NE_north',
   'spaces/16_OC_bees_to_honey': 'OC_bees_to_honey',
+  'spaces/18_NE_ice_islands': 'NE_ice_islands',
   'spaces/19_OC_prey': 'OC_prey',
+  'spaces/20_NE_two_brothers': 'NE_two_brothers',
   'spaces/22_tierra_del_fuego': 'tierra_del_fuego',
+  'spaces/23_Shards': 'Shards',
   'spaces/25_sea_hope': 'sea_hope',
+  'spaces/28_naval_mission': 'naval_mission',
+  'spaces/35_NE_north_winter': 'NE_north_winter',
+  'spaces/37_Ridge': 'Ridge',
+  'spaces/38_Canada': 'Canada',
+  'spaces/40_Okinawa': 'Okinawa',
+  'spaces/41_Conquest': 'Conquest',
   'spaces/44_Path_warrior': 'Path_warrior',
+  'spaces/45_Zigzag': 'Zigzag',
+  'spaces/47_Sleeping_Giant': 'Sleeping_Giant',
   'spaces/50_Gold_harbor': 'Gold_harbor',
+  'spaces/51_Greece': 'Greece',
+  'spaces/52_Britain': 'Britain',
   'spaces/53_Shoreside': 'Shoreside',
+  'spaces/54_Faroe': 'Faroe',
+  'spaces/56_AngelWings': 'AngelWings',
 }
 
 const DEFAULT_MAP_NAME = 'その他のマップ'

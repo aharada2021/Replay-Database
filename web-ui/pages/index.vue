@@ -10,7 +10,6 @@
                 v-model="searchStore.query.gameType"
                 :items="gameTypes"
                 label="ゲームタイプ"
-                clearable
                 density="compact"
                 hide-details
                 item-title="text"
@@ -294,7 +293,6 @@ onMounted(async () => {
 
 // フォーム選択肢
 const gameTypes = [
-  { text: 'すべて', value: '' },
   { text: 'クラン戦', value: 'clan' },
   { text: 'ランダム戦', value: 'pvp' },
   { text: 'ランク戦', value: 'ranked' },
