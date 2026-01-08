@@ -80,6 +80,7 @@ python3 scripts/backfill_search_optimization.py  # 検索最適化フィール�
 python3 scripts/backfill_battlestats.py  # BattleStats詳細フィールド追加（被ダメ内訳、潜在内訳、crits等）
 python3 scripts/backfill_captain_skills.py  # 艦長スキル・艦艇コンポーネント追加
 python3 scripts/backfill_ship_class.py  # 艦種（shipClass）追加
+python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
 # DRY_RUN=true で実行すると、書き込みなしで対象レコードを確認可能
 ```
 
@@ -222,6 +223,15 @@ python3 scripts/backfill_ship_class.py  # 艦種（shipClass）追加
   - composable: `web-ui/composables/useShipClass.ts`（艦種名、短縮名、アイコンURL）
 - **艦種データソース**: `minimap_renderer/src/renderer/versions/14_11_0/resources/ships.json`
 - **バックフィル実行**: 237試合、3,708件のshipClassを追加（`scripts/backfill_ship_class.py`）
+
+### 艦長スキル日本語化（2026-01-09完了）
+- **概要**: 英語のスキル名を日本語に変換して表示
+- **実装内容**:
+  - `SKILL_DISPLAY_TO_JAPANESE`マッピング追加（約100スキル）: `src/utils/captain_skills.py`
+  - `map_player_to_skills`関数を`language="ja"`で日本語出力に変更
+  - データソース: WoWS公式Wiki（日本語版）
+- **バックフィル実行**: 237試合、24,503件のスキル名を日本語化（`scripts/backfill_skills_japanese.py`）
+- **注意**: 新規リプレイは自動的に日本語で保存される
 
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）

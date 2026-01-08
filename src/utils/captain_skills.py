@@ -174,33 +174,114 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "ArmamentReloadSubmarine": "Submarine Adrenaline Rush",
 }
 
-# 日本語表示名マッピング（必要に応じて使用）
+# 日本語表示名マッピング（WoWS公式日本語版準拠）
 SKILL_DISPLAY_TO_JAPANESE = {
+    # 共通スキル
     "Gun Feeder": "装填手",
     "Basics of Survivability": "生存性基礎",
     "Grease the Gears": "砲旋回強化",
-    "Fill the Tubes": "魚雷装填強化",
+    "Fill the Tubes": "魚雷装填手",
     "Emergency Repair Specialist": "緊急修理専門家",
     "Consumable Enhancements": "消耗品強化",
     "Vigilance": "警戒",
     "Demolition Expert": "爆発物専門家",
     "Main Battery and AA Specialist": "主砲・対空兵装専門家",
-    "Concealment Expert": "隠蔽専門家",
+    "Concealment Expert": "隠蔽処理専門家",
     "Superintendent": "管理",
     "Preventive Maintenance": "予防整備",
     "Priority Target": "優先目標",
     "Last Stand": "最後の抵抗",
-    "Adrenaline Rush": "アドレナリンラッシュ",
-    "Survivability Expert": "生存性専門家",
+    "Adrenaline Rush": "アドレナリン・ラッシュ",
+    "Survivability Expert": "抗堪専門家",
     "Long-Range Secondary Battery Shells": "長距離副砲弾",
     "Manual Secondary Battery Aiming": "副砲手動照準",
-    "Improved Repair Party Readiness": "修理班準備改良",
+    "Improved Repair Party Readiness": "修理班改良",
     "Emergency Repair Expert": "緊急修理専門家",
-    "Radio Location": "無線探知",
-    "Liquidator": "破壊者",
-    "Fearless Brawler": "恐れを知らない格闘家",
+    "Radio Location": "無線方向探知",
+    "Liquidator": "浸水発生率上昇",
+    "Fearless Brawler": "恐れ知らずの格闘家",
     "Consumable Specialist": "消耗品専門家",
     "Main Battery and AA Expert": "主砲・対空熟練者",
+    # 戦艦スキル
+    "Inertia Fuse for HE Shells": "榴弾用慣性信管",
+    "Brisk": "快速",
+    "Super-Heavy AP Shells": "超重量徹甲弾",
+    "Focus Fire Training": "集中砲火訓練",
+    "Furious": "憤怒",
+    "Close Quarters Combat": "近距離戦闘",
+    "Fire Prevention Expert": "防火処理専門家",
+    # 巡洋艦スキル
+    "Swift Fish": "快速魚雷",
+    "Eye in the Sky": "空の目",
+    "Heavy HE and SAP Shells": "重榴弾・SAP弾",
+    "Pack A Punch": "強打",
+    "Heavy AP Shells": "重徹甲弾",
+    "Top Grade Gunner": "一流砲手",
+    "Outnumbered": "多勢に無勢",
+    "AA Defense and ASW Expert": "対空・対潜専門家",
+    # 駆逐艦スキル
+    "Extra-Heavy Ammunition": "超重量弾",
+    "Swift in Silence": "静寂の中の疾走",
+    "Dazzle": "幻惑",
+    # 空母スキル
+    "Last Gasp": "最後のあがき",
+    "Improved Engine Boost": "エンジンブースト改良",
+    "Engine Techie": "エンジン技師",
+    "Air Supremacy": "制空権",
+    "Direction Center for Fighters": "戦闘機管制",
+    "Search and Destroy": "索敵殲滅",
+    "Torpedo Bomber": "雷撃機",
+    "Improved Engines": "エンジン改良",
+    "Repair Specialist": "修理専門家",
+    "Secondary Armament Expert": "副兵装専門家",
+    "Patrol Group Leader": "哨戒隊指揮官",
+    "Sight Stabilization": "照準安定化",
+    "Enhanced Armor-Piercing Ammunition": "強化徹甲弾",
+    "Pyrotechnician": "爆破技師",
+    "Aircraft Armor": "航空機装甲",
+    "Interceptor": "迎撃機",
+    "Bomber Flight Control": "爆撃機管制",
+    "Proximity Fuze": "近接信管",
+    "Close Quarters Expert": "近距離戦専門家",
+    "Enhanced Aircraft Armor": "強化航空機装甲",
+    "Hidden Menace": "潜在脅威",
+    "Enhanced Reactions": "反応強化",
+    # 潜水艦スキル
+    "Enhanced Sonar": "ソナー強化",
+    "Helmsman": "操舵手",
+    "Improved Battery Capacity": "蓄電池容量改良",
+    "Torpedo Crew Training": "魚雷要員訓練",
+    "Enhanced Impulse Generator": "インパルス発生器強化",
+    "Sonarman": "ソナー員",
+    "Watchful": "警戒監視",
+    "Torpedo Aiming Master": "魚雷照準名人",
+    "Sonarman Expert": "ソナー員専門家",
+    "Improved Battery Efficiency": "蓄電池効率改良",
+    "Enlarged Propeller Shaft": "プロペラシャフト拡大",
+    "Submarine Adrenaline Rush": "潜水艦アドレナリン・ラッシュ",
+    "Improved Sonar": "ソナー改良",
+    "Sonar Operator": "ソナー操作員",
+    "Submarine Vigilance": "潜水艦警戒",
+    "Homing Torpedo Expert": "誘導魚雷専門家",
+    "Expert Rear Gunner": "後部機銃手熟練",
+    "Enhanced Battery Capacity": "蓄電池容量強化",
+    "Optimized Battery": "蓄電池最適化",
+    "Improved Consumables": "消耗品改良",
+    "Extended Consumables": "消耗品延長",
+    # その他
+    "Incoming Fire Alert": "被発見警告",
+    "Expert Loader": "熟練装填手",
+    "Torpedo Armament Expertise": "魚雷兵装専門家",
+    "Enhanced Fighter Consumable": "戦闘機消耗品強化",
+    "Armored Deck": "装甲甲板",
+    "Enhanced Patrol Group": "哨戒隊強化",
+    "Enhanced Dive Bomber Accuracy": "急降下爆撃機精度強化",
+    "Engine Tuning": "エンジン調整",
+    "Aiming Facility Maintenance": "照準設備整備",
+    "Torpedo Bomber Acceleration": "雷撃機加速",
+    "Enhanced Torpedo Bomber Aiming": "雷撃機照準強化",
+    "Emergency Engine Power": "緊急エンジン出力",
+    "Improved Secondary Battery Aiming": "副砲照準改良",
 }
 
 
@@ -346,14 +427,14 @@ def map_player_to_skills(
                 # 艦艇タイプが特定できた場合、そのタイプのスキルのみを取得
                 if ship_class and ship_class in learned_skills:
                     skills = learned_skills[ship_class]
-                    result[player_name] = [get_skill_display_name(s) for s in skills]
+                    result[player_name] = [get_skill_display_name(s, language="ja") for s in skills]
                 else:
                     # フォールバック: 艦種が特定できない場合は旧ロジック
                     # （最初に見つかったタイプのスキルを使用）
                     for fallback_type in ["Destroyer", "Cruiser", "Battleship", "AirCarrier", "Submarine"]:
                         if fallback_type in learned_skills:
                             skills = learned_skills[fallback_type]
-                            result[player_name] = [get_skill_display_name(s) for s in skills]
+                            result[player_name] = [get_skill_display_name(s, language="ja") for s in skills]
                             break
                 break
 
