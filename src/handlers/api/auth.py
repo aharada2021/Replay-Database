@@ -18,7 +18,8 @@ DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wows-replay.mirage0926.com")
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "wows-sessions-dev")
-ALLOWED_GUILD_ID = os.environ.get("ALLOWED_GUILD_ID", "1457376632921788550")
+ALLOWED_GUILD_ID = os.environ.get("ALLOWED_GUILD_ID", "487923834868072449")
+ALLOWED_ROLE_IDS = os.environ.get("ALLOWED_ROLE_IDS", "487924554111516672,1458737823585927179")
 UPLOAD_API_KEY = os.environ.get("UPLOAD_API_KEY", "")
 
 # DynamoDB
@@ -33,6 +34,7 @@ DISCORD_AUTH_URL = "https://discord.com/api/oauth2/authorize"
 DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
 DISCORD_USER_URL = "https://discord.com/api/users/@me"
 DISCORD_GUILDS_URL = "https://discord.com/api/users/@me/guilds"
+DISCORD_GUILD_MEMBER_URL = "https://discord.com/api/users/@me/guilds/{guild_id}/member"
 
 
 def get_redirect_uri():
@@ -122,7 +124,7 @@ def handle_discord_auth(event, context):
             "client_id": DISCORD_CLIENT_ID,
             "redirect_uri": get_redirect_uri(),
             "response_type": "code",
-            "scope": "identify guilds",
+            "scope": "identify guilds guilds.members.read",
             "state": state,
         }
         auth_url = f"{DISCORD_AUTH_URL}?{urllib.parse.urlencode(params)}"
@@ -312,6 +314,56 @@ def handle_discord_callback(event, context):
                     },
                     "body": "",
                 }
+
+            # ロールチェック
+            if ALLOWED_ROLE_IDS:
+                allowed_roles = [r.strip() for r in ALLOWED_ROLE_IDS.split(",") if r.strip()]
+
+                if allowed_roles:
+                    # ギルドメンバー情報を取得してロールを確認
+                    member_url = DISCORD_GUILD_MEMBER_URL.format(guild_id=ALLOWED_GUILD_ID)
+                    member_req = urllib.request.Request(
+                        member_url,
+                        headers={
+                            "Authorization": f"Bearer {access_token}",
+                            "User-Agent": "wows-replay/1.0",
+                        },
+                    )
+
+                    try:
+                        with urllib.request.urlopen(member_req) as response:
+                            member_data = json.loads(response.read().decode())
+                    except urllib.error.HTTPError as e:
+                        print(f"Guild member info error: {e}")
+                        return {
+                            "statusCode": 302,
+                            "headers": {
+                                **cors_headers,
+                                "Location": f"{FRONTEND_URL}/login?error=member_error",
+                            },
+                            "body": "",
+                        }
+
+                    # ユーザーのロールを取得
+                    user_roles = member_data.get("roles", [])
+                    print(f"User {user_data.get('id')} roles: {user_roles}")
+
+                    # 許可されたロールを持っているかチェック
+                    has_allowed_role = any(role in allowed_roles for role in user_roles)
+
+                    if not has_allowed_role:
+                        print(
+                            f"User {user_data.get('id')} does not have any allowed roles. "
+                            f"User roles: {user_roles}, Allowed: {allowed_roles}"
+                        )
+                        return {
+                            "statusCode": 302,
+                            "headers": {
+                                **cors_headers,
+                                "Location": f"{FRONTEND_URL}/login?error=no_role",
+                            },
+                            "body": "",
+                        }
 
         # セッション作成
         session_id = secrets.token_urlsafe(32)
