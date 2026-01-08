@@ -31,10 +31,16 @@ def _get_ship_data() -> Dict[str, Dict]:
     # ローカル: プロジェクトルートからの相対パス
     task_root = os.environ.get("LAMBDA_TASK_ROOT", "")
     if task_root:
-        ships_json_path = Path(task_root) / "minimap_renderer" / "src" / "renderer" / "versions" / "14_11_0" / "resources" / "ships.json"
+        ships_json_path = (
+            Path(task_root) / "minimap_renderer" / "src" / "renderer"
+            / "versions" / "14_11_0" / "resources" / "ships.json"
+        )
     else:
         # ローカル開発環境
-        ships_json_path = Path(__file__).parent.parent.parent / "minimap_renderer" / "src" / "renderer" / "versions" / "14_11_0" / "resources" / "ships.json"
+        ships_json_path = (
+            Path(__file__).parent.parent.parent / "minimap_renderer" / "src"
+            / "renderer" / "versions" / "14_11_0" / "resources" / "ships.json"
+        )
 
     try:
         with open(ships_json_path, "r", encoding="utf-8") as f:
@@ -66,6 +72,7 @@ def get_ship_class_from_params_id(ship_params_id: int) -> Optional[str]:
     if ship_info:
         return ship_info.get("species")
     return None
+
 
 # 内部スキル名 → 表示名（英語）のマッピング
 # WoWS 14.x準拠
