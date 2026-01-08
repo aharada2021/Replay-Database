@@ -5,7 +5,67 @@
 リプレイデータからスキル情報を抽出する機能を提供
 """
 
+import json
+import os
+from pathlib import Path
 from typing import Dict, List, Optional, Any
+
+# 艦艇データのキャッシュ（遅延ロード）
+_ship_data_cache: Optional[Dict[str, Dict]] = None
+
+
+def _get_ship_data() -> Dict[str, Dict]:
+    """
+    ships.jsonから艦艇データをロード（キャッシュ付き）
+
+    Returns:
+        {shipParamsId: {"species": "Destroyer", "name": "...", ...}}
+    """
+    global _ship_data_cache
+
+    if _ship_data_cache is not None:
+        return _ship_data_cache
+
+    # ships.jsonのパスを特定
+    # Lambda環境: /var/task/minimap_renderer/src/renderer/versions/14_11_0/resources/ships.json
+    # ローカル: プロジェクトルートからの相対パス
+    task_root = os.environ.get("LAMBDA_TASK_ROOT", "")
+    if task_root:
+        ships_json_path = Path(task_root) / "minimap_renderer" / "src" / "renderer" / "versions" / "14_11_0" / "resources" / "ships.json"
+    else:
+        # ローカル開発環境
+        ships_json_path = Path(__file__).parent.parent.parent / "minimap_renderer" / "src" / "renderer" / "versions" / "14_11_0" / "resources" / "ships.json"
+
+    try:
+        with open(ships_json_path, "r", encoding="utf-8") as f:
+            _ship_data_cache = json.load(f)
+            print(f"Loaded ships.json: {len(_ship_data_cache)} ships")
+    except FileNotFoundError:
+        print(f"Warning: ships.json not found at {ships_json_path}")
+        _ship_data_cache = {}
+    except Exception as e:
+        print(f"Warning: Failed to load ships.json: {e}")
+        _ship_data_cache = {}
+
+    return _ship_data_cache
+
+
+def get_ship_class_from_params_id(ship_params_id: int) -> Optional[str]:
+    """
+    shipParamsIdから艦種（species）を取得
+
+    Args:
+        ship_params_id: 艦艇パラメータID
+
+    Returns:
+        艦種名（"Destroyer", "Cruiser", "Battleship", "AirCarrier", "Submarine"）
+        または None（見つからない場合）
+    """
+    ship_data = _get_ship_data()
+    ship_info = ship_data.get(str(ship_params_id))
+    if ship_info:
+        return ship_info.get("species")
+    return None
 
 # 内部スキル名 → 表示名（英語）のマッピング
 # WoWS 14.x準拠
@@ -226,6 +286,10 @@ def map_player_to_skills(
     """
     プレイヤー名から艦長スキルへのマッピングを生成
 
+    shipParamsIdから艦艇タイプを特定し、該当艦種のスキルセットのみを返す。
+    艦長は複数艦種のスキルを持てるが、現在乗っている艦の艦種に対応した
+    スキルセットのみが有効。
+
     Args:
         replay_hidden_data: ReplayParserの hidden セクションデータ
 
@@ -242,6 +306,7 @@ def map_player_to_skills(
 
         player_name = player_info.get("name", "")
         crew_params = player_info.get("crewParams", [])
+        ship_params_id = player_info.get("shipParamsId")
 
         if not player_name or not crew_params:
             continue
@@ -250,20 +315,27 @@ def map_player_to_skills(
         if not crew_id:
             continue
 
-        # shipParamsIdから艦艇タイプを推定（簡易版）
-        # 実際にはゲームデータから艦艇タイプを取得する必要あり
-        # ここではcrewのlearned_skillsのキーから現在の艦のタイプを推定
+        # shipParamsIdから艦艇タイプを取得（ships.jsonを使用）
+        ship_class = None
+        if ship_params_id:
+            ship_class = get_ship_class_from_params_id(ship_params_id)
+
         for c_id, c_info in crew_data.items():
             if isinstance(c_info, dict) and c_info.get("crew_id") == crew_id:
                 learned_skills = c_info.get("learned_skills", {})
 
-                # 艦艇タイプごとのスキルがあるが、現在乗っている艦のタイプのスキルを取得
-                # 最初に見つかったタイプのスキルを使用（簡易版）
-                for ship_type in ["Destroyer", "Cruiser", "Battleship", "AirCarrier", "Submarine"]:
-                    if ship_type in learned_skills:
-                        skills = learned_skills[ship_type]
-                        result[player_name] = [get_skill_display_name(s) for s in skills]
-                        break
+                # 艦艇タイプが特定できた場合、そのタイプのスキルのみを取得
+                if ship_class and ship_class in learned_skills:
+                    skills = learned_skills[ship_class]
+                    result[player_name] = [get_skill_display_name(s) for s in skills]
+                else:
+                    # フォールバック: 艦種が特定できない場合は旧ロジック
+                    # （最初に見つかったタイプのスキルを使用）
+                    for fallback_type in ["Destroyer", "Cruiser", "Battleship", "AirCarrier", "Submarine"]:
+                        if fallback_type in learned_skills:
+                            skills = learned_skills[fallback_type]
+                            result[player_name] = [get_skill_display_name(s) for s in skills]
+                            break
                 break
 
     return result
