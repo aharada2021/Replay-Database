@@ -105,6 +105,12 @@ python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
 - Lambda関数がDynamoDBにアクセスする場合、`serverless.yml`のiamRoleStatementsに権限を追加
 - `BatchWriteItem`等の権限漏れに注意
 
+### Discord通知
+- クラン戦のみ通知（`gameType == "clan"` で判定）
+- `generate-video-api` Lambda で動画生成完了時に送信
+- 環境変数: `NOTIFICATION_CHANNEL_ID`, `DISCORD_BOT_TOKEN`
+- 通知ユーティリティ: `src/utils/discord_notify.py`
+
 ## よくある問題と解決策
 
 ### 検索が動かない
@@ -121,7 +127,6 @@ python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
 ## 今後の予定
 - 被ダメ、潜在ダメージ、critsの数値修正
 - 検索機能の高速化、最適化設計
-- Auto uploader経由のリプレイアップロード時(レンダラー作成やDynamoDBへの統計データの格納完了時)にDiscord通知
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
 - 複数テナント化（マルチテナント）設計
