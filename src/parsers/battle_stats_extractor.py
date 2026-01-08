@@ -144,3 +144,52 @@ def get_arena_unique_id(battle_results: Dict[str, Any]) -> Optional[int]:
         return None
 
     return battle_results.get("arenaUniqueID")
+
+
+def extract_hidden_data(replay_path: str) -> Optional[Dict[str, Any]]:
+    """
+    リプレイファイルからhiddenデータ（艦長スキル、艦艇コンポーネント等）を抽出
+
+    Args:
+        replay_path: リプレイファイルのパス
+
+    Returns:
+        hidden data (dict) または None（抽出失敗時）
+    """
+    try:
+        # ReplayParserを使用してhiddenデータを取得
+        # replay_parser.pyはreplays_unpack_upstreamのルートにある
+        from replay_parser import ReplayParser
+
+        parser = ReplayParser(str(replay_path))
+        info = parser.get_info()
+
+        return info.get("hidden")
+
+    except Exception as e:
+        print(f"Hidden data extraction failed: {e}")
+        return None
+
+
+def extract_battle_stats_and_hidden(replay_path: str) -> Dict[str, Any]:
+    """
+    リプレイファイルからBattleStatsとhiddenデータの両方を抽出
+
+    Args:
+        replay_path: リプレイファイルのパス
+
+    Returns:
+        {"battle_stats": dict, "hidden": dict} または各要素がNone
+    """
+    result = {"battle_stats": None, "hidden": None}
+
+    # BattleStats抽出
+    try:
+        result["battle_stats"] = extract_battle_stats(replay_path)
+    except Exception as e:
+        print(f"BattleStats extraction error: {e}")
+
+    # Hidden data抽出
+    result["hidden"] = extract_hidden_data(replay_path)
+
+    return result

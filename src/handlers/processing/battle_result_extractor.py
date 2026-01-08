@@ -14,6 +14,7 @@ from urllib.parse import unquote_plus
 
 from parsers.battle_stats_extractor import (
     extract_battle_stats,
+    extract_hidden_data,
     get_win_loss_clan_battle,
     get_experience_earned,
     get_arena_unique_id,
@@ -21,19 +22,26 @@ from parsers.battle_stats_extractor import (
 from parsers.battlestats_parser import BattleStatsParser
 from utils import dynamodb
 from utils.match_key import generate_match_key, format_sortable_datetime
+from utils.captain_skills import map_player_to_skills
+from utils.ship_modules import map_player_to_modules
 
 # S3クライアント
 s3_client = boto3.client("s3")
 lambda_client = boto3.client("lambda")
 
 
-def build_all_players_stats(all_stats: dict, record: dict) -> list:
+def build_all_players_stats(
+    all_stats: dict,
+    record: dict,
+    hidden_data: dict = None,
+) -> list:
     """
     全プレイヤーの統計情報をチーム情報と紐付けて配列で返す
 
     Args:
         all_stats: BattleStatsParser.parse_all_players()の結果
         record: DynamoDBレコード（allies, enemies, ownPlayerを含む）
+        hidden_data: リプレイのhiddenデータ（艦長スキル、艦艇コンポーネント用）
 
     Returns:
         全プレイヤーの統計情報リスト（チーム、艦船情報付き）
@@ -73,6 +81,20 @@ def build_all_players_stats(all_stats: dict, record: dict) -> list:
                 "isOwn": False,
             }
 
+    # hiddenデータから艦長スキルと艦艇コンポーネントを抽出
+    player_skills_map = {}
+    player_modules_map = {}
+    if hidden_data:
+        try:
+            player_skills_map = map_player_to_skills(hidden_data)
+        except Exception as e:
+            print(f"Warning: Failed to extract captain skills: {e}")
+
+        try:
+            player_modules_map = map_player_to_modules(hidden_data)
+        except Exception as e:
+            print(f"Warning: Failed to extract ship modules: {e}")
+
     # 全プレイヤーの統計を作成
     result = []
     for player_id, stats in all_stats.items():
@@ -87,6 +109,15 @@ def build_all_players_stats(all_stats: dict, record: dict) -> list:
         stats_data["shipId"] = team_info.get("shipId", 0)
         stats_data["shipName"] = team_info.get("shipName", "")
         stats_data["isOwn"] = team_info.get("isOwn", False)
+
+        # 艦長スキルを追加（味方のみ利用可能）
+        if player_name in player_skills_map:
+            stats_data["captainSkills"] = player_skills_map[player_name]
+
+        # 艦艇コンポーネントを追加（味方のみ利用可能）
+        if player_name in player_modules_map:
+            modules_info = player_modules_map[player_name]
+            stats_data["shipComponents"] = modules_info.get("components", {})
 
         result.append(stats_data)
 
@@ -134,6 +165,15 @@ def handle(event, context):
                 if not battle_results:
                     print(f"No battle results found in {key}")
                     continue
+
+                # hiddenデータを抽出（艦長スキル、艦艇コンポーネント用）
+                hidden_data = None
+                try:
+                    hidden_data = extract_hidden_data(str(tmp_path))
+                    if hidden_data:
+                        print("Hidden data extracted successfully")
+                except Exception as hidden_err:
+                    print(f"Warning: Failed to extract hidden data: {hidden_err}")
 
                 # arenaUniqueIDを取得
                 arena_unique_id = get_arena_unique_id(battle_results)
@@ -223,11 +263,13 @@ def handle(event, context):
                         kls = stats_data.get("kills")
                         print(f"Added battle stats for {player_name}: damage={dmg}, kills={kls}")
 
-                    # 全プレイヤーの統計情報を作成
-                    all_players_stats = build_all_players_stats(all_stats, old_record)
+                    # 全プレイヤーの統計情報を作成（艦長スキル、艦艇コンポーネント付き）
+                    all_players_stats = build_all_players_stats(all_stats, old_record, hidden_data)
                     if all_players_stats:
                         old_record["allPlayersStats"] = all_players_stats
-                        print(f"Added all players stats: {len(all_players_stats)} players")
+                        # 艦長スキルが含まれているプレイヤー数をカウント
+                        skills_count = sum(1 for p in all_players_stats if p.get("captainSkills"))
+                        print(f"Added all players stats: {len(all_players_stats)} players, {skills_count} with captain skills")
 
                 # 検索最適化用フィールドを事前計算
                 # matchKey: 試合グループ化に使用（検索時の計算を省略）
