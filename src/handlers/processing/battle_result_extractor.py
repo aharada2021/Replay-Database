@@ -269,7 +269,8 @@ def handle(event, context):
                         old_record["allPlayersStats"] = all_players_stats
                         # 艦長スキルが含まれているプレイヤー数をカウント
                         skills_count = sum(1 for p in all_players_stats if p.get("captainSkills"))
-                        print(f"Added all players stats: {len(all_players_stats)} players, {skills_count} with captain skills")
+                        print(f"Added all players stats: {len(all_players_stats)} players, "
+                              f"{skills_count} with captain skills")
 
                 # 検索最適化用フィールドを事前計算
                 # matchKey: 試合グループ化に使用（検索時の計算を省略）

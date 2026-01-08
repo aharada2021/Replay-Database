@@ -5,7 +5,7 @@
 アップグレード情報を抽出する機能を提供
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import struct
 
 

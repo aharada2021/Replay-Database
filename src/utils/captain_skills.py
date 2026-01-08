@@ -238,16 +238,6 @@ def map_player_to_skills(
     players_data = replay_hidden_data.get("players", {})
     crew_data = replay_hidden_data.get("crew", {})
 
-    # ship_typeの判定用マッピング
-    SHIP_TYPE_BY_ID = {
-        0: 'AirCarrier',
-        1: 'Battleship',
-        2: 'Cruiser',
-        3: 'Destroyer',
-        4: 'Auxiliary',
-        5: 'Submarine'
-    }
-
     for player_id, player_info in players_data.items():
         if not isinstance(player_info, dict):
             continue
