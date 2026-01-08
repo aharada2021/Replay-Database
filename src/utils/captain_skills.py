@@ -199,12 +199,12 @@ SKILL_DISPLAY_TO_JAPANESE = {
     "Emergency Repair Expert": "緊急修理専門家",
     "Radio Location": "無線方向探知",
     "Liquidator": "浸水発生率上昇",
-    "Fearless Brawler": "恐れ知らずの格闘家",
+    "Fearless Brawler": "恐れ知らずの喧嘩屋",
     "Consumable Specialist": "消耗品専門家",
     "Main Battery and AA Expert": "主砲・対空熟練者",
     # 戦艦スキル
     "Inertia Fuse for HE Shells": "榴弾用慣性信管",
-    "Brisk": "快速",
+    "Brisk": "活発",
     "Super-Heavy AP Shells": "超重量徹甲弾",
     "Focus Fire Training": "集中砲火訓練",
     "Furious": "憤怒",
@@ -221,7 +221,7 @@ SKILL_DISPLAY_TO_JAPANESE = {
     "AA Defense and ASW Expert": "対空・対潜専門家",
     # 駆逐艦スキル
     "Extra-Heavy Ammunition": "超重量弾",
-    "Swift in Silence": "静寂の中の疾走",
+    "Swift in Silence": "素早く静かに",
     "Dazzle": "幻惑",
     # 空母スキル
     "Last Gasp": "最後のあがき",
