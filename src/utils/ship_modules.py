@@ -5,8 +5,54 @@
 アップグレード情報を抽出する機能を提供
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import struct
+import json
+import os
+from functools import lru_cache
+
+
+@lru_cache(maxsize=1)
+def _load_caliber_mapping() -> Dict[str, Dict[str, str]]:
+    """口径マッピングデータを読み込み"""
+    # Lambda環境とローカル環境の両方に対応
+    task_root = os.environ.get("LAMBDA_TASK_ROOT", "")
+    if task_root:
+        json_path = os.path.join(task_root, "utils", "ship_component_calibers.json")
+    else:
+        json_path = os.path.join(os.path.dirname(__file__), "ship_component_calibers.json")
+
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def get_component_caliber(ship_params_id: int, component_type: str, variant: str) -> Optional[str]:
+    """
+    艦艇コンポーネントの口径を取得
+
+    Args:
+        ship_params_id: 艦艇パラメータID
+        component_type: コンポーネントタイプ（"artillery", "torpedoes"）
+        variant: バリアント（"A", "B", "C"等）
+
+    Returns:
+        口径文字列（例: "460mm"）、見つからない場合はNone
+    """
+    caliber_map = _load_caliber_mapping()
+    ship_data = caliber_map.get(str(ship_params_id), {})
+
+    # コンポーネントキーを構築（例: "A_Artillery", "B_Torpedoes"）
+    if component_type == "artillery":
+        key = f"{variant}_Artillery"
+    elif component_type == "torpedoes":
+        key = f"{variant}_Torpedoes"
+    else:
+        return None
+
+    return ship_data.get(key)
 
 
 # 艦艇コンポーネントの表示優先度（重要度順）
@@ -88,15 +134,18 @@ def format_component_value(value: str) -> str:
     return value
 
 
-def extract_ship_components(player_data: Dict[str, Any]) -> Dict[str, str]:
+def extract_ship_components(player_data: Dict[str, Any], ship_params_id: Optional[int] = None) -> Dict[str, str]:
     """
     プレイヤーデータから艦艇コンポーネント情報を抽出
 
     Args:
         player_data: hidden['players'][player_id]のデータ
+        ship_params_id: 艦艇パラメータID（口径表示用、オプション）
 
     Returns:
-        {component_type: variant} のマッピング（デフォルト値は除外）
+        {component_type: display_value} のマッピング
+        - 主砲・魚雷: 口径を表示（例: "460mm"）、見つからない場合はバリアント
+        - その他: バリアント（例: "A", "B"）
     """
     ship_components = player_data.get("shipComponents", {})
     result = {}
@@ -104,34 +153,49 @@ def extract_ship_components(player_data: Dict[str, Any]) -> Dict[str, str]:
     for component in COMPONENT_PRIORITY:
         value = ship_components.get(component, "")
         if value and not is_default_component(value):
-            result[component] = format_component_value(value)
+            variant = format_component_value(value)
+
+            # 主砲・魚雷の場合は口径を取得
+            if ship_params_id and component in ("artillery", "torpedoes"):
+                caliber = get_component_caliber(ship_params_id, component, variant)
+                if caliber:
+                    result[component] = caliber
+                    continue
+
+            # 口径が見つからない場合またはその他のコンポーネントはバリアントを使用
+            result[component] = variant
 
     return result
 
 
-def get_ship_modules_display(player_data: Dict[str, Any], language: str = "en") -> List[str]:
+def get_ship_modules_display(
+    player_data: Dict[str, Any],
+    language: str = "en",
+    ship_params_id: Optional[int] = None,
+) -> List[str]:
     """
     表示用の艦艇モジュールリストを取得
 
     Args:
         player_data: hidden['players'][player_id]のデータ
         language: 言語コード（"en" または "ja"）
+        ship_params_id: 艦艇パラメータID（口径表示用、オプション）
 
     Returns:
-        表示用文字列のリスト（例: ["Hull A", "Artillery B", "Engine A"]）
+        表示用文字列のリスト（例: ["船体 A", "主砲 460mm", "魚雷 610mm"]）
     """
-    components = extract_ship_components(player_data)
+    components = extract_ship_components(player_data, ship_params_id)
     result = []
 
     for component in COMPONENT_PRIORITY:
         if component in components:
-            variant = components[component]
+            value = components[component]
             if language == "ja" and component in COMPONENT_NAMES_JA:
-                result.append(f"{COMPONENT_NAMES_JA[component]} {variant}")
+                result.append(f"{COMPONENT_NAMES_JA[component]} {value}")
             else:
                 # 英語の場合はコンポーネント名をキャピタライズ
                 component_name = component.replace("_", " ").title()
-                result.append(f"{component_name} {variant}")
+                result.append(f"{component_name} {value}")
 
     return result
 
@@ -159,7 +223,9 @@ def map_player_to_modules(
         if not player_name:
             continue
 
-        components = extract_ship_components(player_info)
+        # shipParamsIdを取得して口径表示に使用
+        ship_params_id = player_info.get("shipParamsId")
+        components = extract_ship_components(player_info, ship_params_id)
 
         # 艦艇特性（abilities）も抽出
         ship_components = player_info.get("shipComponents", {})
