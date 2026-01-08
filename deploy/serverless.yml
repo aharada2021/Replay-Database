@@ -147,7 +147,7 @@ functions:
     environment:
       TEMP_BUCKET: ${self:custom.bucketName}
 
-  # 動画生成API（Web UI用）
+  # 動画生成API（Web UI用 + Auto-uploader通知）
   generate-video-api:
     image:
       uri: ${env:ECR_PROCESSOR_IMAGE_URI}
@@ -163,6 +163,7 @@ functions:
     environment:
       REPLAYS_BUCKET: ${self:custom.bucketName}
       REPLAYS_TABLE: ${self:custom.replaysTable}
+      NOTIFICATION_CHANNEL_ID: ${env:NOTIFICATION_CHANNEL_ID, ''}
 
   # リプレイアップロードAPI
   upload-api:

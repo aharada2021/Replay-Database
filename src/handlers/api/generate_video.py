@@ -12,9 +12,12 @@ from pathlib import Path
 
 from core.replay_processor import ReplayProcessor
 from utils import dynamodb
+from utils.discord_notify import send_replay_notification
 
 # 環境変数
 REPLAYS_BUCKET = os.environ.get("REPLAYS_BUCKET", "wows-replay-bot-dev-temp")
+DISCORD_BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
+NOTIFICATION_CHANNEL_ID = os.environ.get("NOTIFICATION_CHANNEL_ID", "")
 
 # S3クライアント
 s3_client = boto3.client("s3")
@@ -40,7 +43,9 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+            "http", {}
+        ).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -59,27 +64,39 @@ def handle(event, context):
             return {
                 "statusCode": 400,
                 "headers": cors_headers,
-                "body": json.dumps({"error": "arenaUniqueID and playerID are required"}),
+                "body": json.dumps(
+                    {"error": "arenaUniqueID and playerID are required"}
+                ),
             }
 
         # DynamoDBからレコードを取得
         record = dynamodb.get_replay_record(str(arena_unique_id), int(player_id))
 
         if not record:
-            return {"statusCode": 404, "headers": cors_headers, "body": json.dumps({"error": "Record not found"})}
+            return {
+                "statusCode": 404,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Record not found"}),
+            }
 
         # 既にMP4が生成されているかチェック
         if record.get("mp4S3Key"):
             # 既に存在する場合は署名付きURLを返す
             presigned_url = s3_client.generate_presigned_url(
-                "get_object", Params={"Bucket": REPLAYS_BUCKET, "Key": record["mp4S3Key"]}, ExpiresIn=86400  # 24時間
+                "get_object",
+                Params={"Bucket": REPLAYS_BUCKET, "Key": record["mp4S3Key"]},
+                ExpiresIn=86400,  # 24時間
             )
 
             return {
                 "statusCode": 200,
                 "headers": cors_headers,
                 "body": json.dumps(
-                    {"status": "already_exists", "mp4Url": presigned_url, "mp4S3Key": record["mp4S3Key"]}
+                    {
+                        "status": "already_exists",
+                        "mp4Url": presigned_url,
+                        "mp4S3Key": record["mp4S3Key"],
+                    }
                 ),
             }
 
@@ -87,7 +104,9 @@ def handle(event, context):
         s3_key = record["s3Key"]
         print(f"Downloading replay from s3://{REPLAYS_BUCKET}/{s3_key}")
 
-        with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_replay:
+        with tempfile.NamedTemporaryFile(
+            suffix=".wowsreplay", delete=False
+        ) as tmp_replay:
             replay_path = Path(tmp_replay.name)
             s3_client.download_fileobj(REPLAYS_BUCKET, s3_key, tmp_replay)
 
@@ -106,26 +125,57 @@ def handle(event, context):
                     raise Exception("MP4 generation failed")
 
                 # S3にアップロード
-                mp4_s3_key = f"videos/{arena_unique_id}/{player_id}/{replay_path.stem}.mp4"
+                mp4_s3_key = (
+                    f"videos/{arena_unique_id}/{player_id}/{replay_path.stem}.mp4"
+                )
                 print(f"Uploading MP4 to s3://{REPLAYS_BUCKET}/{mp4_s3_key}")
 
                 with open(mp4_path, "rb") as f:
-                    s3_client.put_object(Bucket=REPLAYS_BUCKET, Key=mp4_s3_key, Body=f.read(), ContentType="video/mp4")
+                    s3_client.put_object(
+                        Bucket=REPLAYS_BUCKET,
+                        Key=mp4_s3_key,
+                        Body=f.read(),
+                        ContentType="video/mp4",
+                    )
 
                 # DynamoDBを更新
                 dynamodb.update_video_info(
-                    arena_unique_id=int(arena_unique_id), player_id=int(player_id), mp4_s3_key=mp4_s3_key
+                    arena_unique_id=int(arena_unique_id),
+                    player_id=int(player_id),
+                    mp4_s3_key=mp4_s3_key,
                 )
 
                 # 署名付きURLを生成
                 presigned_url = s3_client.generate_presigned_url(
-                    "get_object", Params={"Bucket": REPLAYS_BUCKET, "Key": mp4_s3_key}, ExpiresIn=86400  # 24時間
+                    "get_object",
+                    Params={"Bucket": REPLAYS_BUCKET, "Key": mp4_s3_key},
+                    ExpiresIn=86400,  # 24時間
                 )
+
+                # Discord通知を送信（Auto-uploader経由のアップロード時、クラン戦のみ）
+                if NOTIFICATION_CHANNEL_ID and DISCORD_BOT_TOKEN:
+                    # 最新のレコードを取得（統計情報が含まれている）
+                    updated_record = dynamodb.get_replay_record(
+                        str(arena_unique_id), int(player_id)
+                    )
+                    if updated_record and updated_record.get("gameType") == "clan":
+                        send_replay_notification(
+                            channel_id=NOTIFICATION_CHANNEL_ID,
+                            bot_token=DISCORD_BOT_TOKEN,
+                            record=updated_record,
+                            mp4_url=presigned_url,
+                        )
 
                 return {
                     "statusCode": 200,
                     "headers": cors_headers,
-                    "body": json.dumps({"status": "generated", "mp4Url": presigned_url, "mp4S3Key": mp4_s3_key}),
+                    "body": json.dumps(
+                        {
+                            "status": "generated",
+                            "mp4Url": presigned_url,
+                            "mp4S3Key": mp4_s3_key,
+                        }
+                    ),
                 }
 
         finally:

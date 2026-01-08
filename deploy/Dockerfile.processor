@@ -38,6 +38,7 @@ RUN pip install --no-cache-dir ./minimap_renderer/
 COPY src/handlers/ ./handlers/
 COPY src/core/ ./core/
 COPY src/utils/ ./utils/
+COPY config/map_names.yaml ./config/
 
 # パーミッション設定と環境変数
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
