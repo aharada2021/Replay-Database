@@ -54,7 +54,7 @@
                 <strong>クライアントバージョン:</strong> {{ match.clientVersion }}
               </div>
               <div class="mb-2">
-                <strong>リプレイ提供数:</strong> {{ match.replays.length }} 件
+                <strong>リプレイ提供数:</strong> {{ match.replays?.length || 0 }} 件
               </div>
             </v-col>
           </v-row>
@@ -260,9 +260,11 @@ onMounted(async () => {
       match.value = data
 
       // 動画が既に生成済みのリプレイを優先選択
-      const videoReplayIndex = data.replays.findIndex((r) => r.mp4S3Key)
-      if (videoReplayIndex >= 0) {
-        selectedReplayIndex.value = videoReplayIndex
+      if (data.replays && data.replays.length > 0) {
+        const videoReplayIndex = data.replays.findIndex((r) => r.mp4S3Key)
+        if (videoReplayIndex >= 0) {
+          selectedReplayIndex.value = videoReplayIndex
+        }
       }
 
       // 動画URLを設定

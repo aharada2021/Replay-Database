@@ -50,14 +50,22 @@ export const useApi = () => {
     try {
       const url = `${baseUrl}/api/match/${encodeURIComponent(arenaUniqueID)}`
 
-      const response = await $fetch<MatchDetailResponse>(url, {
+      const response = await $fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       })
 
-      return response
+      // レスポンスが文字列の場合、JSONをパース
+      let parsedResponse: MatchDetailResponse
+      if (typeof response === 'string') {
+        parsedResponse = JSON.parse(response)
+      } else {
+        parsedResponse = response as MatchDetailResponse
+      }
+
+      return parsedResponse
     } catch (error) {
       console.error('[API] Get match detail error:', error)
       return null
