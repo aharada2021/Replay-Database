@@ -192,6 +192,14 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Cache npm global packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-serverless-${{ runner.os }}-v1
+          restore-keys: |
+            npm-serverless-${{ runner.os }}-
+
       - name: Install Serverless Framework
         run: npm install -g serverless@3
 
@@ -253,6 +261,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+
+      - name: Cache npm global packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-serverless-${{ runner.os }}-v1
+          restore-keys: |
+            npm-serverless-${{ runner.os }}-
 
       - name: Install Serverless Framework
         run: npm install -g serverless@3
