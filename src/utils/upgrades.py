@@ -412,9 +412,7 @@ def get_upgrade_pcm_code(upgrade_id: int) -> Optional[str]:
     return mod_data.get("index")
 
 
-def extract_player_upgrades(
-    hidden_data: Dict[str, Any], language: str = "ja"
-) -> Dict[str, List[str]]:
+def extract_player_upgrades(hidden_data: Dict[str, Any], language: str = "ja") -> Dict[str, List[str]]:
     """
     hiddenデータからプレイヤーのアップグレード情報を抽出
 
@@ -459,9 +457,7 @@ def extract_player_upgrades(
     return result
 
 
-def map_player_to_upgrades(
-    hidden_data: Dict[str, Any], language: str = "ja"
-) -> Dict[str, List[str]]:
+def map_player_to_upgrades(hidden_data: Dict[str, Any], language: str = "ja") -> Dict[str, List[str]]:
     """
     プレイヤー名からアップグレードリストへのマッピングを生成
 
