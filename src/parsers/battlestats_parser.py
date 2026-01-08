@@ -11,48 +11,65 @@ class BattleStatsParser:
     """
     BattleStatsパケットのplayersPublicInfo配列をパースするクラス
 
-    バージョン: 14.11.0で検証済み
+    バージョン: 14.11.0で検証済み（2026-01-08更新）
     """
 
-    # インデックスマッピング（14.11.0基準）
+    # インデックスマッピング（14.11.0基準、実際のリプレイデータから検証済み）
     INDICES = {
         # 基本情報
-        "player_id": 0,
+        "account_db_id": 0,
         "player_name": 1,
-        "account_db_id": 2,
+        "clan_id": 2,
         "clan_tag": 3,
-        "clan_id": 4,
+        "clan_color": 4,
+        "clan_league": 5,
+        "team_id": 6,
+        "ship_id": 7,  # 艦艇ID（shipParamsId、艦艇タイプではない）
         "realm": 9,
-        "survival_time": 22,
-        "survival_percentage": 23,
-        # 戦闘成績
-        "kills": 32,
+        "max_health": 15,
+        "life_time_sec": 22,  # 生存時間（秒）
+        "distance": 23,  # 移動距離
+        # 戦闘成績（リボン）
+        "kills": 454,  # RIBBON_FRAG
         # 命中数内訳
-        "hits_ap": 66,
-        "hits_he": 68,  # 主砲のみ
-        "hits_secondaries": 71,  # 副砲HE弾
+        "hits_ap": 66,  # hits_main_ap
+        "hits_he": 68,  # hits_main_he
+        "hits_secondaries": 71,  # hits_atba_he
         "hits": 68,  # 互換性のため維持（実際はHE弾のみ）
-        # DoT（継続ダメージ）
-        "floods": 75,
-        "fires": 86,
-        # ダメージ内訳
-        "damage_ap": 157,  # 主砲AP弾
-        "damage_he": 159,  # 主砲HE弾
-        "damage_he_secondaries": 162,  # 副砲HE弾
-        "damage_torps": 166,  # 通常魚雷
-        "damage_deep_water_torps": 167,  # 深度魚雷（パンアジア駆逐艦）
-        "damage_other": 178,  # その他ダメージ（主砲AP+副砲AP等の残差）
-        "damage_fire": 179,  # 火災ダメージ
-        "damage_flooding": 180,  # 浸水ダメージ
-        # 総ダメージ統計
-        "received_damage": 204,
-        "damage": 429,
-        # Citadel（バイタル）
-        "citadels": 264,  # 与えたCitadel数
-        # 経験値・スポットダメージ
-        "base_xp": 406,
-        "spotting_damage": 415,
-        "potential_damage": 419,
+        # 与えた火災・浸水（リボン）
+        "fires": 455,  # RIBBON_BURN
+        "floods": 456,  # RIBBON_FLOOD
+        # 与えたダメージ内訳
+        "damage_ap": 157,  # damage_main_ap
+        "damage_he": 159,  # damage_main_he
+        "damage_he_secondaries": 162,  # damage_atba_he
+        "damage_torps": 166,  # damage_tpd_normal
+        "damage_deep_water_torps": 167,  # damage_tpd_deep
+        "damage_other": 178,  # その他ダメージ
+        "damage_fire": 179,  # damage_fire
+        "damage_flooding": 180,  # damage_flood
+        # 総ダメージ
+        "damage": 429,  # 総与ダメージ
+        # 被ダメージ内訳
+        "received_damage_ap": 202,  # received_damage_main_ap
+        "received_damage_he": 204,  # received_damage_main_he
+        "received_damage_torps": 205,  # received_damage_tpd_normal
+        "received_damage_he_secondaries": 219,  # received_damage_atba_he
+        "received_damage_fire": 223,  # received_damage_fire
+        "received_damage_flood": 224,  # received_damage_flood
+        # 潜在ダメージ内訳
+        "potential_damage_art": 419,  # agro_art（砲撃による潜在）
+        "potential_damage_tpd": 420,  # agro_tpd（魚雷による潜在）
+        # 偵察・経験値
+        "spotting_damage": 415,  # scouting_damage
+        "base_xp": 406,  # exp（表示用経験値）
+        "raw_xp": 405,  # raw_exp
+        # Citadel・クリティカル（リボン）
+        "citadels": 457,  # RIBBON_CITADEL
+        "crits": 453,  # RIBBON_CRIT
+        # 互換性のための計算用フィールド（実際の値はparse時に計算）
+        "received_damage": None,  # 被ダメ合計（計算で算出）
+        "potential_damage": None,  # 潜在合計（計算で算出）
     }
 
     @classmethod
@@ -66,32 +83,52 @@ class BattleStatsParser:
         Returns:
             統計情報の辞書
         """
-        if not isinstance(player_data, list) or len(player_data) < 430:
+        if not isinstance(player_data, list) or len(player_data) < 460:
             data_len = len(player_data) if isinstance(player_data, list) else 0
             raise ValueError(
-                f"Invalid player_data: expected list with 430+ elements, "
+                f"Invalid player_data: expected list with 460+ elements, "
                 f"got {type(player_data)} with {data_len} elements"
             )
 
         stats = {}
 
         for key, index in cls.INDICES.items():
+            # 計算フィールドはスキップ（後で計算）
+            if index is None:
+                continue
+
             try:
                 value = player_data[index]
 
                 # データ型変換
-                if key == "potential_damage" and isinstance(value, float):
-                    stats[key] = int(value)
-                elif key in ["player_id", "account_db_id", "clan_id"] and value is not None:
+                if key in ["account_db_id", "clan_id", "ship_id"] and value is not None:
                     stats[key] = int(value)
                 elif key in ["player_name", "clan_tag", "realm"] and value is not None:
                     stats[key] = str(value)
+                elif isinstance(value, float):
+                    stats[key] = int(value)
                 else:
                     stats[key] = value
 
             except (IndexError, TypeError, ValueError):
-                # インデックスが存在しない、または変換失敗時はNoneを設定
-                stats[key] = None
+                # インデックスが存在しない、または変換失敗時は0を設定
+                stats[key] = 0 if key not in ["player_name", "clan_tag", "realm"] else ""
+
+        # 被ダメージ合計を計算
+        stats["received_damage"] = sum([
+            stats.get("received_damage_ap", 0) or 0,
+            stats.get("received_damage_he", 0) or 0,
+            stats.get("received_damage_torps", 0) or 0,
+            stats.get("received_damage_he_secondaries", 0) or 0,
+            stats.get("received_damage_fire", 0) or 0,
+            stats.get("received_damage_flood", 0) or 0,
+        ])
+
+        # 潜在ダメージ合計を計算
+        stats["potential_damage"] = sum([
+            stats.get("potential_damage_art", 0) or 0,
+            stats.get("potential_damage_tpd", 0) or 0,
+        ])
 
         return stats
 
@@ -186,29 +223,40 @@ class BattleStatsParser:
             "playerName": stats.get("player_name", "Unknown"),
             "clanTag": stats.get("clan_tag", ""),
             # 基本統計
-            "damage": stats.get("damage", 0),
-            "receivedDamage": stats.get("received_damage", 0),
-            "spottingDamage": stats.get("spotting_damage", 0),
-            "potentialDamage": stats.get("potential_damage", 0),
-            "kills": stats.get("kills", 0),
-            "fires": stats.get("fires", 0),
-            "floods": stats.get("floods", 0),
-            "baseXP": stats.get("base_xp", 0),
+            "damage": stats.get("damage", 0) or 0,
+            "receivedDamage": stats.get("received_damage", 0) or 0,
+            "spottingDamage": stats.get("spotting_damage", 0) or 0,
+            "potentialDamage": stats.get("potential_damage", 0) or 0,
+            "kills": stats.get("kills", 0) or 0,
+            "fires": stats.get("fires", 0) or 0,
+            "floods": stats.get("floods", 0) or 0,
+            "baseXP": stats.get("base_xp", 0) or 0,
             # 命中数内訳
-            "hitsAP": stats.get("hits_ap", 0),
-            "hitsHE": stats.get("hits_he", 0),
-            "hitsSecondaries": stats.get("hits_secondaries", 0),
-            # ダメージ内訳
-            "damageAP": stats.get("damage_ap", 0),
-            "damageHE": stats.get("damage_he", 0),
-            "damageHESecondaries": stats.get("damage_he_secondaries", 0),
-            "damageTorps": stats.get("damage_torps", 0),
-            "damageDeepWaterTorps": stats.get("damage_deep_water_torps", 0),
-            "damageOther": stats.get("damage_other", 0),
-            "damageFire": stats.get("damage_fire", 0),
-            "damageFlooding": stats.get("damage_flooding", 0),
-            # Citadel
-            "citadels": stats.get("citadels", 0),
+            "hitsAP": stats.get("hits_ap", 0) or 0,
+            "hitsHE": stats.get("hits_he", 0) or 0,
+            "hitsSecondaries": stats.get("hits_secondaries", 0) or 0,
+            # 与ダメージ内訳
+            "damageAP": stats.get("damage_ap", 0) or 0,
+            "damageHE": stats.get("damage_he", 0) or 0,
+            "damageHESecondaries": stats.get("damage_he_secondaries", 0) or 0,
+            "damageTorps": stats.get("damage_torps", 0) or 0,
+            "damageDeepWaterTorps": stats.get("damage_deep_water_torps", 0) or 0,
+            "damageOther": stats.get("damage_other", 0) or 0,
+            "damageFire": stats.get("damage_fire", 0) or 0,
+            "damageFlooding": stats.get("damage_flooding", 0) or 0,
+            # 被ダメージ内訳
+            "receivedDamageAP": stats.get("received_damage_ap", 0) or 0,
+            "receivedDamageHE": stats.get("received_damage_he", 0) or 0,
+            "receivedDamageTorps": stats.get("received_damage_torps", 0) or 0,
+            "receivedDamageHESecondaries": stats.get("received_damage_he_secondaries", 0) or 0,
+            "receivedDamageFire": stats.get("received_damage_fire", 0) or 0,
+            "receivedDamageFlood": stats.get("received_damage_flood", 0) or 0,
+            # 潜在ダメージ内訳
+            "potentialDamageArt": stats.get("potential_damage_art", 0) or 0,
+            "potentialDamageTpd": stats.get("potential_damage_tpd", 0) or 0,
+            # Citadel・クリティカル
+            "citadels": stats.get("citadels", 0) or 0,
+            "crits": stats.get("crits", 0) or 0,
         }
 
 
