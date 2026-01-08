@@ -4,8 +4,22 @@
     <v-row v-if="hasAllPlayersStats">
       <!-- 全プレイヤー戦闘統計（スコアボード） -->
       <v-col cols="12" lg="8">
-        <h3 class="mb-2 text-body-2">戦闘統計スコアボード</h3>
+        <div class="d-flex align-center mb-2">
+          <h3 class="text-body-2">戦闘統計スコアボード</h3>
+          <v-btn
+            v-if="isCustomSorted"
+            size="x-small"
+            variant="text"
+            color="primary"
+            class="ml-2"
+            @click="resetToDefaultSort"
+          >
+            <v-icon size="small" class="mr-1">mdi-sort</v-icon>
+            デフォルト順に戻す
+          </v-btn>
+        </div>
         <v-data-table
+          v-model:sort-by="sortBy"
           :headers="scoreboardHeaders"
           :items="sortedPlayersStats"
           :items-per-page="-1"
@@ -396,7 +410,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { MatchRecord, PlayerStats, ShipClass } from '~/types/replay'
 
 const props = defineProps<{
@@ -405,6 +419,22 @@ const props = defineProps<{
 
 const api = useApi()
 const { getShipClassShortLabel, getShipClassIcon } = useShipClass()
+
+// 艦種のソート優先度（空母→戦艦→巡洋艦→駆逐艦→潜水艦）
+const SHIP_CLASS_PRIORITY: Record<string, number> = {
+  'AirCarrier': 0,
+  'Battleship': 1,
+  'Cruiser': 2,
+  'Destroyer': 3,
+  'Submarine': 4,
+  'Auxiliary': 5,
+}
+
+// v-data-tableのソート状態
+const sortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
+
+// カスタムソートが適用されているか
+const isCustomSorted = computed(() => sortBy.value.length > 0)
 
 // 全プレイヤー統計があるかどうか
 const hasAllPlayersStats = computed(() => {
@@ -434,13 +464,37 @@ const getTotalHits = (player: PlayerStats): number => {
   return (player.hitsAP || 0) + (player.hitsHE || 0) + (player.hitsSecondaries || 0)
 }
 
-// ダメージ順にソートされたプレイヤー統計（totalHitsを追加）
-const sortedPlayersStats = computed(() => {
+// デフォルトソート: 味方→敵、艦種順、XP順、ダメージ順
+const defaultSortedPlayersStats = computed(() => {
   if (!props.match.allPlayersStats) return []
   return [...props.match.allPlayersStats]
     .map(p => ({ ...p, totalHits: getTotalHits(p) }))
-    .sort((a, b) => (b.damage || 0) - (a.damage || 0))
+    .sort((a, b) => {
+      // 1. チーム（味方が先）
+      const teamOrder = (a.team === 'ally' ? 0 : 1) - (b.team === 'ally' ? 0 : 1)
+      if (teamOrder !== 0) return teamOrder
+
+      // 2. 艦種（空母→戦艦→巡洋艦→駆逐艦→潜水艦）
+      const classA = SHIP_CLASS_PRIORITY[a.shipClass || ''] ?? 99
+      const classB = SHIP_CLASS_PRIORITY[b.shipClass || ''] ?? 99
+      if (classA !== classB) return classA - classB
+
+      // 3. 経験値（高い方が先）
+      const xpDiff = (b.baseXP || 0) - (a.baseXP || 0)
+      if (xpDiff !== 0) return xpDiff
+
+      // 4. ダメージ（高い方が先）
+      return (b.damage || 0) - (a.damage || 0)
+    })
 })
+
+// 表示用のプレイヤー統計（デフォルトソートを使用）
+const sortedPlayersStats = computed(() => defaultSortedPlayersStats.value)
+
+// デフォルトソートにリセット
+const resetToDefaultSort = () => {
+  sortBy.value = []
+}
 
 // 数値をカンマ区切りでフォーマット
 const formatNumber = (value: number | undefined | null): string => {
