@@ -149,11 +149,8 @@
             </v-alert>
 
             <v-alert type="info" variant="tonal" density="compact">
-              <strong>詳しい使い方:</strong>
-              <a href="https://github.com/aharada2021/WoWS-Replay-Classification-Bot/blob/main/client_tool/README.md" target="_blank" class="text-primary">
-                GitHubのREADME
-              </a>
-              をご覧ください。
+              <strong>困ったときは:</strong>
+              問題が発生した場合は、Discordサーバーでお問い合わせください。
             </v-alert>
           </div>
         </v-card-text>
