@@ -209,6 +209,18 @@ python3 scripts/backfill_captain_skills.py  # 艦長スキル・艦艇コンポ�
 - **注意**: 敵プレイヤーのデータは取得不可（ゲームの仕様）
 - **未実装**: アップグレード（近代化改修）はゲームデータファイルが必要
 
+### 艦長スキル表示バグ修正と艦種表示追加（2026-01-09完了）
+- **バグ**: 艦長スキルが誤った艦種のスキルセットを表示していた
+  - 原因: 艦長は駆逐/巡洋/戦艦/空母/潜水艦の各スキルセットを持てるが、固定順で最初に見つかったセットを使用していた
+  - 修正: `shipParamsId`から`ships.json`を参照して正しい艦種（species）を特定
+  - 対応ファイル: `src/utils/captain_skills.py`
+- **艦種表示機能**:
+  - バックエンド: `battle_result_extractor.py`で`shipClass`フィールドを`allPlayersStats`に追加
+  - フロントエンド: スコアボードに艦種アイコン列を追加
+  - アイコン: `web-ui/public/icons/ships/`（Destroyer, Cruiser, Battleship, AirCarrier, Submarine, Auxiliary）
+  - composable: `web-ui/composables/useShipClass.ts`（艦種名、短縮名、アイコンURL）
+- **艦種データソース**: `minimap_renderer/src/renderer/versions/14_11_0/resources/ships.json`
+
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
 - アップグレード（近代化改修）抽出機能（ゲームデータファイル連携が必要）
