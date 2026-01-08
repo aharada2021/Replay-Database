@@ -166,6 +166,12 @@ def send_replay_notification(
             {"name": "🔴 敵", "value": enemy_list, "inline": True}
         )
 
+        # 詳細リンク
+        detail_url = f"{web_ui_base_url}/match/{arena_unique_id}"
+        embed["fields"].append(
+            {"name": "📊 詳細", "value": f"[Web UIで見る]({detail_url})", "inline": False}
+        )
+
         embeds = [embed]
 
         # メッセージを送信
