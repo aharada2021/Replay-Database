@@ -1,5 +1,11 @@
 # Claude Code Project Rules
 
+## 重要: タスク完了時のルール
+**毎回タスクが完了したら、このCLAUDE.mdを更新すること。**
+- 完了したタスクを「今後の予定」から削除
+- 新たに判明した注意事項を追加
+- 変更があった技術的な情報を更新
+
 ## プロジェクト概要
 World of Warshipsのリプレイファイルを管理・分析するWebアプリケーション。Discord Bot連携とWeb UIを提供。
 
@@ -37,7 +43,7 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 
 ### GitHub Actions経由（推奨）
 ```bash
-git push origin main  # dev環境へ自動デプロイ
+git push origin main  # dev環境へ自動デプロイ（約2分）
 ```
 
 ### 手動デプロイ(基本禁止)
@@ -48,6 +54,11 @@ cd deploy && npx serverless deploy --stage dev --region ap-northeast-1
 # Web UI
 cd web-ui && npm run generate && aws s3 sync .output/public s3://wows-replay-web-ui-prod
 ```
+
+### CI/CD最適化（2026-01-08実施済み）
+- npmキャッシュ: Serverless Frameworkインストール高速化
+- Dockerレイヤー最適化: 変更頻度の低いレイヤーを先に配置
+- 詳細: `docs/CD_OPTIMIZATION_PLAN.md`
 
 ## 開発コマンド
 
@@ -109,7 +120,6 @@ python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
 
 ## 今後の予定
 - 被ダメ、潜在ダメージ、critsの数値修正
-- CD(ビルド)の高速化
 - 検索機能の高速化、最適化設計
 - Auto uploader経由のリプレイアップロード時(レンダラー作成やDynamoDBへの統計データの格納完了時)にDiscord通知
 - クラン戦シーズン毎のデータ表示
