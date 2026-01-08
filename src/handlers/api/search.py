@@ -7,14 +7,16 @@ Web UIからの検索リクエストを処理
 import json
 from decimal import Decimal
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 from utils import dynamodb
 from utils.match_key import generate_match_key
 
 
+@lru_cache(maxsize=2048)
 def parse_datetime_for_sort(date_str: str) -> datetime:
     """
-    日時文字列をソート用にパース
+    日時文字列をソート用にパース（メモ化による高速化）
 
     Args:
         date_str: "DD.MM.YYYY HH:MM:SS" 形式の日時文字列
@@ -88,6 +90,105 @@ def parse_frontend_date(date_str: str) -> datetime:
         return None
 
 
+def calculate_fetch_multiplier(
+    ally_clan_tag: str = None,
+    enemy_clan_tag: str = None,
+    ship_filtered_count: int = None,
+    cursor_date_time: str = None,
+    date_from: str = None,
+    date_to: str = None,
+) -> int:
+    """
+    検索条件に基づいてfetch_multiplierを動的に計算
+
+    より厳しい（絞り込み率が高い）フィルタがある場合、
+    より多くのデータを取得して、limit件のマッチを確保する
+
+    Args:
+        ally_clan_tag: 味方クランタグフィルタ
+        enemy_clan_tag: 敵クランタグフィルタ
+        ship_filtered_count: 艦艇フィルタで見つかったマッチ数（Noneの場合はフィルタなし）
+        cursor_date_time: カーソル日時
+        date_from: 開始日付
+        date_to: 終了日付
+
+    Returns:
+        fetch_multiplier（5-25の範囲）
+    """
+    multiplier = 5  # 基本値
+
+    # クランフィルタ（絞り込み率が高い）
+    if ally_clan_tag or enemy_clan_tag:
+        multiplier += 5
+
+    # 艦艇フィルタ（結果数に応じて調整）
+    if ship_filtered_count is not None:
+        if ship_filtered_count < 50:
+            multiplier += 3
+        elif ship_filtered_count < 100:
+            multiplier += 5
+        else:
+            multiplier += 8
+
+    # 日付フィルタ
+    if date_from or date_to:
+        multiplier += 3
+
+    # カーソルページネーション
+    if cursor_date_time:
+        multiplier += 5
+
+    # 上限設定
+    return min(multiplier, 25)
+
+
+def filter_matches_single_pass(
+    matches: list,
+    cursor_dt: datetime = None,
+    date_from_dt: datetime = None,
+    date_to_dt: datetime = None,
+    ally_clan_tag: str = None,
+    enemy_clan_tag: str = None,
+) -> list:
+    """
+    単一パスで全フィルタを適用（複数回のリスト走査を回避）
+
+    Args:
+        matches: マッチリスト
+        cursor_dt: カーソル日時（これより前のデータのみ）
+        date_from_dt: 開始日時
+        date_to_dt: 終了日時（この日の翌日0時未満）
+        ally_clan_tag: 味方クランタグ
+        enemy_clan_tag: 敵クランタグ
+
+    Returns:
+        フィルタリングされたマッチリスト
+    """
+    result = []
+    for m in matches:
+        match_dt = parse_datetime_for_sort(m.get("dateTime", ""))
+
+        # カーソルフィルタ: カーソルより前（古い）のデータのみ
+        if cursor_dt and match_dt >= cursor_dt:
+            continue
+
+        # 日付範囲フィルタ
+        if date_from_dt and match_dt < date_from_dt:
+            continue
+        if date_to_dt and match_dt >= date_to_dt:
+            continue
+
+        # クランタグフィルタ
+        if ally_clan_tag and m.get("allyMainClanTag") != ally_clan_tag:
+            continue
+        if enemy_clan_tag and m.get("enemyMainClanTag") != enemy_clan_tag:
+            continue
+
+        result.append(m)
+
+    return result
+
+
 class DecimalEncoder(json.JSONEncoder):
     """DynamoDB Decimalオブジェクトをシリアライズするカスタムエンコーダー"""
 
@@ -117,7 +218,9 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+            "http", {}
+        ).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -155,8 +258,12 @@ def handle(event, context):
                 min_count=ship_min_count,
                 limit=500,  # 十分な数を取得
             )
-            ship_filtered_arena_ids = set(item.get("arenaUniqueID") for item in ship_result.get("items", []))
-            print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
+            ship_filtered_arena_ids = set(
+                item.get("arenaUniqueID") for item in ship_result.get("items", [])
+            )
+            print(
+                f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches"
+            )
 
         # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
         # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
@@ -166,15 +273,18 @@ def handle(event, context):
         # - DynamoDBはDD.MM.YYYY HH:MM:SS形式で保存
         # - 形式が異なるため、DynamoDBの文字列比較が正しく動作しない
         # - カーソル・日付によるフィルタリングはPython側で行う
-        fetch_multiplier = 10
-        if ally_clan_tag or enemy_clan_tag:
-            fetch_multiplier = 15  # クランフィルタがある場合はさらに多めに
-        if ship_filtered_arena_ids is not None:
-            fetch_multiplier = 15
-        if cursor_date_time:
-            fetch_multiplier = 20  # カーソルページネーション時はさらに多めに取得
-        if date_from or date_to:
-            fetch_multiplier = 20  # 日付フィルタがある場合もさらに多めに取得
+        fetch_multiplier = calculate_fetch_multiplier(
+            ally_clan_tag=ally_clan_tag,
+            enemy_clan_tag=enemy_clan_tag,
+            ship_filtered_count=(
+                len(ship_filtered_arena_ids)
+                if ship_filtered_arena_ids is not None
+                else None
+            ),
+            cursor_date_time=cursor_date_time,
+            date_from=date_from,
+            date_to=date_to,
+        )
 
         result = dynamodb.search_replays(
             game_type=game_type,
@@ -193,7 +303,11 @@ def handle(event, context):
 
         # 艦艇フィルタを適用（インデックステーブルで取得したarenaUniqueIDでフィルタ）
         if ship_filtered_arena_ids is not None:
-            items = [item for item in items if item.get("arenaUniqueID") in ship_filtered_arena_ids]
+            items = [
+                item
+                for item in items
+                if item.get("arenaUniqueID") in ship_filtered_arena_ids
+            ]
             print(f"After ship filter: {len(items)} items")
 
         # 試合単位でグループ化（プレイヤーセットベース）
@@ -201,8 +315,9 @@ def handle(event, context):
         match_key_to_arena_ids = {}  # match_key -> 最初のarenaUniqueIDのマッピング
 
         for item in items:
-            # マッチキーを生成
-            match_key = generate_match_key(item)
+            # マッチキーを取得（事前計算値があれば使用、なければ生成）
+            # 最適化: 新しいレコードはmatchKeyが事前計算されている
+            match_key = item.get("matchKey") or generate_match_key(item)
 
             if match_key not in matches:
                 # 新しい試合として登録
@@ -216,6 +331,9 @@ def handle(event, context):
                     "replays": [],
                     # 代表データ（最初のリプレイから取得）
                     "dateTime": item.get("dateTime"),
+                    "dateTimeSortable": item.get(
+                        "dateTimeSortable"
+                    ),  # 最適化: ソート用
                     "mapId": item.get("mapId"),
                     "mapDisplayName": item.get("mapDisplayName"),
                     "gameType": item.get("gameType"),
@@ -235,7 +353,9 @@ def handle(event, context):
             # リプレイ提供者情報を追加（BattleStatsを含む）
             matches[match_key]["replays"].append(
                 {
-                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get(
+                        "arenaUniqueID"
+                    ),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),
@@ -319,39 +439,42 @@ def handle(event, context):
             match["citadels"] = representative.get("citadels")
 
         # マッチのリストに変換（日時順にソート）
-        # DD.MM.YYYY形式は文字列比較で正しくソートされないため、parse_datetime_for_sortを使用
+        # 最適化: dateTimeSortable（YYYYMMDDHHMMSS形式）があれば文字列ソートで正しい順序になる
+        # フォールバック: DD.MM.YYYY形式はparse_datetime_for_sortでパースしてソート
+        def get_sort_key(match):
+            sortable = match.get("dateTimeSortable")
+            if sortable and sortable != "00000000000000":
+                return sortable
+            return parse_datetime_for_sort(match.get("dateTime", "")).strftime(
+                "%Y%m%d%H%M%S"
+            )
+
         match_list = sorted(
             matches.values(),
-            key=lambda x: parse_datetime_for_sort(x.get("dateTime", "")),
+            key=get_sort_key,
             reverse=True,
         )
 
-        # カーソルによるフィルタリング（Python側で行う）
-        # DynamoDBのDD.MM.YYYY形式では文字列比較が正しく動作しないため
-        if cursor_date_time:
-            cursor_dt = parse_datetime_for_sort(cursor_date_time)
-            # カーソルより前（古い）のデータのみを取得
-            match_list = [m for m in match_list if parse_datetime_for_sort(m.get("dateTime", "")) < cursor_dt]
+        # フィルタリング用のパラメータを準備
+        cursor_dt = (
+            parse_datetime_for_sort(cursor_date_time) if cursor_date_time else None
+        )
+        date_from_dt = parse_frontend_date(date_from) if date_from else None
+        date_to_dt = (
+            parse_frontend_date(date_to) + timedelta(days=1)
+            if date_to and parse_frontend_date(date_to)
+            else None
+        )
 
-        # 日付範囲フィルタリング（Python側で行う）
-        # フロントエンドはYYYY-MM-DD形式、DynamoDBはDD.MM.YYYY形式のため
-        if date_from:
-            from_dt = parse_frontend_date(date_from)
-            if from_dt:
-                # date_fromの日の0:00:00以降のデータを取得
-                match_list = [m for m in match_list if parse_datetime_for_sort(m.get("dateTime", "")) >= from_dt]
-        if date_to:
-            to_dt = parse_frontend_date(date_to)
-            if to_dt:
-                # date_toの日の23:59:59以前のデータを取得（翌日の0:00:00未満）
-                to_dt_end = to_dt + timedelta(days=1)
-                match_list = [m for m in match_list if parse_datetime_for_sort(m.get("dateTime", "")) < to_dt_end]
-
-        # クランタグでフィルタリング（クライアント側フィルタ）
-        if ally_clan_tag:
-            match_list = [m for m in match_list if m.get("allyMainClanTag") == ally_clan_tag]
-        if enemy_clan_tag:
-            match_list = [m for m in match_list if m.get("enemyMainClanTag") == enemy_clan_tag]
+        # 単一パスで全フィルタを適用（最適化: 複数回のリスト走査を回避）
+        match_list = filter_matches_single_pass(
+            matches=match_list,
+            cursor_dt=cursor_dt,
+            date_from_dt=date_from_dt,
+            date_to_dt=date_to_dt,
+            ally_clan_tag=ally_clan_tag,
+            enemy_clan_tag=enemy_clan_tag,
+        )
 
         # 艦艇フィルタは既にship_filtered_arena_idsで適用済み
 

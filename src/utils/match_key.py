@@ -6,8 +6,33 @@ arenaUniqueIDは各プレイヤーごとに異なるため、プレイヤーセ�
 """
 
 from datetime import datetime
+from functools import lru_cache
 
 
+def format_sortable_datetime(date_str: str) -> str:
+    """
+    日時文字列をソート可能な形式に変換
+
+    DynamoDB保存用：DD.MM.YYYY HH:MM:SS → YYYYMMDDHHMMSS
+    この形式なら文字列ソートで正しい時系列順になる
+
+    Args:
+        date_str: "DD.MM.YYYY HH:MM:SS" 形式の日時文字列
+
+    Returns:
+        "YYYYMMDDHHMMSS" 形式の文字列（パース失敗時は"00000000000000"）
+    """
+    if not date_str:
+        return "00000000000000"
+
+    try:
+        dt = datetime.strptime(date_str, "%d.%m.%Y %H:%M:%S")
+        return dt.strftime("%Y%m%d%H%M%S")
+    except ValueError:
+        return "00000000000000"
+
+
+@lru_cache(maxsize=1024)
 def round_datetime_to_5min(date_time_str):
     """
     日時を5分単位に丸める

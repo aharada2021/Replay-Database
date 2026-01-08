@@ -206,7 +206,7 @@ functions:
         - handlers.api.search.handle
     architecture: arm64
     timeout: 30
-    memorySize: 256
+    memorySize: 512  # 最適化: CPU性能向上のため増強
     events:
       - httpApi:
           path: /api/search
