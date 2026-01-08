@@ -30,6 +30,13 @@
           @click="showApiKeyDialog"
         ></v-list-item>
 
+        <v-list-item
+          prepend-icon="mdi-help-circle-outline"
+          title="セットアップガイド"
+          subtitle="自動アップローダーの使い方"
+          @click="setupGuideDialog = true"
+        ></v-list-item>
+
         <v-divider class="my-2"></v-divider>
 
         <v-list-subheader>リンク</v-list-subheader>
@@ -93,6 +100,66 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn color="primary" variant="text" @click="apiKeyDialog = false">
+            閉じる
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- セットアップガイドダイアログ -->
+    <v-dialog v-model="setupGuideDialog" max-width="600">
+      <v-card>
+        <v-card-title class="text-h6">
+          <v-icon start>mdi-help-circle-outline</v-icon>
+          自動アップローダー セットアップガイド
+        </v-card-title>
+        <v-card-text>
+          <v-stepper :model-value="1" alt-labels non-linear>
+            <v-stepper-header>
+              <v-stepper-item title="ダウンロード" value="1" complete></v-stepper-item>
+              <v-divider></v-divider>
+              <v-stepper-item title="API Key取得" value="2"></v-stepper-item>
+              <v-divider></v-divider>
+              <v-stepper-item title="初回起動" value="3"></v-stepper-item>
+            </v-stepper-header>
+          </v-stepper>
+
+          <div class="mt-4">
+            <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 1: ダウンロード</h4>
+            <p class="text-body-2 mb-3">
+              このメニューの「自動アップローダー」をクリックしてダウンロードしてください。
+            </p>
+
+            <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 2: API Key取得</h4>
+            <p class="text-body-2 mb-3">
+              Discordでログイン後、このメニューの「API Key」をクリックしてAPI Keyをコピーしてください。
+            </p>
+
+            <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 3: 初回起動</h4>
+            <ol class="text-body-2 mb-3">
+              <li>ダウンロードしたzipファイルを展開</li>
+              <li><code>wows_replay_uploader.exe</code> をダブルクリックして起動</li>
+              <li>セットアップウィザードでAPI Keyを入力</li>
+              <li>リプレイフォルダは自動検出されるのでそのままEnter</li>
+              <li>スタートアップ登録で「Y」を選択するとPC起動時に自動起動</li>
+            </ol>
+
+            <v-alert type="success" variant="tonal" density="compact" class="mb-3">
+              <strong>完了!</strong> これでWorld of Warshipsで試合が終わるたびに、リプレイが自動でアップロードされます。
+            </v-alert>
+
+            <v-alert type="info" variant="tonal" density="compact">
+              <strong>詳しい使い方:</strong>
+              <a href="https://github.com/aharada2021/WoWS-Replay-Classification-Bot/blob/main/client_tool/README.md" target="_blank" class="text-primary">
+                GitHubのREADME
+              </a>
+              をご覧ください。
+            </v-alert>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" variant="text" @click="setupGuideDialog = false">
             閉じる
           </v-btn>
         </v-card-actions>
@@ -174,6 +241,9 @@ const apiKeyData = ref({
   apiKey: '',
   discordUserId: ''
 })
+
+// セットアップガイドダイアログ
+const setupGuideDialog = ref(false)
 
 // ログインページではヘッダー・フッターを非表示
 const showAppBar = computed(() => route.path !== '/login')

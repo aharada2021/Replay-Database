@@ -169,6 +169,7 @@ python3 scripts/backfill_search_optimization.py  # 検索最適化フィール�
 2. `python3 scripts/backfill_search_optimization.py` で本番実行
 
 ## 今後の予定
+- リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
 - 被ダメ、潜在ダメージ、critsの数値修正
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
