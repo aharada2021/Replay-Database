@@ -168,9 +168,28 @@ python3 scripts/backfill_search_optimization.py  # 検索最適化フィール�
 1. `DRY_RUN=true python3 scripts/backfill_search_optimization.py` で対象確認
 2. `python3 scripts/backfill_search_optimization.py` で本番実行
 
+### BattleStatsフィールドマッピング修正（2026-01-08完了）
+- 被ダメージ内訳: `received_damage_ap`(202), `received_damage_he`(204), `received_damage_torps`(205)等
+- 潜在ダメージ内訳: `potential_damage_art`(419), `potential_damage_tpd`(420)
+- リボン: `citadels`(457), `crits`(453), `kills`(454), `fires`(455), `floods`(456)
+- 更新ファイル: `src/parsers/battlestats_parser.py`
+
+### 艦長スキル・艦艇コンポーネント抽出機能（2026-01-08完了）
+- **艦長スキル**: `hidden['crew']['learned_skills']`から抽出
+  - 内部名→表示名マッピング: `src/utils/captain_skills.py`
+  - 80種類以上のスキル名マッピング（WoWS 14.x準拠）
+- **艦艇コンポーネント**: `hidden['players'][id]['shipComponents']`から抽出
+  - 船体、主砲、魚雷、エンジン等のバリアント（A, B, AB1等）
+  - `src/utils/ship_modules.py`
+- **統合**: `battle_result_extractor.py`で`allPlayersStats`に含める
+  - `captainSkills`: スキル名の配列
+  - `shipComponents`: コンポーネント辞書（`{"hull": "A", "artillery": "B", ...}`）
+- **注意**: 敵プレイヤーのデータは取得不可（ゲームの仕様）
+- **未実装**: アップグレード（近代化改修）はゲームデータファイルが必要
+
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
-- 被ダメ、潜在ダメージ、critsの数値修正
+- アップグレード（近代化改修）抽出機能（ゲームデータファイル連携が必要）
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
 - 複数テナント化（マルチテナント）設計
