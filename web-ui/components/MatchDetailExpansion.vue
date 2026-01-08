@@ -126,11 +126,57 @@
           </template>
 
           <template v-slot:item.receivedDamage="{ item }">
-            {{ formatNumber(item.receivedDamage) }}
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props" class="cursor-help">{{ formatNumber(item.receivedDamage) }}</span>
+              </template>
+              <div class="tooltip-content">
+                <div class="tooltip-title">被ダメージ内訳</div>
+                <div class="tooltip-row">
+                  <span>主砲 AP:</span>
+                  <span>{{ formatNumber(item.receivedDamageAP) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>主砲 HE:</span>
+                  <span>{{ formatNumber(item.receivedDamageHE) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>副砲 HE:</span>
+                  <span>{{ formatNumber(item.receivedDamageHESecondaries) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>魚雷:</span>
+                  <span>{{ formatNumber(item.receivedDamageTorps) }}</span>
+                </div>
+                <div class="tooltip-row text-orange">
+                  <span>火災:</span>
+                  <span>{{ formatNumber(item.receivedDamageFire) }}</span>
+                </div>
+                <div class="tooltip-row text-blue">
+                  <span>浸水:</span>
+                  <span>{{ formatNumber(item.receivedDamageFlood) }}</span>
+                </div>
+              </div>
+            </v-tooltip>
           </template>
 
           <template v-slot:item.potentialDamage="{ item }">
-            {{ formatNumber(item.potentialDamage) }}
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props" class="cursor-help">{{ formatNumber(item.potentialDamage) }}</span>
+              </template>
+              <div class="tooltip-content">
+                <div class="tooltip-title">潜在ダメージ内訳</div>
+                <div class="tooltip-row">
+                  <span>砲撃:</span>
+                  <span>{{ formatNumber(item.potentialDamageArt) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>魚雷:</span>
+                  <span>{{ formatNumber(item.potentialDamageTpd) }}</span>
+                </div>
+              </div>
+            </v-tooltip>
           </template>
 
           <template v-slot:item.totalHits="{ item }">
@@ -165,7 +211,22 @@
           </template>
 
           <template v-slot:item.citadels="{ item }">
-            <span class="text-purple font-weight-bold">{{ item.citadels || 0 }}</span>
+            <v-tooltip location="top">
+              <template v-slot:activator="{ props }">
+                <span v-bind="props" class="text-purple font-weight-bold cursor-help">{{ item.citadels || 0 }}</span>
+              </template>
+              <div class="tooltip-content">
+                <div class="tooltip-title">クリティカル内訳</div>
+                <div class="tooltip-row">
+                  <span>貫通 (Citadels):</span>
+                  <span>{{ item.citadels || 0 }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>モジュール破壊 (Crits):</span>
+                  <span>{{ item.crits || 0 }}</span>
+                </div>
+              </div>
+            </v-tooltip>
           </template>
 
           <template v-slot:item.baseXP="{ item }">
@@ -346,7 +407,7 @@ const scoreboardHeaders = [
   { title: '命中', key: 'totalHits', sortable: true, align: 'end' as const, width: '40px' },
   { title: '火', key: 'fires', sortable: true, align: 'end' as const, width: '30px' },
   { title: '浸', key: 'floods', sortable: true, align: 'end' as const, width: '30px' },
-  { title: 'Crits', key: 'citadels', sortable: true, align: 'end' as const, width: '35px' },
+  { title: '貫通', key: 'citadels', sortable: true, align: 'end' as const, width: '35px' },
   { title: 'XP', key: 'baseXP', sortable: true, align: 'end' as const, width: '50px' },
 ]
 

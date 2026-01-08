@@ -21,6 +21,7 @@ export interface BattleStats {
   floods?: number
   baseXP?: number
   citadels?: number
+  crits?: number
   // 命中数内訳
   hitsAP?: number
   hitsHE?: number
@@ -34,6 +35,16 @@ export interface BattleStats {
   damageOther?: number
   damageFire?: number
   damageFlooding?: number
+  // 被ダメージ内訳
+  receivedDamageAP?: number
+  receivedDamageHE?: number
+  receivedDamageTorps?: number
+  receivedDamageHESecondaries?: number
+  receivedDamageFire?: number
+  receivedDamageFlood?: number
+  // 潜在ダメージ内訳
+  potentialDamageArt?: number
+  potentialDamageTpd?: number
 }
 
 // 艦艇コンポーネント（船体、主砲等のバリアント）
