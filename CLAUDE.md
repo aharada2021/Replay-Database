@@ -81,6 +81,7 @@ python3 scripts/backfill_battlestats.py  # BattleStats詳細フィールド追�
 python3 scripts/backfill_captain_skills.py  # 艦長スキル・艦艇コンポーネント追加
 python3 scripts/backfill_ship_class.py  # 艦種（shipClass）追加
 python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
+python3 scripts/backfill_component_calibers.py  # 主砲・魚雷の口径表示
 # DRY_RUN=true で実行すると、書き込みなしで対象レコードを確認可能
 ```
 
@@ -232,6 +233,15 @@ python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
   - データソース: WoWS公式Wiki（日本語版）
 - **バックフィル実行**: 237試合、24,503件のスキル名を日本語化（`scripts/backfill_skills_japanese.py`）
 - **注意**: 新規リプレイは自動的に日本語で保存される
+
+### 主砲・魚雷口径表示（2026-01-09完了）
+- **概要**: コンポーネントの「主砲 A」「魚雷 B」を「主砲 460mm」「魚雷 610mm」に変更
+- **実装内容**:
+  - 口径マッピングデータ生成: `src/utils/ship_component_calibers.json`（516艦）
+  - `get_component_caliber()`関数追加: `src/utils/ship_modules.py`
+  - GameParams.dataから砲塔の`barrelDiameter`属性を抽出
+- **バックフィル実行**: 237試合、3,307件のコンポーネントを口径表示に更新（`scripts/backfill_component_calibers.py`）
+- **注意**: 新規リプレイは自動的に口径表示で保存される
 
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
