@@ -77,6 +77,8 @@ aws logs tail /aws/lambda/wows-replay-bot-dev-battle-result-extractor --region a
 ```bash
 python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
 python3 scripts/backfill_search_optimization.py  # 検索最適化フィールド追加（matchKey, dateTimeSortable）
+python3 scripts/backfill_battlestats.py  # BattleStats詳細フィールド追加（被ダメ内訳、潜在内訳、crits等）
+python3 scripts/backfill_captain_skills.py  # 艦長スキル・艦艇コンポーネント追加
 # DRY_RUN=true で実行すると、書き込みなしで対象レコードを確認可能
 ```
 
@@ -97,6 +99,11 @@ python3 scripts/backfill_search_optimization.py  # 検索最適化フィール�
 - 予約語（`dateTime`など）は `#dateTime` + ExpressionAttributeNames で回避
 - 日付形式: DynamoDB内は `DD.MM.YYYY HH:MM:SS`、フロントエンドは `YYYY-MM-DD`
 - KeyConditionExpressionは1キーにつき1条件。範囲は `BETWEEN` を使用
+- **GSI変更制限**: CloudFormationで1回の更新につき1つのGSIしか追加/削除できない
+- **GSI一覧**:
+  - `GameTypeSortableIndex`: gameType + dateTimeSortable（検索用、正しいソート順）
+  - `MapIdSortableIndex`: mapId + dateTimeSortable（検索用、正しいソート順）
+  - `GameTypeIndex`, `MapIdIndex`: 旧GSI（dateTimeソート、削除予定）
 
 ### 検索機能
 - 艦艇名検索は `normalize_ship_name()` で正規化（大文字小文字対応）
@@ -173,6 +180,21 @@ python3 scripts/backfill_search_optimization.py  # 検索最適化フィール�
 - 潜在ダメージ内訳: `potential_damage_art`(419), `potential_damage_tpd`(420)
 - リボン: `citadels`(457), `crits`(453), `kills`(454), `fires`(455), `floods`(456)
 - 更新ファイル: `src/parsers/battlestats_parser.py`
+
+### BattleStats詳細フィールドのバックフィル（2026-01-08完了）
+- 既存のDynamoDBレコードに被ダメージ内訳、潜在ダメージ内訳、crits等を追加
+- バックフィルスクリプト: `scripts/backfill_battlestats.py`
+- 実行結果: 232試合、3,588プレイヤー統計を更新
+- ツールチップで実データが表示されることを確認
+
+### GSI検索順序修正（2026-01-09完了）
+- **問題**: `GameTypeIndex`のソートキー`dateTime`がDD.MM.YYYY形式のため、年をまたぐと正しくソートされない
+  - 例: "01.01.2026" < "29.12.2025"（文字列比較では0 < 2）
+- **解決**: 新しいGSIを追加（`dateTimeSortable`をソートキーに使用）
+  - `GameTypeSortableIndex`: gameType + dateTimeSortable
+  - `MapIdSortableIndex`: mapId + dateTimeSortable
+- **注意**: DynamoDBは1回の更新で1つのGSIしか追加できない
+- 更新ファイル: `deploy/serverless.yml`, `src/utils/dynamodb.py`
 
 ### 艦長スキル・艦艇コンポーネント抽出機能（2026-01-08完了）
 - **艦長スキル**: `hidden['crew']['learned_skills']`から抽出
