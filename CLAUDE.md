@@ -79,6 +79,7 @@ python3 scripts/backfill_ship_index.py  # 艦艇インデックス再構築
 python3 scripts/backfill_search_optimization.py  # 検索最適化フィールド追加（matchKey, dateTimeSortable）
 python3 scripts/backfill_battlestats.py  # BattleStats詳細フィールド追加（被ダメ内訳、潜在内訳、crits等）
 python3 scripts/backfill_captain_skills.py  # 艦長スキル・艦艇コンポーネント追加
+python3 scripts/backfill_ship_class.py  # 艦種（shipClass）追加
 # DRY_RUN=true で実行すると、書き込みなしで対象レコードを確認可能
 ```
 
@@ -220,6 +221,7 @@ python3 scripts/backfill_captain_skills.py  # 艦長スキル・艦艇コンポ�
   - アイコン: `web-ui/public/icons/ships/`（Destroyer, Cruiser, Battleship, AirCarrier, Submarine, Auxiliary）
   - composable: `web-ui/composables/useShipClass.ts`（艦種名、短縮名、アイコンURL）
 - **艦種データソース**: `minimap_renderer/src/renderer/versions/14_11_0/resources/ships.json`
+- **バックフィル実行**: 237試合、3,708件のshipClassを追加（`scripts/backfill_ship_class.py`）
 
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
