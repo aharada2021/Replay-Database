@@ -68,6 +68,22 @@
             </span>
           </template>
 
+          <!-- 艦種 -->
+          <template v-slot:item.shipClass="{ item }">
+            <v-tooltip v-if="item.shipClass" location="top">
+              <template v-slot:activator="{ props }">
+                <img
+                  v-bind="props"
+                  :src="getShipClassIcon(item.shipClass)"
+                  :alt="getShipClassShortLabel(item.shipClass)"
+                  class="ship-class-icon"
+                />
+              </template>
+              {{ getShipClassShortLabel(item.shipClass) }}
+            </v-tooltip>
+            <span v-else class="text-grey">-</span>
+          </template>
+
           <!-- 艦船 -->
           <template v-slot:item.shipName="{ item }">
             <span class="text-caption">{{ item.shipName || '-' }}</span>
@@ -381,13 +397,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { MatchRecord, PlayerStats } from '~/types/replay'
+import type { MatchRecord, PlayerStats, ShipClass } from '~/types/replay'
 
 const props = defineProps<{
   match: MatchRecord
 }>()
 
 const api = useApi()
+const { getShipClassShortLabel, getShipClassIcon } = useShipClass()
 
 // 全プレイヤー統計があるかどうか
 const hasAllPlayersStats = computed(() => {
@@ -398,6 +415,7 @@ const hasAllPlayersStats = computed(() => {
 const scoreboardHeaders = [
   { title: '', key: 'team', sortable: true, width: '30px' },
   { title: 'プレイヤー', key: 'playerName', sortable: true },
+  { title: '', key: 'shipClass', sortable: true, width: '30px' },
   { title: '艦船', key: 'shipName', sortable: true },
   { title: '撃沈', key: 'kills', sortable: true, align: 'end' as const, width: '40px' },
   { title: '与ダメ', key: 'damage', sortable: true, align: 'end' as const, width: '65px' },
@@ -514,6 +532,14 @@ const formatDateTime = (dateTime: string) => {
 
 .scoreboard-table :deep(th) {
   font-size: 0.65rem !important;
+}
+
+.ship-class-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: invert(1);
+  opacity: 0.8;
 }
 
 .video-container {

@@ -22,7 +22,7 @@ from parsers.battle_stats_extractor import (
 from parsers.battlestats_parser import BattleStatsParser
 from utils import dynamodb
 from utils.match_key import generate_match_key, format_sortable_datetime
-from utils.captain_skills import map_player_to_skills
+from utils.captain_skills import map_player_to_skills, get_ship_class_from_params_id
 from utils.ship_modules import map_player_to_modules
 
 # S3クライアント
@@ -106,9 +106,16 @@ def build_all_players_stats(
 
         # チーム情報と艦船情報を追加
         stats_data["team"] = team_info["team"]
-        stats_data["shipId"] = team_info.get("shipId", 0)
+        ship_id = team_info.get("shipId", 0)
+        stats_data["shipId"] = ship_id
         stats_data["shipName"] = team_info.get("shipName", "")
         stats_data["isOwn"] = team_info.get("isOwn", False)
+
+        # 艦種を追加（shipParamsIdから取得）
+        if ship_id:
+            ship_class = get_ship_class_from_params_id(ship_id)
+            if ship_class:
+                stats_data["shipClass"] = ship_class
 
         # 艦長スキルを追加（味方のみ利用可能）
         if player_name in player_skills_map:

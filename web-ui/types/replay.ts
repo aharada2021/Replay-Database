@@ -62,12 +62,16 @@ export interface ShipComponents {
   radars?: string
 }
 
+// 艦種タイプ
+export type ShipClass = 'Destroyer' | 'Cruiser' | 'Battleship' | 'AirCarrier' | 'Submarine' | 'Auxiliary'
+
 // 全プレイヤーの統計（チーム情報付き）
 export interface PlayerStats extends BattleStats {
   playerName: string
   clanTag?: string
   shipId?: number
   shipName?: string
+  shipClass?: ShipClass
   team: 'ally' | 'enemy' | 'unknown'
   isOwn?: boolean
   // 艦長スキル（味方のみ利用可能）
