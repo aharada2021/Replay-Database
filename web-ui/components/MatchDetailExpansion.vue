@@ -41,7 +41,7 @@
                     艦艇モジュール
                   </div>
                   <div class="ship-components">
-                    <span v-for="(value, key) in item.shipComponents" :key="key" class="component-chip">
+                    <span v-for="(value, key) in item.shipComponents" :key="key" :class="['component-chip', item.team === 'enemy' ? 'component-chip-enemy' : '']">
                       {{ getComponentLabel(key) }} {{ value }}
                     </span>
                   </div>
@@ -53,7 +53,7 @@
                     艦長スキル ({{ item.captainSkills.length }})
                   </div>
                   <div class="captain-skills">
-                    <span v-for="(skill, idx) in item.captainSkills" :key="idx" class="skill-chip">
+                    <span v-for="(skill, idx) in item.captainSkills" :key="idx" :class="['skill-chip', item.team === 'enemy' ? 'skill-chip-enemy' : '']">
                       {{ skill }}
                     </span>
                   </div>
@@ -512,11 +512,17 @@ const formatDateTime = (dateTime: string) => {
 }
 
 .component-chip {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(33, 150, 243, 0.3);
+  color: #90caf9;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+.component-chip-enemy {
+  background: rgba(156, 39, 176, 0.3);
+  color: #ce93d8;
 }
 
 .captain-skills {
@@ -526,11 +532,16 @@ const formatDateTime = (dateTime: string) => {
 }
 
 .skill-chip {
-  background: rgba(255, 193, 7, 0.2);
-  color: #ffc107;
+  background: rgba(76, 175, 80, 0.3);
+  color: #a5d6a7;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.7rem;
   white-space: nowrap;
+}
+
+.skill-chip-enemy {
+  background: rgba(244, 67, 54, 0.3);
+  color: #ef9a9a;
 }
 </style>
