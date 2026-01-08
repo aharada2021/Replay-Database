@@ -31,7 +31,7 @@
             <v-chip :color="getWinLossColor(match.winLoss)" size="small" class="mr-2">
               {{ getWinLossText(match.winLoss) }}
             </v-chip>
-            <span class="text-body-1">{{ match.mapDisplayName }}</span>
+            <span class="text-body-1">{{ getMapName(match.mapId) }}</span>
             <span class="text-caption text-grey ml-2">{{ formatDateTime(match.dateTime) }}</span>
           </div>
           <v-spacer></v-spacer>
@@ -61,6 +61,7 @@ import type { MatchDetailResponse, MatchRecord } from '~/types/replay'
 
 const route = useRoute()
 const api = useApi()
+const { getMapName } = useMapNames()
 
 const loading = ref(true)
 const error = ref<string | null>(null)
