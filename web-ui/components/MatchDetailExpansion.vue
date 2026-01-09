@@ -120,8 +120,16 @@
                   <span>{{ formatNumber(item.damageAP) }}</span>
                 </div>
                 <div class="tooltip-row">
+                  <span>主砲 SAP:</span>
+                  <span>{{ formatNumber(item.damageSAP) }}</span>
+                </div>
+                <div class="tooltip-row">
                   <span>主砲 HE:</span>
                   <span>{{ formatNumber(item.damageHE) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>副砲 SAP:</span>
+                  <span>{{ formatNumber(item.damageSAPSecondaries) }}</span>
                 </div>
                 <div class="tooltip-row">
                   <span>副砲 HE:</span>
@@ -167,6 +175,10 @@
                   <span>{{ formatNumber(item.receivedDamageAP) }}</span>
                 </div>
                 <div class="tooltip-row">
+                  <span>主砲 SAP:</span>
+                  <span>{{ formatNumber(item.receivedDamageSAP) }}</span>
+                </div>
+                <div class="tooltip-row">
                   <span>主砲 HE:</span>
                   <span>{{ formatNumber(item.receivedDamageHE) }}</span>
                 </div>
@@ -177,6 +189,10 @@
                 <div class="tooltip-row">
                   <span>魚雷:</span>
                   <span>{{ formatNumber(item.receivedDamageTorps) }}</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>深度魚雷:</span>
+                  <span>{{ formatNumber(item.receivedDamageDeepWaterTorps) }}</span>
                 </div>
                 <div class="tooltip-row text-orange">
                   <span>火災:</span>
@@ -221,8 +237,16 @@
                   <span>{{ item.hitsAP || 0 }} 発</span>
                 </div>
                 <div class="tooltip-row">
+                  <span>主砲 SAP:</span>
+                  <span>{{ item.hitsSAP || 0 }} 発</span>
+                </div>
+                <div class="tooltip-row">
                   <span>主砲 HE:</span>
                   <span>{{ item.hitsHE || 0 }} 発</span>
+                </div>
+                <div class="tooltip-row">
+                  <span>副砲 SAP:</span>
+                  <span>{{ item.hitsSecondariesSAP || 0 }} 発</span>
                 </div>
                 <div class="tooltip-row">
                   <span>副砲 HE:</span>
@@ -475,7 +499,8 @@ const scoreboardHeaders = [
 
 // 命中数を計算するヘルパー
 const getTotalHits = (player: PlayerStats): number => {
-  return (player.hitsAP || 0) + (player.hitsHE || 0) + (player.hitsSecondaries || 0)
+  return (player.hitsAP || 0) + (player.hitsSAP || 0) + (player.hitsHE || 0) +
+         (player.hitsSecondariesSAP || 0) + (player.hitsSecondaries || 0)
 }
 
 // デフォルトソート: 味方→敵、艦種順、XP順、ダメージ順
