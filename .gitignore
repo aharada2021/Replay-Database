@@ -54,5 +54,8 @@ node_modules/
 # Reports (contains player names)
 reports/
 
+# Private files (not for public repo)
+private/
+
 # Bot process ID
 bot.pid
