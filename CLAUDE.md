@@ -48,8 +48,15 @@ git push origin develop  # dev環境へ自動デプロイ
 ```
 
 ### 環境分離（2026-01-09実施）
-- **main → prod**: 本番環境（wows-replay.mirage0926.com）
-- **develop → dev**: 開発環境（dev.wows-replay.mirage0926.com）
+| 項目 | 本番環境 (prod) | 開発環境 (dev) |
+|------|----------------|---------------|
+| ブランチ | main | develop |
+| Web UI | https://wows-replay.mirage0926.com | https://dev-wows-replay.mirage0926.com |
+| CloudFront | E312DFOIWOIX5S | ED8NWPEEI4970 |
+| S3 (Web UI) | wows-replay-web-ui-prod | wows-replay-web-ui-dev |
+| S3 (一時ファイル) | wows-replay-bot-prod-temp | wows-replay-bot-dev-temp |
+| DynamoDB | wows-replays-prod | wows-replays-dev |
+| Discord App | 本番用 | 開発用（別アプリ） |
 
 ### 手動デプロイ(基本禁止)
 ```bash
@@ -356,17 +363,25 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 
 ### 本番環境と開発環境の分離（2026-01-09完了）
 - **概要**: GitFlow（main→prod, develop→dev）によるデプロイフロー整備
-- **AWSリソース作成**:
-  - `wows-replays-prod`: DynamoDB（3 GSI: GameTypeSortableIndex, MapIdSortableIndex, PlayerNameIndex）
+- **AWSリソース作成（prod）**:
+  - `wows-replays-prod`: DynamoDB（CloudFormation管理、3 GSI）
   - `wows-ship-match-index-prod`: DynamoDB
   - `wows-sessions-prod`: DynamoDB
-  - `wows-replay-bot-prod-temp`: S3
+  - `wows-replay-bot-prod-temp`: S3（手動作成）
+- **AWSリソース作成（dev）**:
+  - `wows-replay-web-ui-dev`: S3
+  - CloudFront: ED8NWPEEI4970（S3 + API Gateway両方をorigin）
+  - ACM証明書: dev-wows-replay.mirage0926.com
+  - Route53: dev-wows-replay.mirage0926.com → CloudFront
 - **データ移行**: dev→prodへ242試合、2986艦艇インデックス、531 S3オブジェクト（1.3GB）を移行
 - **GitHub Actions変更**:
   - `deploy-lambda.yml`: main push→prod, develop push→dev
   - `deploy-web-ui.yml`: 同様のブランチ対応
+  - S3トリガー: serverless.ymlで管理（`existing: true`）
 - **スクリプト追加**: `scripts/migrate_dynamodb.py`（DynamoDB移行）
-- **未完了**: dev用Web UIインフラ（S3/CloudFront/Route53）はPhase 4で実施
+- **GitHub Environments**: production / development 各14シークレット設定
+- **開発用Discord App**: 別アプリケーションを使用（完全分離）
+- **注意**: IAMユーザー`githubactions`に`cloudfront:CreateInvalidation`権限追加が必要
 
 ### ハードコードURL/FQDN環境変数化（2026-01-09完了）
 - **概要**: ハードコードされていたURL/FQDNをすべてGitHub Secrets経由で環境変数として注入
