@@ -16,6 +16,10 @@ on:
 permissions:
   contents: write
 
+env:
+  S3_BUCKET_DEV: wows-replay-bot-dev-temp
+  S3_BUCKET_PROD: wows-replay-bot-prod-temp
+
 jobs:
   build:
     runs-on: windows-latest
@@ -125,8 +129,8 @@ jobs:
       - name: Upload to S3
         run: |
           # Dev bucket
-          aws s3 cp client_tool/wows_replay_uploader.zip s3://wows-replay-bot-dev-temp/downloads/wows_replay_uploader.zip
-          aws s3 cp client_tool/wows_replay_uploader.zip s3://wows-replay-bot-dev-temp/downloads/wows_replay_uploader-${{ steps.version.outputs.VERSION }}.zip
+          aws s3 cp client_tool/wows_replay_uploader.zip s3://${{ env.S3_BUCKET_DEV }}/downloads/wows_replay_uploader.zip
+          aws s3 cp client_tool/wows_replay_uploader.zip s3://${{ env.S3_BUCKET_DEV }}/downloads/wows_replay_uploader-${{ steps.version.outputs.VERSION }}.zip
           # Prod bucket
-          aws s3 cp client_tool/wows_replay_uploader.zip s3://wows-replay-bot-prod-temp/downloads/wows_replay_uploader.zip
-          aws s3 cp client_tool/wows_replay_uploader.zip s3://wows-replay-bot-prod-temp/downloads/wows_replay_uploader-${{ steps.version.outputs.VERSION }}.zip
+          aws s3 cp client_tool/wows_replay_uploader.zip s3://${{ env.S3_BUCKET_PROD }}/downloads/wows_replay_uploader.zip
+          aws s3 cp client_tool/wows_replay_uploader.zip s3://${{ env.S3_BUCKET_PROD }}/downloads/wows_replay_uploader-${{ steps.version.outputs.VERSION }}.zip
