@@ -58,7 +58,6 @@ cd web-ui && npm run generate && aws s3 sync .output/public s3://wows-replay-web
 ### CI/CD最適化（2026-01-08実施済み）
 - npmキャッシュ: Serverless Frameworkインストール高速化
 - Dockerレイヤー最適化: 変更頻度の低いレイヤーを先に配置
-- 詳細: `docs/CD_OPTIMIZATION_PLAN.md`
 
 ## 開発コマンド
 
@@ -306,8 +305,21 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
   - Alaska構成に対する勝率
 - **注意**: 勝敗判定は`baseXP > 250`で行っている
 
+### リポジトリ公開準備（2026-01-09完了）
+- **AGPL-3.0ライセンス対応**: minimap_rendererがAGPL-3.0のため、リポジトリを公開する必要あり
+- **セキュリティ監査**:
+  - ハードコードされたシークレットなし（すべて環境変数経由）
+  - Discord Guild/Role IDのデフォルト値を削除
+  - GitHub Secretsに `ALLOWED_GUILD_ID`, `ALLOWED_ROLE_IDS` を設定
+- **Gitヒストリークリーンアップ**:
+  - `reports/` をgitignoreに追加、git履歴から完全削除（git-filter-repo使用）
+  - `private/` ディレクトリを作成し、内部ドキュメント・調査スクリプトを移動
+- **private/ディレクトリ**（gitignore済み、ローカル保持）:
+  - `private/scripts/`: 調査・デバッグ用スクリプト9ファイル
+  - `private/docs/`: 完了済み計画・内部技術ドキュメント9ファイル
+
 ## 今後の予定
-- リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
+- リプレイ処理統合テスト実装
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
 - 複数テナント化（マルチテナント）設計
