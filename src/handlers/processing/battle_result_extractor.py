@@ -501,8 +501,6 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
         player_id: プレイヤーID
     """
     try:
-        table = dynamodb.get_table()
-
         # 現在のレコードを取得
         current_record = dynamodb.get_replay_record(arena_unique_id, player_id)
         if not current_record:
@@ -523,7 +521,6 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
 
         # 現在の試合のmatch_keyを生成
         current_match_key = generate_match_key(current_record)
-        game_type = current_record.get("gameType")
 
         print(f"Checking for existing video in match: {current_match_key}")
 
@@ -563,7 +560,7 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
                     int(opposing_replay["playerID"]),
                     True,
                 )
-                print(f"Updated hasDualReplay flag for both replays")
+                print("Updated hasDualReplay flag for both replays")
             except Exception as dual_err:
                 print(f"Warning: Failed to update hasDualReplay: {dual_err}")
 
