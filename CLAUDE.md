@@ -107,7 +107,7 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
   - `GameTypeSortableIndex`: gameType + dateTimeSortable（使用中）
   - `MapIdSortableIndex`: mapId + dateTimeSortable（使用中）
   - `PlayerNameIndex`: playerName + dateTime（将来のプレイヤー検索用に維持）
-  - `GameTypeIndex`: 旧GSI（検証後に削除予定）
+  - ~~`GameTypeIndex`~~: 削除済み（2026-01-09）
   - ~~`MapIdIndex`~~: 削除済み（2026-01-09）
 
 ### 検索機能
@@ -283,15 +283,16 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 - **設定値**: `SESSION_TTL = 30 * 24 * 60 * 60`（2,592,000秒）
 - Cookieの有効期限も同様に1ヶ月
 
-### GSI最適化 - Phase 1（2026-01-09完了）
+### GSI最適化（2026-01-09完了）
 - **目的**: 不要なGSIを削除してDynamoDB書き込みコストを削減
 - **実施内容**:
-  - `MapIdIndex`を削除（未使用、`MapIdSortableIndex`で代替可能）
-  - `GameTypeIndex`の参照を`GameTypeSortableIndex`に変更
+  - Phase 1: `MapIdIndex`を削除（未使用、`MapIdSortableIndex`で代替可能）
+  - Phase 1: `GameTypeIndex`の参照を`GameTypeSortableIndex`に変更
     - `src/handlers/processing/battle_result_extractor.py`
     - `src/handlers/api/match_detail.py`
-- **効果**: 書き込みコスト約17%削減（GSI 5→4）
-- **次のステップ**: 安定稼働確認後、`GameTypeIndex`もserverless.ymlから削除予定
+  - Phase 2: `GameTypeIndex`を削除（安定稼働確認後に実施）
+- **効果**: 書き込みコスト約40%削減（GSI 5→3）
+- **最終GSI構成**: GameTypeSortableIndex, MapIdSortableIndex, PlayerNameIndex
 
 ### クラン戦分析レポート機能（2026-01-09完了）
 - **概要**: DynamoDBのクラン戦データをClaudeが分析してレポート生成
@@ -306,7 +307,6 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 - **注意**: 勝敗判定は`baseXP > 250`で行っている
 
 ## 今後の予定
-- GSI最適化 Phase 2: `GameTypeIndex`の削除（安定稼働確認後）
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
