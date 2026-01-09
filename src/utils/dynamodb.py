@@ -14,14 +14,19 @@ from collections import Counter
 # DynamoDBクライアント（遅延初期化）
 _dynamodb = None
 REPLAYS_TABLE_NAME = os.environ.get("REPLAYS_TABLE", "wows-replays-dev")
-SHIP_MATCH_INDEX_TABLE_NAME = os.environ.get("SHIP_MATCH_INDEX_TABLE", "wows-ship-match-index-dev")
+SHIP_MATCH_INDEX_TABLE_NAME = os.environ.get(
+    "SHIP_MATCH_INDEX_TABLE", "wows-ship-match-index-dev"
+)
 
 
 def get_dynamodb_resource():
     """DynamoDBリソースを取得（遅延初期化）"""
     global _dynamodb
     if _dynamodb is None:
-        _dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "ap-northeast-1"))
+        _dynamodb = boto3.resource(
+            "dynamodb",
+            region_name=os.environ.get("AWS_REGION", "ap-northeast-1"),
+        )
     return _dynamodb
 
 
@@ -92,7 +97,9 @@ def put_replay_record(
     uploaded_at = datetime.utcnow().isoformat()
 
     # プレイヤー情報の取得
-    own_player = players_info.get("own", [{}])[0] if players_info.get("own") else {}
+    own_player = (
+        players_info.get("own", [{}])[0] if players_info.get("own") else {}
+    )
     allies = players_info.get("allies", [])
     enemies = players_info.get("enemies", [])
 
@@ -171,7 +178,9 @@ def update_battle_result(
     )
 
 
-def update_video_info(arena_unique_id: int, player_id: int, mp4_s3_key: str) -> None:
+def update_video_info(
+    arena_unique_id: int, player_id: int, mp4_s3_key: str
+) -> None:
     """
     動画情報を更新
 
@@ -197,7 +206,9 @@ def update_video_info(arena_unique_id: int, player_id: int, mp4_s3_key: str) -> 
     )
 
 
-def get_replay_record(arena_unique_id: int, player_id: int) -> Optional[Dict[str, Any]]:
+def get_replay_record(
+    arena_unique_id: int, player_id: int
+) -> Optional[Dict[str, Any]]:
     """
     リプレイレコードを取得
 
@@ -213,12 +224,16 @@ def get_replay_record(arena_unique_id: int, player_id: int) -> Optional[Dict[str
     """
     table = get_table()
 
-    response = table.get_item(Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id})
+    response = table.get_item(
+        Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}
+    )
 
     return response.get("Item")
 
 
-def check_duplicate_by_arena_id(arena_unique_id: int) -> Optional[Dict[str, Any]]:
+def check_duplicate_by_arena_id(
+    arena_unique_id: int,
+) -> Optional[Dict[str, Any]]:
     """
     同じarenaUniqueIDのレコードが既に存在するか確認
 
@@ -358,7 +373,10 @@ def search_replays(
     if win_loss:
         items = [item for item in items if item.get("winLoss") == win_loss]
 
-    return {"items": items, "last_evaluated_key": response.get("LastEvaluatedKey")}
+    return {
+        "items": items,
+        "last_evaluated_key": response.get("LastEvaluatedKey"),
+    }
 
 
 def get_ship_match_index_table():
@@ -430,7 +448,9 @@ def put_ship_match_index_entries(
             }
             batch.put_item(Item=item)
 
-    print(f"Ship index entries created for arena {arena_unique_id}: {len(ship_counts)} ships")
+    print(
+        f"Ship index entries created for arena {arena_unique_id}: {len(ship_counts)} ships"
+    )
 
 
 def search_replays_by_player_name(
@@ -669,4 +689,6 @@ def batch_update_dual_video_info(
         dual_mp4_s3_key: 生成したDual MP4のS3キー
     """
     for player_id in player_ids:
-        update_dual_video_info(str(arena_unique_id), player_id, dual_mp4_s3_key)
+        update_dual_video_info(
+            str(arena_unique_id), player_id, dual_mp4_s3_key
+        )

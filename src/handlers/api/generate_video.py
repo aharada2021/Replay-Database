@@ -14,7 +14,11 @@ from pathlib import Path
 from core.replay_processor import ReplayProcessor
 from utils import dynamodb
 from utils.discord_notify import send_replay_notification
-from utils.dual_render import are_opposing_teams, get_dual_render_tags, generate_dual_s3_key
+from utils.dual_render import (
+    are_opposing_teams,
+    get_dual_render_tags,
+    generate_dual_s3_key,
+)
 
 # 環境変数
 REPLAYS_BUCKET = os.environ.get("REPLAYS_BUCKET", "wows-replay-bot-dev-temp")
@@ -45,7 +49,9 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get(
+            "requestContext", {}
+        ).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -64,11 +70,15 @@ def handle(event, context):
             return {
                 "statusCode": 400,
                 "headers": cors_headers,
-                "body": json.dumps({"error": "arenaUniqueID and playerID are required"}),
+                "body": json.dumps(
+                    {"error": "arenaUniqueID and playerID are required"}
+                ),
             }
 
         # DynamoDBからレコードを取得
-        record = dynamodb.get_replay_record(str(arena_unique_id), int(player_id))
+        record = dynamodb.get_replay_record(
+            str(arena_unique_id), int(player_id)
+        )
 
         if not record:
             return {
@@ -81,7 +91,10 @@ def handle(event, context):
         if record.get("dualMp4S3Key"):
             presigned_url = s3_client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": REPLAYS_BUCKET, "Key": record["dualMp4S3Key"]},
+                Params={
+                    "Bucket": REPLAYS_BUCKET,
+                    "Key": record["dualMp4S3Key"],
+                },
                 ExpiresIn=86400,  # 24時間
             )
             return {
@@ -131,10 +144,14 @@ def handle(event, context):
                 break
 
         # Dual動画生成可能かどうか
-        can_generate_dual = opposing_replay is not None and opposing_replay.get("s3Key")
+        can_generate_dual = (
+            opposing_replay is not None and opposing_replay.get("s3Key")
+        )
 
         if can_generate_dual:
-            print(f"Opposing replay found: playerID={opposing_replay.get('playerID')}")
+            print(
+                f"Opposing replay found: playerID={opposing_replay.get('playerID')}"
+            )
             return generate_dual_video(
                 arena_unique_id, record, opposing_replay, cors_headers
             )
@@ -174,7 +191,9 @@ def generate_single_video(arena_unique_id, player_id, record, cors_headers):
     s3_key = record["s3Key"]
     print(f"Downloading replay from s3://{REPLAYS_BUCKET}/{s3_key}")
 
-    with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_replay:
+    with tempfile.NamedTemporaryFile(
+        suffix=".wowsreplay", delete=False
+    ) as tmp_replay:
         replay_path = Path(tmp_replay.name)
         s3_client.download_fileobj(REPLAYS_BUCKET, s3_key, tmp_replay)
 
@@ -187,13 +206,17 @@ def generate_single_video(arena_unique_id, player_id, record, cors_headers):
             # MP4を生成
             print(f"Generating MP4 for {replay_path.name}")
             mp4_path = output_dir / f"{replay_path.stem}.mp4"
-            success = ReplayProcessor.generate_minimap_video(replay_path, mp4_path)
+            success = ReplayProcessor.generate_minimap_video(
+                replay_path, mp4_path
+            )
 
             if not success or not mp4_path.exists():
                 raise Exception("MP4 generation failed")
 
             # S3にアップロード
-            mp4_s3_key = f"videos/{arena_unique_id}/{player_id}/{replay_path.stem}.mp4"
+            mp4_s3_key = (
+                f"videos/{arena_unique_id}/{player_id}/{replay_path.stem}.mp4"
+            )
             print(f"Uploading MP4 to s3://{REPLAYS_BUCKET}/{mp4_s3_key}")
 
             with open(mp4_path, "rb") as f:
@@ -221,7 +244,9 @@ def generate_single_video(arena_unique_id, player_id, record, cors_headers):
             # Discord通知を送信（Auto-uploader経由のアップロード時、クラン戦のみ）
             if NOTIFICATION_CHANNEL_ID and DISCORD_BOT_TOKEN:
                 # 最新のレコードを取得（統計情報が含まれている）
-                updated_record = dynamodb.get_replay_record(str(arena_unique_id), int(player_id))
+                updated_record = dynamodb.get_replay_record(
+                    str(arena_unique_id), int(player_id)
+                )
                 if updated_record and updated_record.get("gameType") == "clan":
                     send_replay_notification(
                         channel_id=NOTIFICATION_CHANNEL_ID,
@@ -249,7 +274,9 @@ def generate_single_video(arena_unique_id, player_id, record, cors_headers):
             replay_path.unlink()
 
 
-def generate_dual_video(arena_unique_id, green_record, red_record, cors_headers):
+def generate_dual_video(
+    arena_unique_id, green_record, red_record, cors_headers
+):
     """
     2つのリプレイからDual動画を生成
 
@@ -270,11 +297,15 @@ def generate_dual_video(arena_unique_id, green_record, red_record, cors_headers)
     print(f"Generating Dual video: green={green_s3_key}, red={red_s3_key}")
 
     # 両方のリプレイをダウンロード
-    with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_green:
+    with tempfile.NamedTemporaryFile(
+        suffix=".wowsreplay", delete=False
+    ) as tmp_green:
         green_path = Path(tmp_green.name)
         s3_client.download_fileobj(REPLAYS_BUCKET, green_s3_key, tmp_green)
 
-    with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_red:
+    with tempfile.NamedTemporaryFile(
+        suffix=".wowsreplay", delete=False
+    ) as tmp_red:
         red_path = Path(tmp_red.name)
         s3_client.download_fileobj(REPLAYS_BUCKET, red_s3_key, tmp_red)
 
@@ -290,8 +321,11 @@ def generate_dual_video(arena_unique_id, green_record, red_record, cors_headers)
             # Dual MP4を生成
             dual_mp4_path = output_dir / f"dual_{arena_unique_id}.mp4"
             success = ReplayProcessor.generate_dual_minimap_video(
-                green_path, red_path, dual_mp4_path,
-                green_tag=green_tag, red_tag=red_tag
+                green_path,
+                red_path,
+                dual_mp4_path,
+                green_tag=green_tag,
+                red_tag=red_tag,
             )
 
             if not success or not dual_mp4_path.exists():
@@ -325,7 +359,9 @@ def generate_dual_video(arena_unique_id, green_record, red_record, cors_headers)
 
             # Discord通知を送信（クラン戦のみ）
             if NOTIFICATION_CHANNEL_ID and DISCORD_BOT_TOKEN:
-                updated_record = dynamodb.get_replay_record(str(arena_unique_id), int(green_player_id))
+                updated_record = dynamodb.get_replay_record(
+                    str(arena_unique_id), int(green_player_id)
+                )
                 if updated_record and updated_record.get("gameType") == "clan":
                     send_replay_notification(
                         channel_id=NOTIFICATION_CHANNEL_ID,

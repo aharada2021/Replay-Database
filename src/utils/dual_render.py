@@ -8,7 +8,9 @@ RenderDualを使用した両陣営視点動画の生成をサポートするユ�
 from typing import Dict, Any, List, Optional, Tuple
 
 
-def are_opposing_teams(replay_a: Dict[str, Any], replay_b: Dict[str, Any]) -> bool:
+def are_opposing_teams(
+    replay_a: Dict[str, Any], replay_b: Dict[str, Any]
+) -> bool:
     """
     2つのリプレイが敵味方関係かを判定
 
@@ -32,7 +34,9 @@ def are_opposing_teams(replay_a: Dict[str, Any], replay_b: Dict[str, Any]) -> bo
     return player_a_name in enemy_names_b
 
 
-def find_opposing_replay_pair(replays: List[Dict[str, Any]]) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+def find_opposing_replay_pair(
+    replays: List[Dict[str, Any]],
+) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
     """
     リプレイリストから敵味方ペアを検出
 
@@ -47,7 +51,7 @@ def find_opposing_replay_pair(replays: List[Dict[str, Any]]) -> Optional[Tuple[D
         return None
 
     for i, replay_a in enumerate(replays):
-        for replay_b in replays[i + 1:]:
+        for replay_b in replays[i + 1 :]:
             if are_opposing_teams(replay_a, replay_b):
                 # replay_aをgreen（味方視点）、replay_bをred（敵視点）として返す
                 return (replay_a, replay_b)
@@ -55,7 +59,9 @@ def find_opposing_replay_pair(replays: List[Dict[str, Any]]) -> Optional[Tuple[D
     return None
 
 
-def get_team_clan_tag(replay_data: Dict[str, Any], team: str = "ally") -> Optional[str]:
+def get_team_clan_tag(
+    replay_data: Dict[str, Any], team: str = "ally"
+) -> Optional[str]:
     """
     リプレイデータからチームのクランタグを取得
 
@@ -89,8 +95,7 @@ def get_team_clan_tag(replay_data: Dict[str, Any], team: str = "ally") -> Option
 
 
 def get_dual_render_tags(
-    green_replay: Dict[str, Any],
-    red_replay: Dict[str, Any]
+    green_replay: Dict[str, Any], red_replay: Dict[str, Any]
 ) -> Tuple[Optional[str], Optional[str]]:
     """
     Dual Render用のgreen_tag/red_tagを取得
