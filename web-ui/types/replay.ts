@@ -24,11 +24,17 @@ export interface BattleStats {
   crits?: number
   // 命中数内訳
   hitsAP?: number
+  hitsSAP?: number
   hitsHE?: number
+  hitsSecondariesSAP?: number
+  hitsSecondariesAP?: number
   hitsSecondaries?: number
   // ダメージ内訳
   damageAP?: number
+  damageSAP?: number
   damageHE?: number
+  damageSAPSecondaries?: number
+  damageUnknown161?: number
   damageHESecondaries?: number
   damageTorps?: number
   damageDeepWaterTorps?: number
@@ -37,8 +43,11 @@ export interface BattleStats {
   damageFlooding?: number
   // 被ダメージ内訳
   receivedDamageAP?: number
+  receivedDamageSAP?: number
   receivedDamageHE?: number
   receivedDamageTorps?: number
+  receivedDamageDeepWaterTorps?: number
+  receivedDamageUnknown218?: number
   receivedDamageHESecondaries?: number
   receivedDamageFire?: number
   receivedDamageFlood?: number

@@ -52,6 +52,9 @@ def handle(event, context):
     """
     ダウンロードURL取得API
 
+    GET /api/download?key=<s3Key>
+    → リプレイファイルの署名付きURLにリダイレクト
+
     GET /api/download?file=uploader
     → クライアントツールのダウンロード用署名付きURLを返す
     """
@@ -66,6 +69,54 @@ def handle(event, context):
 
         # クエリパラメータ取得
         query_params = event.get("queryStringParameters", {}) or {}
+
+        # リプレイファイルのダウンロード（keyパラメータ指定時）
+        s3_key = query_params.get("key")
+        if s3_key:
+            # セキュリティチェック: replaysディレクトリのみ許可
+            if not s3_key.startswith("replays/"):
+                return {
+                    "statusCode": 400,
+                    "headers": {**cors_headers, "Content-Type": "application/json"},
+                    "body": json.dumps({"error": "Invalid key"}),
+                }
+
+            # ファイルの存在確認
+            try:
+                s3_client.head_object(Bucket=TEMP_BUCKET, Key=s3_key)
+            except Exception as e:
+                error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
+                if error_code == "404":
+                    return {
+                        "statusCode": 404,
+                        "headers": {**cors_headers, "Content-Type": "application/json"},
+                        "body": json.dumps({"error": "File not found"}),
+                    }
+                raise
+
+            # 署名付きURLを生成
+            filename = os.path.basename(s3_key)
+            presigned_url = s3_client.generate_presigned_url(
+                "get_object",
+                Params={
+                    "Bucket": TEMP_BUCKET,
+                    "Key": s3_key,
+                    "ResponseContentDisposition": f'attachment; filename="{filename}"',
+                },
+                ExpiresIn=URL_EXPIRATION,
+            )
+
+            # リダイレクト（ブラウザが直接ダウンロードを開始）
+            return {
+                "statusCode": 302,
+                "headers": {
+                    **cors_headers,
+                    "Location": presigned_url,
+                },
+                "body": "",
+            }
+
+        # クライアントツールのダウンロード（file=uploader）
         file_type = query_params.get("file", "uploader")
 
         # ファイルタイプに応じたS3キーを決定
