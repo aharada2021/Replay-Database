@@ -66,14 +66,13 @@ npm run preview
 | CloudFront | `E312DFOIWOIX5S` |
 | ACM証明書 | us-east-1 (CloudFront用) |
 | Route53 | `mirage0926.com` Zone |
-| Basic認証 | CloudFront Functions (`wows-replay-basic-auth`) |
 
 ### URL構成
 
 ```
 https://wows-replay.mirage0926.com/
-├── /              → S3 (フロントエンド) [Basic認証あり]
-└── /api/*         → API Gateway (Lambda) [認証なし]
+├── /              → S3 (フロントエンド)
+└── /api/*         → API Gateway (Lambda)
 ```
 
 ### GitHub Actions 自動デプロイ
@@ -110,14 +109,10 @@ aws cloudfront create-invalidation --distribution-id E312DFOIWOIX5S --paths "/*"
 - **API Gatewayオリジン**: HTTPS-only、キャッシュ無効
 
 **キャッシュビヘイビア:**
-| パス | オリジン | キャッシュ | 認証 |
-|------|---------|-----------|------|
-| `/*` (デフォルト) | S3 | Managed-CachingOptimized | Basic認証 |
-| `/api/*` | API Gateway | CachingDisabled | なし |
-
-**Basic認証:**
-CloudFront Functions (`wows-replay-basic-auth`) で実装。
-認証情報はCloudFront Function内にハードコードされています。
+| パス | オリジン | キャッシュ |
+|------|---------|-----------|
+| `/*` (デフォルト) | S3 | Managed-CachingOptimized |
+| `/api/*` | API Gateway | CachingDisabled |
 
 ### 環境変数
 
