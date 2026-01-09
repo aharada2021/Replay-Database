@@ -374,14 +374,6 @@ resources:
           - AttributeName: playerID
             KeyType: RANGE
         GlobalSecondaryIndexes:
-          - IndexName: GameTypeIndex
-            KeySchema:
-              - AttributeName: gameType
-                KeyType: HASH
-              - AttributeName: dateTime
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
           - IndexName: PlayerNameIndex
             KeySchema:
               - AttributeName: playerName
