@@ -215,6 +215,8 @@ jobs:
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           FRONTEND_URL: https://wows-replay.mirage0926.com
+          ALLOWED_GUILD_ID: ${{ secrets.ALLOWED_GUILD_ID }}
+          ALLOWED_ROLE_IDS: ${{ secrets.ALLOWED_ROLE_IDS }}
         run: |
           cd deploy
           serverless deploy --stage dev --region ap-northeast-1
@@ -285,6 +287,8 @@ jobs:
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           FRONTEND_URL: https://wows-replay.mirage0926.com
+          ALLOWED_GUILD_ID: ${{ secrets.ALLOWED_GUILD_ID }}
+          ALLOWED_ROLE_IDS: ${{ secrets.ALLOWED_ROLE_IDS }}
         run: |
           cd deploy
           serverless deploy --stage prod --region ap-northeast-1

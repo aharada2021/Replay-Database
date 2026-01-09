@@ -18,8 +18,8 @@ DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wows-replay.mirage0926.com")
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "wows-sessions-dev")
-ALLOWED_GUILD_ID = os.environ.get("ALLOWED_GUILD_ID", "487923834868072449")
-ALLOWED_ROLE_IDS = os.environ.get("ALLOWED_ROLE_IDS", "487924554111516672,1458737823585927179")
+ALLOWED_GUILD_ID = os.environ.get("ALLOWED_GUILD_ID", "")
+ALLOWED_ROLE_IDS = os.environ.get("ALLOWED_ROLE_IDS", "")
 UPLOAD_API_KEY = os.environ.get("UPLOAD_API_KEY", "")
 
 # DynamoDB

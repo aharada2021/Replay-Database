@@ -51,5 +51,8 @@ data/
 .serverless/
 node_modules/
 
+# Reports (contains player names)
+reports/
+
 # Bot process ID
 bot.pid
