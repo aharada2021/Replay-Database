@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
   workflow_dispatch:
     inputs:
       environment:
@@ -61,6 +62,8 @@ jobs:
             else
               STAGE="dev"
             fi
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            STAGE="prod"
           else
             STAGE="dev"
           fi
@@ -171,7 +174,7 @@ jobs:
     name: Deploy to Development
     runs-on: ubuntu-latest
     needs: [build-processor, build-extractor]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment: development
 
     steps:
@@ -243,7 +246,7 @@ jobs:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [build-processor, build-extractor]
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
     environment: production
 
     steps:

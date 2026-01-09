@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
     paths:
       - 'web-ui/**'
       - '.github/workflows/deploy-web-ui.yml'
@@ -17,12 +18,64 @@ on:
           - development
           - production
 
-env:
-  CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
-  S3_BUCKET_PROD: ${{ secrets.S3_BUCKET_PROD }}
-  CUSTOM_DOMAIN: ${{ secrets.CUSTOM_DOMAIN }}
-
 jobs:
+  deploy-dev:
+    name: Deploy to Development (S3 + CloudFront)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: development
+
+    defaults:
+      run:
+        working-directory: web-ui
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: web-ui/package-lock.json
+
+      - name: Install dependencies
+        run: rm -f package-lock.json && npm install
+
+      - name: Build Nuxt 3 application
+        env:
+          API_BASE_URL: https://${{ secrets.CUSTOM_DOMAIN }}
+          S3_BUCKET_URL: ${{ secrets.S3_BUCKET_URL }}
+        run: npm run generate
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync .output/public/ "s3://${{ secrets.S3_BUCKET_WEB_UI }}" --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "## Web UI Deployment Summary (Development)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stage**: dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bucket**: ${{ secrets.S3_BUCKET_WEB_UI }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront Distribution**: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
   deploy-prod:
     name: Deploy to Production (S3 + CloudFront)
     runs-on: ubuntu-latest
@@ -62,20 +115,20 @@ jobs:
 
       - name: Sync to S3
         run: |
-          aws s3 sync .output/public/ "s3://${{ env.S3_BUCKET_PROD }}" --delete
+          aws s3 sync .output/public/ "s3://${{ secrets.S3_BUCKET_WEB_UI }}" --delete
 
       - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
 
       - name: Deployment summary
         run: |
           echo "## Web UI Deployment Summary (Production)" >> $GITHUB_STEP_SUMMARY
           echo "- **Stage**: prod" >> $GITHUB_STEP_SUMMARY
-          echo "- **Bucket**: ${{ env.S3_BUCKET_PROD }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **CloudFront Distribution**: ${{ env.CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL**: https://${{ env.CUSTOM_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bucket**: ${{ secrets.S3_BUCKET_WEB_UI }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront Distribution**: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
           echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

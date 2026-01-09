@@ -43,13 +43,18 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 
 ### GitHub Actions経由（推奨）
 ```bash
-git push origin main  # dev環境へ自動デプロイ（約2分）
+git push origin main     # prod環境へ自動デプロイ
+git push origin develop  # dev環境へ自動デプロイ
 ```
+
+### 環境分離（2026-01-09実施）
+- **main → prod**: 本番環境（wows-replay.mirage0926.com）
+- **develop → dev**: 開発環境（dev.wows-replay.mirage0926.com）
 
 ### 手動デプロイ(基本禁止)
 ```bash
 # Lambda
-cd deploy && npx serverless deploy --stage dev --region ap-northeast-1
+cd deploy && npx serverless deploy --stage prod --region ap-northeast-1
 
 # Web UI
 cd web-ui && npm run generate && aws s3 sync .output/public s3://wows-replay-web-ui-prod
@@ -77,13 +82,13 @@ cd web-ui && npm run generate && aws s3 sync .output/public s3://wows-replay-web
 | `ALLOWED_GUILD_ID` | アクセス許可するギルドID | `487923834868072449` |
 | `ALLOWED_ROLE_IDS` | アクセス許可するロールID（カンマ区切り） | `role1,role2` |
 
-### Web UI (`deploy-web-ui.yml`)
-| Secret名 | 説明 | 例 |
-|----------|------|-----|
-| `CLOUDFRONT_DISTRIBUTION_ID` | CloudFrontディストリビューションID | `E312DFOIWOIX5S` |
-| `S3_BUCKET_PROD` | 本番用S3バケット名 | `wows-replay-web-ui-prod` |
-| `CUSTOM_DOMAIN` | カスタムドメイン名 | `wows-replay.example.com` |
-| `S3_BUCKET_URL` | 動画配信用S3バケットURL | `https://bucket.s3.region.amazonaws.com` |
+### Web UI (`deploy-web-ui.yml`) - 環境別Secrets
+| Secret名 | 説明 | production例 | development例 |
+|----------|------|-------------|---------------|
+| `CLOUDFRONT_DISTRIBUTION_ID` | CloudFront ID | `E312DFOIWOIX5S` | (dev用ID) |
+| `S3_BUCKET_WEB_UI` | Web UI用S3バケット | `wows-replay-web-ui-prod` | `wows-replay-web-ui-dev` |
+| `CUSTOM_DOMAIN` | カスタムドメイン | `wows-replay.example.com` | `dev.wows-replay.example.com` |
+| `S3_BUCKET_URL` | 動画配信S3 URL | `https://...-prod-temp.s3...` | `https://...-dev-temp.s3...` |
 
 ### 環境変数化の方針（2026-01-09実施）
 - ハードコードされていたFQDN/URLをすべてGitHub Secretsから環境変数として注入
@@ -348,6 +353,20 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 - **private/ディレクトリ**（gitignore済み、ローカル保持）:
   - `private/scripts/`: 調査・デバッグ用スクリプト9ファイル
   - `private/docs/`: 完了済み計画・内部技術ドキュメント9ファイル
+
+### 本番環境と開発環境の分離（2026-01-09完了）
+- **概要**: GitFlow（main→prod, develop→dev）によるデプロイフロー整備
+- **AWSリソース作成**:
+  - `wows-replays-prod`: DynamoDB（3 GSI: GameTypeSortableIndex, MapIdSortableIndex, PlayerNameIndex）
+  - `wows-ship-match-index-prod`: DynamoDB
+  - `wows-sessions-prod`: DynamoDB
+  - `wows-replay-bot-prod-temp`: S3
+- **データ移行**: dev→prodへ242試合、2986艦艇インデックス、531 S3オブジェクト（1.3GB）を移行
+- **GitHub Actions変更**:
+  - `deploy-lambda.yml`: main push→prod, develop push→dev
+  - `deploy-web-ui.yml`: 同様のブランチ対応
+- **スクリプト追加**: `scripts/migrate_dynamodb.py`（DynamoDB移行）
+- **未完了**: dev用Web UIインフラ（S3/CloudFront/Route53）はPhase 4で実施
 
 ### ハードコードURL/FQDN環境変数化（2026-01-09完了）
 - **概要**: ハードコードされていたURL/FQDNをすべてGitHub Secrets経由で環境変数として注入

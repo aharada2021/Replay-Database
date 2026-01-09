@@ -41,7 +41,9 @@ from utils.dynamodb import get_table, calculate_main_clan_tag
 
 
 # 設定
-S3_BUCKET = "wows-replay-bot-dev-temp"
+import os
+
+S3_BUCKET = os.environ.get("S3_BUCKET", "wows-replay-bot-dev-temp")
 AWS_REGION = "ap-northeast-1"
 
 
