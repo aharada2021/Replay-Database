@@ -273,6 +273,13 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
     - `winner_team_id == -1` or `None` → draw
 - **フォールバック**: hiddenデータから取得できない場合は従来のXP判定を使用
 - **対応ゲームタイプ**: ランダム戦、ランク戦、クラン戦、Co-op戦 等すべて
+- **バックフィル実行**: 55件の勝敗情報を更新（勝利:48、敗北:7）- `scripts/backfill_winloss.py`
+
+### セッション有効期限の延長（2026-01-09完了）
+- **変更**: セッションTTLを24時間から1ヶ月（30日）に延長
+- **対象ファイル**: `src/handlers/api/auth.py`
+- **設定値**: `SESSION_TTL = 30 * 24 * 60 * 60`（2,592,000秒）
+- Cookieの有効期限も同様に1ヶ月
 
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）

@@ -60,6 +60,7 @@ project/
 - ✅ minimap_rendererでMP4動画を自動生成
 - ✅ 対戦相手のクラン名、対戦時間を表示
 - ✅ プレイヤー情報（自分、味方、敵）を表示
+- ✅ **勝敗判定**（全ゲームタイプ対応）
 - ✅ AWS Lambda + Docker コンテナで実行（非同期処理対応）
 - ✅ **複数Discordサーバー対応**（Lambda版）
 
@@ -133,12 +134,16 @@ cd scripts
 | `wows-ship-match-index-{stage}` | 艦艇検索用インデックス（艦艇名→試合ID） |
 | `wows-sessions-{stage}` | ユーザーセッション管理 |
 
-**艦艇インデックスの再構築:**
+**バックフィルスクリプト:**
 
-既存のリプレイデータから艦艇インデックスを再構築する場合:
+既存データの更新・再構築用スクリプト:
 
 ```bash
-python3 scripts/backfill_ship_index.py
+python3 scripts/backfill_ship_index.py       # 艦艇インデックス再構築
+python3 scripts/backfill_winloss.py          # 勝敗情報追加（全ゲームタイプ対応）
+python3 scripts/backfill_upgrades.py         # アップグレード情報追加
+python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
+# DRY_RUN=true で実行すると、書き込みなしで対象レコードを確認可能
 ```
 
 ### Lambda関数構成
@@ -227,9 +232,14 @@ Actions > Deploy Lambda Backend > Run workflow
 
 ```
 https://wows-replay.mirage0926.com/
-├── /              → S3 (フロントエンド) [Basic認証あり]
-└── /api/*         → API Gateway (Lambda) [認証なし]
+├── /              → S3 (フロントエンド) [Discord OAuth2認証]
+└── /api/*         → API Gateway (Lambda)
 ```
+
+### 認証
+
+- **Discord OAuth2認証**: 特定のDiscordサーバー・ロールを持つユーザーのみアクセス可能
+- **セッション有効期限**: 1ヶ月（30日）
 
 ### API エンドポイント
 
