@@ -16,6 +16,7 @@ from parsers.battle_stats_extractor import (
     extract_battle_stats,
     extract_hidden_data,
     get_win_loss_clan_battle,
+    get_win_loss_from_hidden,
     get_experience_earned,
     get_arena_unique_id,
 )
@@ -188,8 +189,19 @@ def handle(event, context):
                     print(f"No arenaUniqueID found in {key}")
                     continue
 
-                # 勝敗情報を取得
-                win_loss = get_win_loss_clan_battle(battle_results)
+                # 勝敗情報を取得（hiddenデータから取得、利用不可の場合はクラン戦用のXP判定を使用）
+                win_loss = "unknown"
+                if hidden_data:
+                    win_loss = get_win_loss_from_hidden(hidden_data)
+                    if win_loss != "unknown":
+                        print(f"Win/Loss detected from hidden data: {win_loss}")
+
+                # hiddenデータから取得できない場合、クラン戦用のXP判定を試行
+                if win_loss == "unknown":
+                    win_loss = get_win_loss_clan_battle(battle_results)
+                    if win_loss != "unknown":
+                        print(f"Win/Loss detected from clan battle XP: {win_loss}")
+
                 experience_earned = get_experience_earned(battle_results)
 
                 print(f"Arena ID: {arena_unique_id}, Win/Loss: {win_loss}, Exp: {experience_earned}")

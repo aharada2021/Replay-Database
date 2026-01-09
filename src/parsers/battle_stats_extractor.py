@@ -108,6 +108,59 @@ def get_win_loss_clan_battle(battle_results: Dict[str, Any]) -> str:
     return "unknown"
 
 
+def get_win_loss_from_hidden(hidden_data: Dict[str, Any]) -> str:
+    """
+    hiddenデータからバトル結果（勝敗）を判定
+
+    battle_result.winner_team_id とプレイヤーの teamId を比較して判定:
+    - winner_team_id == own_team_id → win
+    - winner_team_id != own_team_id → loss
+    - winner_team_id == -1 or None → draw
+
+    Args:
+        hidden_data: ReplayParser.get_info()['hidden']の結果
+
+    Returns:
+        "win", "loss", "draw", または "unknown"
+    """
+    if not hidden_data:
+        return "unknown"
+
+    # バトル結果を取得
+    battle_result = hidden_data.get("battle_result")
+    if not battle_result:
+        return "unknown"
+
+    winner_team_id = battle_result.get("winner_team_id")
+
+    # 引き分け判定（winner_team_idが-1またはNone）
+    if winner_team_id is None or winner_team_id == -1:
+        return "draw"
+
+    # プレイヤーのチームIDを取得
+    player_id = hidden_data.get("player_id")  # Avatar entity ID
+    players = hidden_data.get("players", {})
+
+    if not player_id or not players:
+        return "unknown"
+
+    # avatarIdでプレイヤーを検索してチームIDを取得
+    own_team_id = None
+    for _, player in players.items():
+        if player.get("avatarId") == player_id:
+            own_team_id = player.get("teamId")
+            break
+
+    if own_team_id is None:
+        return "unknown"
+
+    # 勝敗判定
+    if own_team_id == winner_team_id:
+        return "win"
+    else:
+        return "loss"
+
+
 def get_experience_earned(battle_results: Dict[str, Any]) -> Optional[int]:
     """
     獲得経験値を取得（実際の値、10倍されていない値）

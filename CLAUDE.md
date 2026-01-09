@@ -261,6 +261,18 @@ python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
   4. ダメージ: 高い順
 - **追加機能**: ヘッダークリックでソート変更後、「デフォルト順に戻す」ボタン表示
 
+### 勝敗判定の全ゲームタイプ対応（2026-01-09完了）
+- **問題**: 従来の勝敗判定はXP固定値（勝利:30,000XP、敗北:15,000XP）で判定していたため、クラン戦以外では動作しなかった
+- **解決**: `hidden['battle_result']['winner_team_id']`とプレイヤーの`teamId`を比較する新方式を追加
+- **実装内容**:
+  - `get_win_loss_from_hidden()`: `src/parsers/battle_stats_extractor.py`
+  - 判定ロジック:
+    - `winner_team_id == own_team_id` → win
+    - `winner_team_id != own_team_id` → loss
+    - `winner_team_id == -1` or `None` → draw
+- **フォールバック**: hiddenデータから取得できない場合は従来のXP判定を使用
+- **対応ゲームタイプ**: ランダム戦、ランク戦、クラン戦、Co-op戦 等すべて
+
 ## 今後の予定
 - リプレイ処理統合テスト実装（計画書: `docs/INTEGRATION_TEST_PLAN.md`）
 - クラン戦シーズン毎のデータ表示
