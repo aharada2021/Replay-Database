@@ -6,7 +6,7 @@ World of Warshipsのリプレイファイルを自動的にアップロードす
 
 ### ステップ 1: ダウンロード
 
-1. [WoWS Replay Database](https://wows-replay.mirage0926.com) にアクセス
+1. WoWS Replay Databaseにアクセス（URLは管理者から取得）
 2. Discordでログイン
 3. 左上のハンバーガーメニュー（三本線）を開く
 4. 「自動アップローダー」をクリックしてダウンロード
@@ -157,7 +157,7 @@ pyinstaller --onefile --windowed --name wows_replay_uploader wows_replay_uploade
 
 ### Q: API Keyはどこで取得できますか？
 
-A: [WoWS Replay Database](https://wows-replay.mirage0926.com) にDiscordでログイン後、ハンバーガーメニューの「API Key」から取得できます。
+A: WoWS Replay DatabaseにDiscordでログイン後、ハンバーガーメニューの「API Key」から取得できます。
 
 ### Q: 複数のPCで使用できますか？
 
@@ -165,7 +165,7 @@ A: はい、同じAPI Keyを複数のPCで使用できます。
 
 ### Q: アップロードされたリプレイはどこで見られますか？
 
-A: [WoWS Replay Database](https://wows-replay.mirage0926.com) で検索できます。
+A: WoWS Replay Databaseで検索できます。
 
 ### Q: プライバシーは大丈夫ですか？
 

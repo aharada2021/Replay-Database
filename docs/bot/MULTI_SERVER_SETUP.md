@@ -38,7 +38,7 @@ python3 src/register_commands.py
 python3 src/register_commands.py <GUILD_ID>
 
 # 例
-python3 src/register_commands.py 1433102839651242140
+python3 src/register_commands.py 123456789012345678
 ```
 
 **メリット：** 登録後すぐにコマンドが使用可能になります。

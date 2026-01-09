@@ -32,7 +32,7 @@ from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent
 
 # APIエンドポイント（環境変数または設定ファイルから読み込み可能）
 # デフォルトは空、セットアップ時または設定ファイルから設定される
-DEFAULT_API_BASE_URL = ""  # 例: "https://wows-replay.mirage0926.com"
+DEFAULT_API_BASE_URL = ""  # 例: "https://your-server.example.com"
 
 # バージョン情報
 VERSION = "1.2.0"
