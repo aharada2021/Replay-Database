@@ -281,8 +281,14 @@
             {{ videoReplay.playerName }} のリプレイ
           </div>
         </div>
-        <v-alert v-else type="info" density="compact">
-          動画なし
+        <v-alert v-else :type="isPolling ? 'warning' : 'info'" density="compact" class="d-flex align-center">
+          <template v-if="isPolling">
+            <v-progress-circular size="16" width="2" indeterminate class="mr-2" />
+            動画を生成中...
+          </template>
+          <template v-else>
+            動画なし
+          </template>
         </v-alert>
       </v-col>
     </v-row>
@@ -363,8 +369,14 @@
             {{ videoReplay.playerName }} のリプレイ
           </div>
         </div>
-        <v-alert v-else type="info" density="compact">
-          この試合の動画はまだ生成されていません
+        <v-alert v-else :type="isPolling ? 'warning' : 'info'" density="compact" class="d-flex align-center">
+          <template v-if="isPolling">
+            <v-progress-circular size="16" width="2" indeterminate class="mr-2" />
+            動画を生成中...
+          </template>
+          <template v-else>
+            この試合の動画はまだ生成されていません
+          </template>
         </v-alert>
       </v-col>
     </v-row>
@@ -415,6 +427,7 @@ import type { MatchRecord, PlayerStats, ShipClass } from '~/types/replay'
 
 const props = defineProps<{
   match: MatchRecord
+  isPolling?: boolean
 }>()
 
 const api = useApi()

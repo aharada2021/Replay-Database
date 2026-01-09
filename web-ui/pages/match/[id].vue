@@ -48,14 +48,14 @@
 
       <!-- 戦闘統計・動画・リプレイ提供者（MatchDetailExpansionコンポーネントを使用） -->
       <v-card v-if="matchAsRecord" class="mb-4">
-        <MatchDetailExpansion :match="matchAsRecord" />
+        <MatchDetailExpansion :match="matchAsRecord" :is-polling="isPolling" />
       </v-card>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { MatchDetailResponse, MatchRecord } from '~/types/replay'
 
@@ -67,6 +67,17 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const match = ref<MatchDetailResponse | null>(null)
 
+// ポーリング関連
+const POLLING_INTERVAL = 5000 // 5秒
+let pollingTimer: ReturnType<typeof setInterval> | null = null
+const isPolling = ref(false)
+
+// 動画が未生成かどうかをチェック
+const isVideoMissing = computed(() => {
+  if (!match.value?.replays) return false
+  return !match.value.replays.some(r => r.mp4S3Key)
+})
+
 // MatchDetailExpansionコンポーネント用にMatchRecord型に変換
 const matchAsRecord = computed<MatchRecord | null>(() => {
   if (!match.value) return null
@@ -74,6 +85,50 @@ const matchAsRecord = computed<MatchRecord | null>(() => {
     ...match.value,
     replayCount: match.value.replays?.length || 0,
   } as MatchRecord
+})
+
+// マッチデータをロード
+const loadMatch = async () => {
+  const arenaUniqueID = route.params.id as string
+  if (!arenaUniqueID) return
+
+  try {
+    const data = await api.getMatchDetail(arenaUniqueID)
+    if (data) {
+      match.value = data
+    }
+  } catch (err: any) {
+    console.error('Match reload error:', err)
+  }
+}
+
+// ポーリング開始
+const startPolling = () => {
+  if (pollingTimer) return
+  isPolling.value = true
+  pollingTimer = setInterval(async () => {
+    if (!isVideoMissing.value) {
+      stopPolling()
+      return
+    }
+    await loadMatch()
+  }, POLLING_INTERVAL)
+}
+
+// ポーリング停止
+const stopPolling = () => {
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
+  }
+  isPolling.value = false
+}
+
+// match が更新されたら動画チェック
+watch(match, (newMatch) => {
+  if (newMatch && !isVideoMissing.value) {
+    stopPolling()
+  }
 })
 
 onMounted(async () => {
@@ -89,6 +144,10 @@ onMounted(async () => {
     const data = await api.getMatchDetail(arenaUniqueID)
     if (data) {
       match.value = data
+      // 動画が未生成の場合はポーリング開始
+      if (isVideoMissing.value) {
+        startPolling()
+      }
     } else {
       error.value = '試合データが見つかりません'
     }
@@ -97,6 +156,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+})
+
+onUnmounted(() => {
+  stopPolling()
 })
 
 // フォーマット関数
