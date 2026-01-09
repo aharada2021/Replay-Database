@@ -172,7 +172,7 @@ functions:
       command:
         - handlers.api.upload.handle
     architecture: arm64
-    timeout: 60
+    timeout: 29  # HTTP API Gatewayの30秒制限より短く設定
     memorySize: 512
     events:
       - httpApi:

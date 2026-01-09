@@ -89,15 +89,18 @@ def handle(event, context):
             tmp_file.write(file_data)
 
         try:
-            # メタデータ解析
+            # メタデータ解析（API呼び出しなし、ファイル解析のみ）
             metadata = ReplayMetadataParser.parse_replay_metadata(tmp_path)
 
             if not metadata:
                 return {"statusCode": 400, "body": json.dumps({"error": "Invalid replay file"})}
 
-            # プレイヤー情報取得
-            players_info = ReplayMetadataParser.extract_players_info(metadata)
+            # ゲームタイプのみ抽出（API呼び出しなし）
             game_type = ReplayMetadataParser.extract_game_type(metadata)
+
+            # プレイヤー情報は最小限のみ（API呼び出しをスキップ）
+            # 詳細情報はS3トリガー（battle-result-extractor）で後から取得
+            players_info = {"own": [], "allies": [], "enemies": []}
 
             # プレイヤーIDとプレイヤー名を取得
             player_id = metadata.get("playerID", 0)
