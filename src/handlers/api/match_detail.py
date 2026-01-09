@@ -40,9 +40,7 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get(
-            "requestContext", {}
-        ).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -76,9 +74,7 @@ def handle(event, context):
         # ownPlayerが配列の場合、単一オブジェクトに変換
         for item in seed_items:
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
-                item["ownPlayer"] = (
-                    item["ownPlayer"][0] if item["ownPlayer"] else {}
-                )
+                item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
 
         # 最初のレコードからmatch_keyを生成
         seed_item = seed_items[0]
@@ -103,9 +99,7 @@ def handle(event, context):
         # ownPlayerが配列の場合、単一オブジェクトに変換
         for item in all_items:
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
-                item["ownPlayer"] = (
-                    item["ownPlayer"][0] if item["ownPlayer"] else {}
-                )
+                item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
 
         # match_keyが一致するアイテムをフィルタリング
         items = []
@@ -144,9 +138,7 @@ def handle(event, context):
         for item in items:
             match_info["replays"].append(
                 {
-                    "arenaUniqueID": item.get(
-                        "arenaUniqueID"
-                    ),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),

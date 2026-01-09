@@ -52,15 +52,9 @@ class ReplayProcessor:
 
             try:
                 # renderer.resourcesパッケージからships.jsonを読み込む
-                ships_json = (
-                    files("renderer.resources")
-                    .joinpath("ships.json")
-                    .read_text(encoding="utf-8")
-                )
+                ships_json = files("renderer.resources").joinpath("ships.json").read_text(encoding="utf-8")
                 _SHIP_DATA_CACHE = json.loads(ships_json)
-                logger.info(
-                    f"艦船データを読み込みました: {len(_SHIP_DATA_CACHE)}隻"
-                )
+                logger.info(f"艦船データを読み込みました: {len(_SHIP_DATA_CACHE)}隻")
                 return _SHIP_DATA_CACHE
             except Exception as e:
                 logger.warning(f"艦船データの読み込みに失敗: {e}")
@@ -121,18 +115,12 @@ class ReplayProcessor:
                 logger.info(f"FFmpegバイナリが見つかりました: {ffmpeg_path}")
                 os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
             else:
-                logger.warning(
-                    f"FFmpegバイナリが見つかりません: {ffmpeg_path}"
-                )
+                logger.warning(f"FFmpegバイナリが見つかりません: {ffmpeg_path}")
                 # 環境変数が設定されているか確認
                 if "IMAGEIO_FFMPEG_EXE" in os.environ:
-                    logger.info(
-                        f"環境変数IMAGEIO_FFMPEG_EXEは設定されています: {os.environ['IMAGEIO_FFMPEG_EXE']}"
-                    )
+                    logger.info(f"環境変数IMAGEIO_FFMPEG_EXEは設定されています: {os.environ['IMAGEIO_FFMPEG_EXE']}")
                 else:
-                    logger.error(
-                        "環境変数IMAGEIO_FFMPEG_EXEが設定されていません"
-                    )
+                    logger.error("環境変数IMAGEIO_FFMPEG_EXEが設定されていません")
 
             from renderer.render import Renderer
             from replay_parser import ReplayParser
@@ -151,13 +139,9 @@ class ReplayProcessor:
                 # リプレイファイルをパース
                 logger.info("リプレイファイルをパース中...")
                 with open(replay_path, "rb") as f:
-                    replay_info = ReplayParser(
-                        f, strict=True, raw_data_output=False
-                    ).get_info()
+                    replay_info = ReplayParser(f, strict=True, raw_data_output=False).get_info()
 
-                logger.info(
-                    f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}"
-                )
+                logger.info(f"リプレイバージョン: {replay_info['open']['clientVersionFromExe']}")
 
                 # レンダラーでMP4を生成
                 logger.info("MP4動画をレンダリング中...")
@@ -179,9 +163,7 @@ class ReplayProcessor:
                 devnull.close()
 
             # プレイヤービルド情報をJSONで保存
-            builds_path = (
-                replay_path.parent / f"{replay_path.stem}-builds.json"
-            )
+            builds_path = replay_path.parent / f"{replay_path.stem}-builds.json"
             with open(builds_path, "w") as fp:
                 json.dump(renderer.get_player_build(), fp, indent=4)
 
@@ -198,9 +180,7 @@ class ReplayProcessor:
                 return False
 
         except ImportError as e:
-            logger.error(
-                f"minimap_rendererのインポートに失敗: {e}", exc_info=True
-            )
+            logger.error(f"minimap_rendererのインポートに失敗: {e}", exc_info=True)
             return False
         except Exception as e:
             logger.error(f"MP4生成エラー: {e}", exc_info=True)
@@ -228,9 +208,7 @@ class ReplayProcessor:
             成功した場合True、失敗した場合False
         """
         try:
-            logger.info(
-                f"RenderDualでMP4を生成: green={green_replay_path}, red={red_replay_path}"
-            )
+            logger.info(f"RenderDualでMP4を生成: green={green_replay_path}, red={red_replay_path}")
 
             import sys
             import os
@@ -241,17 +219,11 @@ class ReplayProcessor:
                 logger.info(f"FFmpegバイナリが見つかりました: {ffmpeg_path}")
                 os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
             else:
-                logger.warning(
-                    f"FFmpegバイナリが見つかりません: {ffmpeg_path}"
-                )
+                logger.warning(f"FFmpegバイナリが見つかりません: {ffmpeg_path}")
                 if "IMAGEIO_FFMPEG_EXE" in os.environ:
-                    logger.info(
-                        f"環境変数IMAGEIO_FFMPEG_EXE: {os.environ['IMAGEIO_FFMPEG_EXE']}"
-                    )
+                    logger.info(f"環境変数IMAGEIO_FFMPEG_EXE: {os.environ['IMAGEIO_FFMPEG_EXE']}")
                 else:
-                    logger.error(
-                        "環境変数IMAGEIO_FFMPEG_EXEが設定されていません"
-                    )
+                    logger.error("環境変数IMAGEIO_FFMPEG_EXEが設定されていません")
 
             from renderer.render import RenderDual
             from replay_parser import ReplayParser
@@ -267,15 +239,11 @@ class ReplayProcessor:
                 # 両方のリプレイファイルをパース
                 logger.info("greenリプレイファイルをパース中...")
                 with open(green_replay_path, "rb") as f:
-                    green_info = ReplayParser(
-                        f, strict=True, raw_data_output=False
-                    ).get_info()
+                    green_info = ReplayParser(f, strict=True, raw_data_output=False).get_info()
 
                 logger.info("redリプレイファイルをパース中...")
                 with open(red_replay_path, "rb") as f:
-                    red_info = ReplayParser(
-                        f, strict=True, raw_data_output=False
-                    ).get_info()
+                    red_info = ReplayParser(f, strict=True, raw_data_output=False).get_info()
 
                 logger.info(
                     f"リプレイバージョン: green={green_info['open']['clientVersionFromExe']}, "
@@ -307,9 +275,7 @@ class ReplayProcessor:
                 logger.info(f"Dual MP4動画の生成に成功しました: {output_path}")
                 return True
             else:
-                logger.error(
-                    f"Dual MP4ファイルが見つかりません: {output_path}"
-                )
+                logger.error(f"Dual MP4ファイルが見つかりません: {output_path}")
                 return False
 
         except ImportError as e:

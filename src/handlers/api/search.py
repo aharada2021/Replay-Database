@@ -218,9 +218,7 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get(
-            "requestContext", {}
-        ).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -238,9 +236,7 @@ def handle(event, context):
         enemy_clan_tag = params.get("enemyClanTag")
         ship_name_raw = params.get("shipName")
         # 艦艇名を正規化（DynamoDBは完全一致検索のため）
-        ship_name = (
-            normalize_ship_name(ship_name_raw) if ship_name_raw else None
-        )
+        ship_name = normalize_ship_name(ship_name_raw) if ship_name_raw else None
         ship_team = params.get("shipTeam")  # "ally", "enemy", or None
         ship_min_count = params.get("shipMinCount", 1)
         player_name = params.get("playerName")  # プレイヤー名検索
@@ -261,13 +257,8 @@ def handle(event, context):
                 min_count=ship_min_count,
                 limit=500,  # 十分な数を取得
             )
-            ship_filtered_arena_ids = set(
-                item.get("arenaUniqueID")
-                for item in ship_result.get("items", [])
-            )
-            print(
-                f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches"
-            )
+            ship_filtered_arena_ids = set(item.get("arenaUniqueID") for item in ship_result.get("items", []))
+            print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
 
         # プレイヤー名検索の場合、PlayerNameIndexを使用
         player_filtered_arena_ids = None
@@ -276,13 +267,8 @@ def handle(event, context):
                 player_name=player_name,
                 limit=500,  # 十分な数を取得
             )
-            player_filtered_arena_ids = set(
-                item.get("arenaUniqueID")
-                for item in player_result.get("items", [])
-            )
-            print(
-                f"Player filter: {player_name} found {len(player_filtered_arena_ids)} matches"
-            )
+            player_filtered_arena_ids = set(item.get("arenaUniqueID") for item in player_result.get("items", []))
+            print(f"Player filter: {player_name} found {len(player_filtered_arena_ids)} matches")
 
         # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
         # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
@@ -298,9 +284,7 @@ def handle(event, context):
             combined_filtered_count = len(ship_filtered_arena_ids)
         if player_filtered_arena_ids is not None:
             if combined_filtered_count is not None:
-                combined_filtered_count = min(
-                    combined_filtered_count, len(player_filtered_arena_ids)
-                )
+                combined_filtered_count = min(combined_filtered_count, len(player_filtered_arena_ids))
             else:
                 combined_filtered_count = len(player_filtered_arena_ids)
 
@@ -326,33 +310,21 @@ def handle(event, context):
         items = result["items"]
         for item in items:
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
-                item["ownPlayer"] = (
-                    item["ownPlayer"][0] if item["ownPlayer"] else {}
-                )
+                item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
 
         # 艦艇フィルタを適用（インデックステーブルで取得したarenaUniqueIDでフィルタ）
         if ship_filtered_arena_ids is not None:
-            items = [
-                item
-                for item in items
-                if item.get("arenaUniqueID") in ship_filtered_arena_ids
-            ]
+            items = [item for item in items if item.get("arenaUniqueID") in ship_filtered_arena_ids]
             print(f"After ship filter: {len(items)} items")
 
         # プレイヤー名フィルタを適用（PlayerNameIndexで取得したarenaUniqueIDでフィルタ）
         if player_filtered_arena_ids is not None:
-            items = [
-                item
-                for item in items
-                if item.get("arenaUniqueID") in player_filtered_arena_ids
-            ]
+            items = [item for item in items if item.get("arenaUniqueID") in player_filtered_arena_ids]
             print(f"After player filter: {len(items)} items")
 
         # 試合単位でグループ化（プレイヤーセットベース）
         matches = {}
-        match_key_to_arena_ids = (
-            {}
-        )  # match_key -> 最初のarenaUniqueIDのマッピング
+        match_key_to_arena_ids = {}  # match_key -> 最初のarenaUniqueIDのマッピング
 
         for item in items:
             # マッチキーを取得（事前計算値があれば使用、なければ生成）
@@ -371,9 +343,7 @@ def handle(event, context):
                     "replays": [],
                     # 代表データ（最初のリプレイから取得）
                     "dateTime": item.get("dateTime"),
-                    "dateTimeSortable": item.get(
-                        "dateTimeSortable"
-                    ),  # 最適化: ソート用
+                    "dateTimeSortable": item.get("dateTimeSortable"),  # 最適化: ソート用
                     "mapId": item.get("mapId"),
                     "mapDisplayName": item.get("mapDisplayName"),
                     "gameType": item.get("gameType"),
@@ -393,9 +363,7 @@ def handle(event, context):
             # リプレイ提供者情報を追加（BattleStatsを含む）
             matches[match_key]["replays"].append(
                 {
-                    "arenaUniqueID": item.get(
-                        "arenaUniqueID"
-                    ),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),
@@ -456,13 +424,9 @@ def handle(event, context):
             has_dual_replay = any(r.get("hasDualReplay") for r in replays)
 
             # 代表リプレイの情報をマッチに追加
-            match["representativeArenaUniqueID"] = representative.get(
-                "arenaUniqueID"
-            )
+            match["representativeArenaUniqueID"] = representative.get("arenaUniqueID")
             match["representativePlayerID"] = representative.get("playerID")
-            match["representativePlayerName"] = representative.get(
-                "playerName"
-            )
+            match["representativePlayerName"] = representative.get("playerName")
             match["uploadedBy"] = representative.get("uploadedBy")
             match["uploadedAt"] = representative.get("uploadedAt")
             match["s3Key"] = representative.get("s3Key")
@@ -472,9 +436,7 @@ def handle(event, context):
             match["mp4GeneratedAt"] = representative.get("mp4GeneratedAt")
             # Dual Render
             match["dualMp4S3Key"] = representative.get("dualMp4S3Key")
-            match["dualMp4GeneratedAt"] = representative.get(
-                "dualMp4GeneratedAt"
-            )
+            match["dualMp4GeneratedAt"] = representative.get("dualMp4GeneratedAt")
             match["hasDualReplay"] = has_dual_replay
             match["replayCount"] = len(replays)
 
@@ -492,13 +454,9 @@ def handle(event, context):
             match["hitsSecondaries"] = representative.get("hitsSecondaries")
             match["damageAP"] = representative.get("damageAP")
             match["damageHE"] = representative.get("damageHE")
-            match["damageHESecondaries"] = representative.get(
-                "damageHESecondaries"
-            )
+            match["damageHESecondaries"] = representative.get("damageHESecondaries")
             match["damageTorps"] = representative.get("damageTorps")
-            match["damageDeepWaterTorps"] = representative.get(
-                "damageDeepWaterTorps"
-            )
+            match["damageDeepWaterTorps"] = representative.get("damageDeepWaterTorps")
             match["damageOther"] = representative.get("damageOther")
             match["damageFire"] = representative.get("damageFire")
             match["damageFlooding"] = representative.get("damageFlooding")
@@ -511,9 +469,7 @@ def handle(event, context):
             sortable = match.get("dateTimeSortable")
             if sortable and sortable != "00000000000000":
                 return sortable
-            return parse_datetime_for_sort(match.get("dateTime", "")).strftime(
-                "%Y%m%d%H%M%S"
-            )
+            return parse_datetime_for_sort(match.get("dateTime", "")).strftime("%Y%m%d%H%M%S")
 
         match_list = sorted(
             matches.values(),
@@ -522,16 +478,10 @@ def handle(event, context):
         )
 
         # フィルタリング用のパラメータを準備
-        cursor_dt = (
-            parse_datetime_for_sort(cursor_date_time)
-            if cursor_date_time
-            else None
-        )
+        cursor_dt = parse_datetime_for_sort(cursor_date_time) if cursor_date_time else None
         date_from_dt = parse_frontend_date(date_from) if date_from else None
         date_to_dt = (
-            parse_frontend_date(date_to) + timedelta(days=1)
-            if date_to and parse_frontend_date(date_to)
-            else None
+            parse_frontend_date(date_to) + timedelta(days=1) if date_to and parse_frontend_date(date_to) else None
         )
 
         # 単一パスで全フィルタを適用（最適化: 複数回のリスト走査を回避）

@@ -8,9 +8,7 @@ RenderDualを使用した両陣営視点動画の生成をサポートするユ�
 from typing import Dict, Any, List, Optional, Tuple
 
 
-def are_opposing_teams(
-    replay_a: Dict[str, Any], replay_b: Dict[str, Any]
-) -> bool:
+def are_opposing_teams(replay_a: Dict[str, Any], replay_b: Dict[str, Any]) -> bool:
     """
     2つのリプレイが敵味方関係かを判定
 
@@ -59,9 +57,7 @@ def find_opposing_replay_pair(
     return None
 
 
-def get_team_clan_tag(
-    replay_data: Dict[str, Any], team: str = "ally"
-) -> Optional[str]:
+def get_team_clan_tag(replay_data: Dict[str, Any], team: str = "ally") -> Optional[str]:
     """
     リプレイデータからチームのクランタグを取得
 

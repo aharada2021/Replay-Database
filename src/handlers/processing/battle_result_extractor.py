@@ -106,9 +106,7 @@ def build_all_players_stats(
         全プレイヤーの統計情報リスト（チーム、艦船情報付き）
     """
     # プレイヤー名からチーム情報と艦船情報をマッピング
-    player_team_map = (
-        {}
-    )  # player_name -> {"team": str, "shipId": int, "shipName": str}
+    player_team_map = {}  # player_name -> {"team": str, "shipId": int, "shipName": str}
 
     # ownPlayer
     own_player = record.get("ownPlayer", {})
@@ -160,9 +158,7 @@ def build_all_players_stats(
     result = []
     for player_id, stats in all_stats.items():
         player_name = stats.get("player_name", "")
-        team_info = player_team_map.get(
-            player_name, {"team": "unknown", "shipId": 0, "shipName": ""}
-        )
+        team_info = player_team_map.get(player_name, {"team": "unknown", "shipId": 0, "shipName": ""})
 
         # DynamoDB形式に変換
         stats_data = BattleStatsParser.to_dynamodb_format(stats)
@@ -222,9 +218,7 @@ def handle(event, context):
 
             # S3からファイルをダウンロード
             tmp_path = None
-            with tempfile.NamedTemporaryFile(
-                suffix=".wowsreplay", delete=False
-            ) as tmp_file:
+            with tempfile.NamedTemporaryFile(suffix=".wowsreplay", delete=False) as tmp_file:
                 tmp_path = Path(tmp_file.name)
                 s3_client.download_fileobj(bucket, key, tmp_file)
             # with文を抜けてファイルが完全に閉じられる
@@ -250,9 +244,7 @@ def handle(event, context):
                     if hidden_data:
                         print("Hidden data extracted successfully")
                 except Exception as hidden_err:
-                    print(
-                        f"Warning: Failed to extract hidden data: {hidden_err}"
-                    )
+                    print(f"Warning: Failed to extract hidden data: {hidden_err}")
 
                 # arenaUniqueIDを取得
                 arena_unique_id = get_arena_unique_id(battle_results)
@@ -266,23 +258,17 @@ def handle(event, context):
                 if hidden_data:
                     win_loss = get_win_loss_from_hidden(hidden_data)
                     if win_loss != "unknown":
-                        print(
-                            f"Win/Loss detected from hidden data: {win_loss}"
-                        )
+                        print(f"Win/Loss detected from hidden data: {win_loss}")
 
                 # hiddenデータから取得できない場合、クラン戦用のXP判定を試行
                 if win_loss == "unknown":
                     win_loss = get_win_loss_clan_battle(battle_results)
                     if win_loss != "unknown":
-                        print(
-                            f"Win/Loss detected from clan battle XP: {win_loss}"
-                        )
+                        print(f"Win/Loss detected from clan battle XP: {win_loss}")
 
                 experience_earned = get_experience_earned(battle_results)
 
-                print(
-                    f"Arena ID: {arena_unique_id}, Win/Loss: {win_loss}, Exp: {experience_earned}"
-                )
+                print(f"Arena ID: {arena_unique_id}, Win/Loss: {win_loss}, Exp: {experience_earned}")
 
                 # S3キーからtemp_arena_idとplayerIDを抽出
                 # S3キー形式: replays/{temp_arena_id}/{playerID}/{filename}
@@ -299,20 +285,14 @@ def handle(event, context):
                     continue
 
                 # 一時IDで保存されたレコードを取得
-                old_record = dynamodb.get_replay_record(
-                    temp_arena_id, player_id
-                )
+                old_record = dynamodb.get_replay_record(temp_arena_id, player_id)
 
                 if not old_record:
-                    print(
-                        f"No record found for temp_arena_id: {temp_arena_id}, player_id: {player_id}"
-                    )
+                    print(f"No record found for temp_arena_id: {temp_arena_id}, player_id: {player_id}")
                     continue
 
                 # 正しいarenaUniqueIDで新しいレコードを作成
-                print(
-                    f"Migrating record from temp_id {temp_arena_id} to arena_id {arena_unique_id}"
-                )
+                print(f"Migrating record from temp_id {temp_arena_id} to arena_id {arena_unique_id}")
 
                 # 既存データに勝敗情報を追加
                 old_record["arenaUniqueID"] = str(arena_unique_id)
@@ -331,13 +311,9 @@ def handle(event, context):
                     old_record["enemies"] = players_info["enemies"]
 
                 # BattleStatsから詳細統計を抽出
-                players_public_info = battle_results.get(
-                    "playersPublicInfo", {}
-                )
+                players_public_info = battle_results.get("playersPublicInfo", {})
                 if players_public_info:
-                    all_stats = BattleStatsParser.parse_all_players(
-                        players_public_info
-                    )
+                    all_stats = BattleStatsParser.parse_all_players(players_public_info)
 
                     # 自分のプレイヤー統計を特定（playerIDで検索）
                     own_stats = None
@@ -350,20 +326,12 @@ def handle(event, context):
 
                     # 統計情報をレコードに追加
                     if own_stats:
-                        stats_data = BattleStatsParser.to_dynamodb_format(
-                            own_stats
-                        )
+                        stats_data = BattleStatsParser.to_dynamodb_format(own_stats)
                         # 基本統計
                         old_record["damage"] = stats_data.get("damage", 0)
-                        old_record["receivedDamage"] = stats_data.get(
-                            "receivedDamage", 0
-                        )
-                        old_record["spottingDamage"] = stats_data.get(
-                            "spottingDamage", 0
-                        )
-                        old_record["potentialDamage"] = stats_data.get(
-                            "potentialDamage", 0
-                        )
+                        old_record["receivedDamage"] = stats_data.get("receivedDamage", 0)
+                        old_record["spottingDamage"] = stats_data.get("spottingDamage", 0)
+                        old_record["potentialDamage"] = stats_data.get("potentialDamage", 0)
                         old_record["kills"] = stats_data.get("kills", 0)
                         old_record["fires"] = stats_data.get("fires", 0)
                         old_record["floods"] = stats_data.get("floods", 0)
@@ -371,51 +339,29 @@ def handle(event, context):
                         # 命中数内訳
                         old_record["hitsAP"] = stats_data.get("hitsAP", 0)
                         old_record["hitsHE"] = stats_data.get("hitsHE", 0)
-                        old_record["hitsSecondaries"] = stats_data.get(
-                            "hitsSecondaries", 0
-                        )
+                        old_record["hitsSecondaries"] = stats_data.get("hitsSecondaries", 0)
                         # ダメージ内訳
                         old_record["damageAP"] = stats_data.get("damageAP", 0)
                         old_record["damageHE"] = stats_data.get("damageHE", 0)
-                        old_record["damageHESecondaries"] = stats_data.get(
-                            "damageHESecondaries", 0
-                        )
-                        old_record["damageTorps"] = stats_data.get(
-                            "damageTorps", 0
-                        )
-                        old_record["damageDeepWaterTorps"] = stats_data.get(
-                            "damageDeepWaterTorps", 0
-                        )
-                        old_record["damageOther"] = stats_data.get(
-                            "damageOther", 0
-                        )
-                        old_record["damageFire"] = stats_data.get(
-                            "damageFire", 0
-                        )
-                        old_record["damageFlooding"] = stats_data.get(
-                            "damageFlooding", 0
-                        )
+                        old_record["damageHESecondaries"] = stats_data.get("damageHESecondaries", 0)
+                        old_record["damageTorps"] = stats_data.get("damageTorps", 0)
+                        old_record["damageDeepWaterTorps"] = stats_data.get("damageDeepWaterTorps", 0)
+                        old_record["damageOther"] = stats_data.get("damageOther", 0)
+                        old_record["damageFire"] = stats_data.get("damageFire", 0)
+                        old_record["damageFlooding"] = stats_data.get("damageFlooding", 0)
                         # Citadel
                         old_record["citadels"] = stats_data.get("citadels", 0)
 
                         dmg = stats_data.get("damage")
                         kls = stats_data.get("kills")
-                        print(
-                            f"Added battle stats for {player_name}: damage={dmg}, kills={kls}"
-                        )
+                        print(f"Added battle stats for {player_name}: damage={dmg}, kills={kls}")
 
                     # 全プレイヤーの統計情報を作成（艦長スキル、艦艇コンポーネント付き）
-                    all_players_stats = build_all_players_stats(
-                        all_stats, old_record, hidden_data
-                    )
+                    all_players_stats = build_all_players_stats(all_stats, old_record, hidden_data)
                     if all_players_stats:
                         old_record["allPlayersStats"] = all_players_stats
                         # 艦長スキルが含まれているプレイヤー数をカウント
-                        skills_count = sum(
-                            1
-                            for p in all_players_stats
-                            if p.get("captainSkills")
-                        )
+                        skills_count = sum(1 for p in all_players_stats if p.get("captainSkills"))
                         print(
                             f"Added all players stats: {len(all_players_stats)} players, "
                             f"{skills_count} with captain skills"
@@ -425,25 +371,17 @@ def handle(event, context):
                 # matchKey: 試合グループ化に使用（検索時の計算を省略）
                 # dateTimeSortable: ソート可能な日時形式（YYYYMMDDHHMMSS）
                 old_record["matchKey"] = generate_match_key(old_record)
-                old_record["dateTimeSortable"] = format_sortable_datetime(
-                    old_record.get("dateTime", "")
-                )
-                print(
-                    "Added search optimization fields: matchKey, dateTimeSortable"
-                )
+                old_record["dateTimeSortable"] = format_sortable_datetime(old_record.get("dateTime", ""))
+                print("Added search optimization fields: matchKey, dateTimeSortable")
 
                 # 新しいレコードを作成
                 dynamodb_table = dynamodb.get_table()
                 dynamodb_table.put_item(Item=old_record)
 
                 # 古いレコード（一時ID）を削除
-                dynamodb_table.delete_item(
-                    Key={"arenaUniqueID": temp_arena_id, "playerID": player_id}
-                )
+                dynamodb_table.delete_item(Key={"arenaUniqueID": temp_arena_id, "playerID": player_id})
 
-                print(
-                    f"Successfully migrated and updated record: arena {arena_unique_id}, player {player_id}"
-                )
+                print(f"Successfully migrated and updated record: arena {arena_unique_id}, player {player_id}")
 
                 # 艦艇-試合インデックスを作成
                 own_player = old_record.get("ownPlayer", {})
@@ -461,9 +399,7 @@ def handle(event, context):
                         own_player=own_player,
                     )
                 except Exception as ship_idx_err:
-                    print(
-                        f"Warning: Failed to create ship index entries: {ship_idx_err}"
-                    )
+                    print(f"Warning: Failed to create ship index entries: {ship_idx_err}")
 
                 # 動画生成チェック: 同じ試合の既存リプレイで動画があるかチェック
                 check_and_trigger_video_generation(arena_unique_id, player_id)
@@ -475,9 +411,7 @@ def handle(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps(
-                {"message": "Battle results extracted successfully"}
-            ),
+            "body": json.dumps({"message": "Battle results extracted successfully"}),
         }
 
     except Exception as e:
@@ -504,20 +438,12 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
         # 現在のレコードを取得
         current_record = dynamodb.get_replay_record(arena_unique_id, player_id)
         if not current_record:
-            print(
-                f"No record found for arena {arena_unique_id}, player {player_id}"
-            )
+            print(f"No record found for arena {arena_unique_id}, player {player_id}")
             return
 
         # ownPlayerが配列の場合、単一オブジェクトに変換
-        if "ownPlayer" in current_record and isinstance(
-            current_record["ownPlayer"], list
-        ):
-            current_record["ownPlayer"] = (
-                current_record["ownPlayer"][0]
-                if current_record["ownPlayer"]
-                else {}
-            )
+        if "ownPlayer" in current_record and isinstance(current_record["ownPlayer"], list):
+            current_record["ownPlayer"] = current_record["ownPlayer"][0] if current_record["ownPlayer"] else {}
 
         # 現在の試合のmatch_keyを生成
         current_match_key = generate_match_key(current_record)
@@ -526,16 +452,12 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
 
         # 同一arenaUniqueIDの全リプレイを取得（敵味方判定用）
         same_arena_items = dynamodb.get_replays_for_arena(str(arena_unique_id))
-        print(
-            f"Found {len(same_arena_items)} replays for arena {arena_unique_id}"
-        )
+        print(f"Found {len(same_arena_items)} replays for arena {arena_unique_id}")
 
         # ownPlayerが配列の場合、単一オブジェクトに変換
         for item in same_arena_items:
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
-                item["ownPlayer"] = (
-                    item["ownPlayer"][0] if item["ownPlayer"] else {}
-                )
+                item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
 
         # 敵味方リプレイがあるかチェック
         opposing_replay = None
@@ -552,9 +474,7 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
         # Dual可能な場合、両方のレコードにhasDualReplayを設定
         if has_dual:
             try:
-                dynamodb.update_has_dual_replay(
-                    str(arena_unique_id), int(player_id), True
-                )
+                dynamodb.update_has_dual_replay(str(arena_unique_id), int(player_id), True)
                 dynamodb.update_has_dual_replay(
                     str(arena_unique_id),
                     int(opposing_replay["playerID"]),
@@ -565,9 +485,7 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
                 print(f"Warning: Failed to update hasDualReplay: {dual_err}")
 
         # 既にDual動画があるかチェック
-        has_dual_video = any(
-            item.get("dualMp4S3Key") for item in same_arena_items
-        )
+        has_dual_video = any(item.get("dualMp4S3Key") for item in same_arena_items)
         if has_dual_video:
             print("Match already has dual video, skipping generation")
             return
@@ -576,15 +494,11 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
         has_video = any(item.get("mp4S3Key") for item in same_arena_items)
 
         if has_video and not has_dual:
-            print(
-                "Match already has video and no dual available, skipping generation"
-            )
+            print("Match already has video and no dual available, skipping generation")
             return
 
         # 動画がない、またはDualが可能になった場合は生成をトリガー
-        print(
-            f"Triggering video generation for arena {arena_unique_id}, player {player_id} (dual={has_dual})"
-        )
+        print(f"Triggering video generation for arena {arena_unique_id}, player {player_id} (dual={has_dual})")
 
         # 環境変数から関数名を取得
         stage = os.environ.get("STAGE", "dev")
@@ -592,9 +506,7 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
 
         # Lambda非同期呼び出し
         payload = {
-            "body": json.dumps(
-                {"arenaUniqueID": str(arena_unique_id), "playerID": player_id}
-            ),
+            "body": json.dumps({"arenaUniqueID": str(arena_unique_id), "playerID": player_id}),
             "httpMethod": "POST",
         }
 
@@ -604,9 +516,7 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
             Payload=json.dumps(payload),  # 非同期呼び出し
         )
 
-        print(
-            f"Video generation triggered successfully for arena {arena_unique_id}, player {player_id}"
-        )
+        print(f"Video generation triggered successfully for arena {arena_unique_id}, player {player_id}")
 
     except Exception as e:
         # エラーが発生しても、メインの処理は継続させる

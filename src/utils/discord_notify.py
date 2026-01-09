@@ -22,9 +22,7 @@ def _load_map_config():
     """マップ名設定を読み込む"""
     global _map_config
     if _map_config is None:
-        config_path = (
-            Path(__file__).parent.parent.parent / "config" / "map_names.yaml"
-        )
+        config_path = Path(__file__).parent.parent.parent / "config" / "map_names.yaml"
         if config_path.exists():
             with open(config_path, "r", encoding="utf-8") as f:
                 _map_config = yaml.safe_load(f)
@@ -36,9 +34,7 @@ def _load_map_config():
 def get_map_name_ja(map_id: str) -> str:
     """マップIDから日本語名を取得"""
     config = _load_map_config()
-    return config.get("maps", {}).get(
-        map_id, config.get("default_map_name", map_id)
-    )
+    return config.get("maps", {}).get(map_id, config.get("default_map_name", map_id))
 
 
 def get_game_type_ja(game_type: str) -> str:
@@ -174,17 +170,11 @@ def send_replay_notification(
 
         # クラン情報
         if clan_text:
-            embed["fields"].append(
-                {"name": "クラン", "value": clan_text, "inline": False}
-            )
+            embed["fields"].append({"name": "クラン", "value": clan_text, "inline": False})
 
         # 味方・敵メンバーを横並びで表示
-        embed["fields"].append(
-            {"name": "🔵 味方", "value": ally_list, "inline": True}
-        )
-        embed["fields"].append(
-            {"name": "🔴 敵", "value": enemy_list, "inline": True}
-        )
+        embed["fields"].append({"name": "🔵 味方", "value": ally_list, "inline": True})
+        embed["fields"].append({"name": "🔴 敵", "value": enemy_list, "inline": True})
 
         # 詳細リンク
         detail_url = f"{web_ui_base_url}/match/{arena_unique_id}"
@@ -225,28 +215,20 @@ def send_replay_notification(
                 data = {
                     "payload_json": json.dumps({"embeds": embeds}),
                 }
-                response = requests.post(
-                    url, headers=headers, files=files, data=data, timeout=120
-                )
+                response = requests.post(url, headers=headers, files=files, data=data, timeout=120)
             except Exception as e:
                 print(f"Failed to attach MP4, sending without video: {e}")
                 # 動画添付に失敗した場合はテキストのみ送信
                 headers["Content-Type"] = "application/json"
-                response = requests.post(
-                    url, headers=headers, json={"embeds": embeds}, timeout=30
-                )
+                response = requests.post(url, headers=headers, json={"embeds": embeds}, timeout=30)
         else:
             # 動画なしの場合
             headers["Content-Type"] = "application/json"
-            response = requests.post(
-                url, headers=headers, json={"embeds": embeds}, timeout=30
-            )
+            response = requests.post(url, headers=headers, json={"embeds": embeds}, timeout=30)
 
         response.raise_for_status()
 
-        print(
-            f"Discord notification sent successfully to channel {channel_id}"
-        )
+        print(f"Discord notification sent successfully to channel {channel_id}")
         return True
 
     except Exception as e:
