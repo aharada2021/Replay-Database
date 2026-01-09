@@ -250,6 +250,17 @@
           </div>
         </template>
 
+        <!-- 詳細ボタン -->
+        <template v-slot:item.actions="{ item }">
+          <v-btn
+            size="x-small"
+            variant="text"
+            icon="mdi-open-in-new"
+            :to="`/match/${item?.arenaUniqueID || item?.raw?.arenaUniqueID}`"
+            @click.stop
+          ></v-btn>
+        </template>
+
         <!-- 展開時の詳細表示 -->
         <template v-slot:expanded-row="{ columns, item }">
           <tr>
@@ -387,6 +398,7 @@ const headers = [
   { title: '初回アップロード者', key: 'ownPlayer', sortable: false },
   { title: '味方艦艇', key: 'allyShips', sortable: false },
   { title: '敵艦艇', key: 'enemyShips', sortable: false },
+  { title: '', key: 'actions', sortable: false, width: '50px' },
 ]
 
 // ハンドラー
