@@ -160,6 +160,7 @@ class SetupWizard:
         # カスタムパス入力
         print("\nリプレイフォルダのパスを入力してください。")
         print("例: C:\\Games\\World_of_Warships\\replays")
+        print("steam版: D:\\SteamLibrary\\steamapps\\common\\World of Warships\\replays")
 
         while True:
             folder = input("\nリプレイフォルダ: ").strip()
