@@ -35,8 +35,7 @@ class BattleStatsParser:
         "hits_ap": 66,  # hits_main_ap
         "hits_sap": 67,  # hits_main_sap（イタリア巡洋艦等のSAP弾）
         "hits_he": 68,  # hits_main_he
-        "hits_secondaries_sap": 69,  # hits_atba_sap（副砲SAP、Napoli等）※要検証
-        "hits_secondaries_ap": 70,  # hits_atba_ap（副砲AP）
+        "hits_secondaries_sap": 70,  # hits_atba_sap（副砲SAP、Napoli等）※実データで検証済み
         "hits_secondaries": 71,  # hits_atba_he（副砲HE）
         "hits": 68,  # 互換性のため維持（実際はHE弾のみ）
         # 与えた火災・浸水（リボン）
@@ -46,8 +45,7 @@ class BattleStatsParser:
         "damage_ap": 157,  # damage_main_ap
         "damage_sap": 158,  # damage_main_sap（イタリア巡洋艦等のSAP弾）
         "damage_he": 159,  # damage_main_he
-        "damage_sap_secondaries": 160,  # damage_atba_sap（副砲SAP、Napoli等）※要検証
-        "damage_unknown_161": 161,  # 不明（副砲AP?または他のダメージ種別）
+        "damage_sap_secondaries": 161,  # damage_atba_sap（副砲SAP、Napoli等）※実データで検証済み
         "damage_he_secondaries": 162,  # damage_atba_he（副砲HE）
         "damage_torps": 166,  # damage_tpd_normal
         "damage_deep_water_torps": 167,  # damage_tpd_deep
@@ -62,7 +60,7 @@ class BattleStatsParser:
         "received_damage_he": 204,  # received_damage_main_he
         "received_damage_torps": 205,  # received_damage_tpd_normal
         "received_damage_deep_water_torps": 206,  # received_damage_tpd_deep（深度魚雷被ダメージ）
-        "received_damage_unknown_218": 218,  # 不明（副砲AP?または他の被ダメージ種別）
+        "received_damage_sap_secondaries": 218,  # received_damage_atba_sap（副砲SAP被ダメージ）※実データで検証済み
         "received_damage_he_secondaries": 219,  # received_damage_atba_he
         "received_damage_fire": 223,  # received_damage_fire
         "received_damage_flood": 224,  # received_damage_flood
@@ -272,7 +270,8 @@ class BattleStatsParser:
             "receivedDamageHE": stats.get("received_damage_he", 0) or 0,
             "receivedDamageTorps": stats.get("received_damage_torps", 0) or 0,
             "receivedDamageDeepWaterTorps": stats.get("received_damage_deep_water_torps", 0) or 0,
-            "receivedDamageUnknown218": stats.get("received_damage_unknown_218", 0) or 0,
+            "receivedDamageSAPSecondaries": stats.get("received_damage_sap_secondaries", 0) or 0,
+            "receivedDamageUnknown218": stats.get("received_damage_unknown_218", 0) or 0,  # 互換性のため維持
             "receivedDamageHESecondaries": stats.get("received_damage_he_secondaries", 0) or 0,
             "receivedDamageFire": stats.get("received_damage_fire", 0) or 0,
             "receivedDamageFlood": stats.get("received_damage_flood", 0) or 0,

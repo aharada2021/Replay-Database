@@ -442,11 +442,114 @@
       </v-list-item>
     </v-list>
 
+    <!-- デバッグセクション（?debug=trueで表示） -->
+    <template v-if="isDebugMode && hasAllPlayersStats">
+      <v-divider class="my-3"></v-divider>
+      <div class="debug-section">
+        <h3 class="mb-2 d-flex align-center">
+          <v-icon color="warning" class="mr-1">mdi-bug</v-icon>
+          BattleStats デバッグ情報
+        </h3>
+        <v-alert type="info" density="compact" class="mb-3">
+          各プレイヤーのBattleStatsフィールドを表示しています。インデックス探索のデバッグに使用してください。
+        </v-alert>
+
+        <v-expansion-panels variant="accordion">
+          <v-expansion-panel v-for="(player, idx) in sortedPlayersStats" :key="idx">
+            <v-expansion-panel-title>
+              <span :class="player.team === 'ally' ? 'text-success' : 'text-error'">
+                {{ player.team === 'ally' ? '味方' : '敵' }}
+              </span>
+              <span class="ml-2">
+                <span v-if="player.clanTag" class="font-weight-bold">[{{ player.clanTag }}]</span>
+                {{ player.playerName }}
+              </span>
+              <span class="ml-2 text-grey">{{ player.shipName }}</span>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-table density="compact" class="debug-table">
+                <thead>
+                  <tr>
+                    <th>カテゴリ</th>
+                    <th>フィールド名</th>
+                    <th class="text-right">値</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- 基本情報 -->
+                  <tr class="category-header"><td colspan="3">基本情報</td></tr>
+                  <tr><td></td><td>playerName</td><td class="text-right">{{ player.playerName }}</td></tr>
+                  <tr><td></td><td>clanTag</td><td class="text-right">{{ player.clanTag || '-' }}</td></tr>
+                  <tr><td></td><td>shipName</td><td class="text-right">{{ player.shipName || '-' }}</td></tr>
+                  <tr><td></td><td>shipClass</td><td class="text-right">{{ player.shipClass || '-' }}</td></tr>
+                  <tr><td></td><td>shipId</td><td class="text-right">{{ player.shipId || '-' }}</td></tr>
+
+                  <!-- 基本統計 -->
+                  <tr class="category-header"><td colspan="3">基本統計</td></tr>
+                  <tr><td></td><td>damage</td><td class="text-right">{{ formatNumber(player.damage) }}</td></tr>
+                  <tr><td></td><td>receivedDamage</td><td class="text-right">{{ formatNumber(player.receivedDamage) }}</td></tr>
+                  <tr><td></td><td>spottingDamage</td><td class="text-right">{{ formatNumber(player.spottingDamage) }}</td></tr>
+                  <tr><td></td><td>potentialDamage</td><td class="text-right">{{ formatNumber(player.potentialDamage) }}</td></tr>
+                  <tr><td></td><td>kills</td><td class="text-right">{{ player.kills || 0 }}</td></tr>
+                  <tr><td></td><td>fires</td><td class="text-right">{{ player.fires || 0 }}</td></tr>
+                  <tr><td></td><td>floods</td><td class="text-right">{{ player.floods || 0 }}</td></tr>
+                  <tr><td></td><td>baseXP</td><td class="text-right">{{ formatNumber(player.baseXP) }}</td></tr>
+                  <tr><td></td><td>citadels</td><td class="text-right">{{ player.citadels || 0 }}</td></tr>
+                  <tr><td></td><td>crits</td><td class="text-right">{{ player.crits || 0 }}</td></tr>
+
+                  <!-- 命中数内訳 -->
+                  <tr class="category-header"><td colspan="3">命中数内訳</td></tr>
+                  <tr><td></td><td>hitsAP (主砲AP)</td><td class="text-right">{{ player.hitsAP || 0 }}</td></tr>
+                  <tr><td></td><td>hitsSAP (主砲SAP)</td><td class="text-right">{{ player.hitsSAP || 0 }}</td></tr>
+                  <tr><td></td><td>hitsHE (主砲HE)</td><td class="text-right">{{ player.hitsHE || 0 }}</td></tr>
+                  <tr><td></td><td>hitsSecondariesSAP (副砲SAP)</td><td class="text-right">{{ player.hitsSecondariesSAP || 0 }}</td></tr>
+                  <tr><td></td><td>hitsSecondariesAP (副砲AP)</td><td class="text-right">{{ player.hitsSecondariesAP || 0 }}</td></tr>
+                  <tr><td></td><td>hitsSecondaries (副砲HE)</td><td class="text-right">{{ player.hitsSecondaries || 0 }}</td></tr>
+
+                  <!-- 与ダメージ内訳 -->
+                  <tr class="category-header"><td colspan="3">与ダメージ内訳</td></tr>
+                  <tr><td></td><td>damageAP (主砲AP)</td><td class="text-right">{{ formatNumber(player.damageAP) }}</td></tr>
+                  <tr><td></td><td>damageSAP (主砲SAP)</td><td class="text-right">{{ formatNumber(player.damageSAP) }}</td></tr>
+                  <tr><td></td><td>damageHE (主砲HE)</td><td class="text-right">{{ formatNumber(player.damageHE) }}</td></tr>
+                  <tr><td></td><td>damageSAPSecondaries (副砲SAP)</td><td class="text-right">{{ formatNumber(player.damageSAPSecondaries) }}</td></tr>
+                  <tr><td></td><td>damageHESecondaries (副砲HE)</td><td class="text-right">{{ formatNumber(player.damageHESecondaries) }}</td></tr>
+                  <tr><td></td><td>damageTorps (魚雷)</td><td class="text-right">{{ formatNumber(player.damageTorps) }}</td></tr>
+                  <tr><td></td><td>damageDeepWaterTorps (深度魚雷)</td><td class="text-right">{{ formatNumber(player.damageDeepWaterTorps) }}</td></tr>
+                  <tr><td></td><td>damageFire (火災)</td><td class="text-right">{{ formatNumber(player.damageFire) }}</td></tr>
+                  <tr><td></td><td>damageFlooding (浸水)</td><td class="text-right">{{ formatNumber(player.damageFlooding) }}</td></tr>
+                  <tr><td></td><td>damageOther (その他)</td><td class="text-right">{{ formatNumber(player.damageOther) }}</td></tr>
+
+                  <!-- 被ダメージ内訳 -->
+                  <tr class="category-header"><td colspan="3">被ダメージ内訳</td></tr>
+                  <tr><td></td><td>receivedDamageAP (主砲AP)</td><td class="text-right">{{ formatNumber(player.receivedDamageAP) }}</td></tr>
+                  <tr><td></td><td>receivedDamageSAP (主砲SAP)</td><td class="text-right">{{ formatNumber(player.receivedDamageSAP) }}</td></tr>
+                  <tr><td></td><td>receivedDamageHE (主砲HE)</td><td class="text-right">{{ formatNumber(player.receivedDamageHE) }}</td></tr>
+                  <tr><td></td><td>receivedDamageSAPSecondaries (副砲SAP)</td><td class="text-right">{{ formatNumber(player.receivedDamageSAPSecondaries) }}</td></tr>
+                  <tr><td></td><td>receivedDamageHESecondaries (副砲HE)</td><td class="text-right">{{ formatNumber(player.receivedDamageHESecondaries) }}</td></tr>
+                  <tr><td></td><td>receivedDamageTorps (魚雷)</td><td class="text-right">{{ formatNumber(player.receivedDamageTorps) }}</td></tr>
+                  <tr><td></td><td>receivedDamageDeepWaterTorps (深度魚雷)</td><td class="text-right">{{ formatNumber(player.receivedDamageDeepWaterTorps) }}</td></tr>
+                  <tr><td></td><td>receivedDamageFire (火災)</td><td class="text-right">{{ formatNumber(player.receivedDamageFire) }}</td></tr>
+                  <tr><td></td><td>receivedDamageFlood (浸水)</td><td class="text-right">{{ formatNumber(player.receivedDamageFlood) }}</td></tr>
+                  <tr><td></td><td>receivedDamageUnknown218 (旧)</td><td class="text-right">{{ formatNumber(player.receivedDamageUnknown218) }}</td></tr>
+
+                  <!-- 潜在ダメージ内訳 -->
+                  <tr class="category-header"><td colspan="3">潜在ダメージ内訳</td></tr>
+                  <tr><td></td><td>potentialDamageArt (砲撃)</td><td class="text-right">{{ formatNumber(player.potentialDamageArt) }}</td></tr>
+                  <tr><td></td><td>potentialDamageTpd (魚雷)</td><td class="text-right">{{ formatNumber(player.potentialDamageTpd) }}</td></tr>
+                </tbody>
+              </v-table>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </div>
+    </template>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import type { MatchRecord, PlayerStats, ShipClass } from '~/types/replay'
 
 const props = defineProps<{
@@ -454,7 +557,11 @@ const props = defineProps<{
   isPolling?: boolean
 }>()
 
+const route = useRoute()
 const api = useApi()
+
+// デバッグモード（URLに?debug=trueがある場合に有効）
+const isDebugMode = computed(() => route.query.debug === 'true')
 const { getShipClassShortLabel, getShipClassIcon } = useShipClass()
 const config = useRuntimeConfig()
 
@@ -700,5 +807,28 @@ const formatDateTime = (dateTime: string) => {
   border-radius: 4px;
   font-size: 0.7rem;
   white-space: nowrap;
+}
+
+/* デバッグセクション */
+.debug-section {
+  background: rgba(255, 152, 0, 0.05);
+  border: 1px dashed rgba(255, 152, 0, 0.3);
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.debug-table {
+  font-size: 0.75rem;
+}
+
+.debug-table :deep(th),
+.debug-table :deep(td) {
+  padding: 4px 8px !important;
+}
+
+.debug-table :deep(.category-header td) {
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: bold;
+  padding-top: 12px !important;
 }
 </style>

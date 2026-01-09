@@ -47,7 +47,8 @@ export interface BattleStats {
   receivedDamageHE?: number
   receivedDamageTorps?: number
   receivedDamageDeepWaterTorps?: number
-  receivedDamageUnknown218?: number
+  receivedDamageSAPSecondaries?: number  // 副砲SAP被ダメージ
+  receivedDamageUnknown218?: number  // 旧フィールド（互換性のため維持）
   receivedDamageHESecondaries?: number
   receivedDamageFire?: number
   receivedDamageFlood?: number
