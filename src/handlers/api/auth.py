@@ -26,8 +26,8 @@ UPLOAD_API_KEY = os.environ.get("UPLOAD_API_KEY", "")
 dynamodb = boto3.resource("dynamodb")
 sessions_table = dynamodb.Table(SESSIONS_TABLE)
 
-# セッション有効期限（24時間）
-SESSION_TTL = 24 * 60 * 60
+# セッション有効期限（1ヶ月）
+SESSION_TTL = 30 * 24 * 60 * 60
 
 # Discord OAuth2 URLs
 DISCORD_AUTH_URL = "https://discord.com/api/oauth2/authorize"
