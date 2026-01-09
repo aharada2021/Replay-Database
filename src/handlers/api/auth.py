@@ -16,7 +16,7 @@ import boto3
 # 環境変数
 DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET")
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://wows-replay.mirage0926.com")
+FRONTEND_URL = os.environ.get("FRONTEND_URL")  # serverless.ymlから設定される
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "wows-sessions-dev")
 ALLOWED_GUILD_ID = os.environ.get("ALLOWED_GUILD_ID", "")
 ALLOWED_ROLE_IDS = os.environ.get("ALLOWED_ROLE_IDS", "")
@@ -45,7 +45,7 @@ def get_redirect_uri():
 def get_cors_headers(origin=None):
     """CORS ヘッダーを取得"""
     allowed_origins = [
-        "https://wows-replay.mirage0926.com",
+        FRONTEND_URL,
         "http://localhost:3000",
     ]
 

@@ -59,6 +59,37 @@ cd web-ui && npm run generate && aws s3 sync .output/public s3://wows-replay-web
 - npmキャッシュ: Serverless Frameworkインストール高速化
 - Dockerレイヤー最適化: 変更頻度の低いレイヤーを先に配置
 
+## GitHub Secrets（必須設定）
+
+### Lambda Backend (`deploy-lambda.yml`)
+| Secret名 | 説明 | 例 |
+|----------|------|-----|
+| `AWS_ACCESS_KEY_ID` | AWSアクセスキー | - |
+| `AWS_SECRET_ACCESS_KEY` | AWSシークレットキー | - |
+| `DISCORD_PUBLIC_KEY` | Discord Bot公開鍵 | - |
+| `DISCORD_APPLICATION_ID` | Discordアプリケーション ID | - |
+| `DISCORD_BOT_TOKEN` | Discord Botトークン | - |
+| `DISCORD_CLIENT_SECRET` | Discord OAuth2シークレット | - |
+| `INPUT_CHANNEL_ID` | 入力チャンネルID | - |
+| `GUILD_ID` | Discord サーバーID | - |
+| `UPLOAD_API_KEY` | リプレイアップロード用APIキー | - |
+| `FRONTEND_URL` | フロントエンドURL | `https://wows-replay.example.com` |
+| `ALLOWED_GUILD_ID` | アクセス許可するギルドID | `487923834868072449` |
+| `ALLOWED_ROLE_IDS` | アクセス許可するロールID（カンマ区切り） | `role1,role2` |
+
+### Web UI (`deploy-web-ui.yml`)
+| Secret名 | 説明 | 例 |
+|----------|------|-----|
+| `CLOUDFRONT_DISTRIBUTION_ID` | CloudFrontディストリビューションID | `E312DFOIWOIX5S` |
+| `S3_BUCKET_PROD` | 本番用S3バケット名 | `wows-replay-web-ui-prod` |
+| `CUSTOM_DOMAIN` | カスタムドメイン名 | `wows-replay.example.com` |
+| `S3_BUCKET_URL` | 動画配信用S3バケットURL | `https://bucket.s3.region.amazonaws.com` |
+
+### 環境変数化の方針（2026-01-09実施）
+- ハードコードされていたFQDN/URLをすべてGitHub Secretsから環境変数として注入
+- Python/Vue/client_tool全てでFRONTEND_URLを環境変数から取得
+- CORSオリジンもFRONTEND_URL環境変数を使用
+
 ## 開発コマンド
 
 ### Linting
@@ -317,6 +348,25 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 - **private/ディレクトリ**（gitignore済み、ローカル保持）:
   - `private/scripts/`: 調査・デバッグ用スクリプト9ファイル
   - `private/docs/`: 完了済み計画・内部技術ドキュメント9ファイル
+
+### ハードコードURL/FQDN環境変数化（2026-01-09完了）
+- **概要**: ハードコードされていたURL/FQDNをすべてGitHub Secrets経由で環境変数として注入
+- **対象ファイル**:
+  - `.github/workflows/deploy-lambda.yml`: FRONTEND_URLをシークレット化
+  - `.github/workflows/deploy-web-ui.yml`: CLOUDFRONT_DISTRIBUTION_ID, S3_BUCKET_PROD, CUSTOM_DOMAIN, S3_BUCKET_URLをシークレット化
+  - `deploy/serverless.yml`: CORSオリジンにFRONTEND_URL環境変数を使用
+  - `src/handlers/api/auth.py`, `src/handlers/api/download.py`: CORSオリジンにFRONTEND_URL使用
+  - `src/utils/discord_notify.py`: web_ui_base_urlにFRONTEND_URL使用
+  - `web-ui/nuxt.config.ts`: s3BucketUrl設定追加
+  - `web-ui/components/MatchDetailExpansion.vue`: S3動画URLを設定から取得
+  - `web-ui/app.vue`: サーバーURL表示・コピー機能追加
+  - `client_tool/wows_replay_uploader.py`: api_base_url設定項目追加
+- **client_tool変更**:
+  - セットアップウィザードにサーバーURL入力ステップ追加
+  - 設定ファイル（config.yaml）にapi_base_url保存
+  - Web UIの「API Key」ダイアログを「自動アップローダー設定」に改名しサーバーURL表示追加
+  - セットアップガイドも4ステップに更新
+- **新規GitHub Secrets**: FRONTEND_URL, CLOUDFRONT_DISTRIBUTION_ID, S3_BUCKET_PROD, CUSTOM_DOMAIN, S3_BUCKET_URL
 
 ## 今後の予定
 - リプレイ処理統合テスト実装

@@ -419,6 +419,7 @@ const props = defineProps<{
 
 const api = useApi()
 const { getShipClassShortLabel, getShipClassIcon } = useShipClass()
+const config = useRuntimeConfig()
 
 // 艦種のソート優先度（空母→戦艦→巡洋艦→駆逐艦→潜水艦）
 const SHIP_CLASS_PRIORITY: Record<string, number> = {
@@ -516,8 +517,9 @@ const videoReplay = computed(() => {
 // 動画URLを生成
 const getVideoUrl = (mp4S3Key: string | undefined) => {
   if (!mp4S3Key) return ''
-  // 仮実装: 実際にはAPIから署名付きURLを取得
-  return `https://wows-replay-bot-dev-temp.s3.ap-northeast-1.amazonaws.com/${mp4S3Key}`
+  // S3バケットURLは環境変数から取得
+  const s3BucketUrl = config.public.s3BucketUrl
+  return `${s3BucketUrl}/${mp4S3Key}`
 }
 
 // リプレイをダウンロード

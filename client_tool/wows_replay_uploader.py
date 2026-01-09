@@ -30,10 +30,9 @@ from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent
 # 定数
 # ========================================
 
-# APIエンドポイント（ハードコード）
-API_BASE_URL = "https://wows-replay.mirage0926.com"
-API_UPLOAD_URL = "https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com/api/upload"
-API_VERSION_URL = "https://874mutasbd.execute-api.ap-northeast-1.amazonaws.com/api/download?file=uploader"
+# APIエンドポイント（環境変数または設定ファイルから読み込み可能）
+# デフォルトは空、セットアップ時または設定ファイルから設定される
+DEFAULT_API_BASE_URL = ""  # 例: "https://wows-replay.mirage0926.com"
 
 # バージョン情報
 VERSION = "1.2.0"
@@ -78,6 +77,9 @@ class SetupWizard:
 
         print("\n初回セットアップを開始します。\n")
 
+        # API Base URL入力
+        self.config['api_base_url'] = self._get_api_base_url()
+
         # API Key入力
         self.config['api_key'] = self._get_api_key()
 
@@ -112,12 +114,27 @@ class SetupWizard:
         print(f"  Version {VERSION}")
         print("=" * 60)
 
+    def _get_api_base_url(self) -> str:
+        """API Base URLを取得"""
+        print("-" * 40)
+        print("【ステップ 1/4】サーバーURLの設定")
+        print("-" * 40)
+        print("\nWoWS Replay DatabaseのサーバーURLを入力してください。")
+        print("例: https://wows-replay.example.com\n")
+
+        while True:
+            api_base_url = input("サーバーURL: ").strip()
+            if api_base_url and api_base_url.startswith("https://"):
+                return api_base_url.rstrip("/")
+            print("エラー: https:// で始まる有効なURLを入力してください。\n")
+
     def _get_api_key(self) -> str:
         """API Keyを取得"""
+        print("\n" + "-" * 40)
+        print("【ステップ 2/4】API Keyの設定")
         print("-" * 40)
-        print("【ステップ 1/3】API Keyの設定")
-        print("-" * 40)
-        print(f"\nAPI Keyは {API_BASE_URL} で取得できます。")
+        api_base_url = self.config.get('api_base_url', '')
+        print(f"\nAPI Keyは {api_base_url} で取得できます。")
         print("※ Discordサーバーのメンバーである必要があります。\n")
 
         while True:
@@ -129,7 +146,7 @@ class SetupWizard:
     def _get_replays_folder(self) -> str:
         """リプレイフォルダを取得"""
         print("\n" + "-" * 40)
-        print("【ステップ 2/3】リプレイフォルダの設定")
+        print("【ステップ 3/4】リプレイフォルダの設定")
         print("-" * 40)
 
         # デフォルトフォルダの確認
@@ -163,7 +180,7 @@ class SetupWizard:
     def _get_discord_user_id(self) -> str:
         """Discord User ID を取得（オプション）"""
         print("\n" + "-" * 40)
-        print("【ステップ 3/3】Discord連携（オプション）")
+        print("【ステップ 4/4】Discord連携（オプション）")
         print("-" * 40)
         print("\nDiscord User IDを設定すると、アップロード時にあなたのID情報が")
         print("関連付けられます。空欄でもOKです。")
@@ -214,6 +231,7 @@ class SetupWizard:
     def _save_config(self):
         """設定を保存"""
         config_data = {
+            'api_base_url': self.config['api_base_url'],
             'api_key': self.config['api_key'],
             'replays_folder': self.config['replays_folder'],
             'discord_user_id': self.config.get('discord_user_id', ''),
@@ -236,6 +254,7 @@ class Config:
 
     DEFAULT_CONFIG = {
         'api_key': '',
+        'api_base_url': DEFAULT_API_BASE_URL,
         'replays_folder': DEFAULT_REPLAYS_FOLDER,
         'discord_user_id': '',
         'retry_count': 3,
@@ -268,7 +287,8 @@ class Config:
         if self.config is None:
             return False
         api_key = self.config.get('api_key', '')
-        return bool(api_key and api_key != 'YOUR_API_KEY_HERE')
+        api_base_url = self.config.get('api_base_url', '')
+        return bool(api_key and api_key != 'YOUR_API_KEY_HERE' and api_base_url)
 
     def get(self, key: str, default=None):
         """設定値を取得"""
@@ -288,10 +308,12 @@ class Config:
 class AutoUpdater:
     """自動アップデートクラス"""
 
-    def __init__(self):
+    def __init__(self, api_base_url: str = ""):
         self.current_version = VERSION
         self.latest_version = None
         self.download_url = None
+        self.api_base_url = api_base_url
+        self.version_url = f"{api_base_url}/api/download?file=uploader" if api_base_url else ""
 
     @staticmethod
     def parse_version(version_str: str) -> Tuple[int, ...]:
@@ -319,8 +341,13 @@ class AutoUpdater:
 
     def check_for_updates(self) -> bool:
         """アップデートを確認。新しいバージョンがあればTrueを返す"""
+        if not self.version_url:
+            if logger:
+                logger.debug("API base URL not configured, skipping update check")
+            return False
+
         try:
-            response = requests.get(API_VERSION_URL, timeout=10)
+            response = requests.get(self.version_url, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 download_url = data.get('url', '')
@@ -374,7 +401,7 @@ class AutoUpdater:
             print("\nダウンロード完了後、現在のアプリを終了して新しいバージョンに置き換えてください。")
         except Exception as e:
             print(f"エラー: {e}")
-            print(f"\n手動でダウンロードしてください: {API_BASE_URL}")
+            print(f"\n手動でダウンロードしてください: {self.api_base_url}")
 
 
 # ========================================
@@ -458,7 +485,8 @@ class ReplayUploader:
 
     def __init__(self, config: Config):
         self.config = config
-        self.api_url = API_UPLOAD_URL  # ハードコード
+        self.api_base_url = config.get('api_base_url', '')
+        self.api_url = f"{self.api_base_url}/api/upload"
         self.api_key = config.get('api_key')
         self.discord_user_id = config.get('discord_user_id', '')
         self.retry_count = config.get('retry_count', 3)
@@ -618,7 +646,7 @@ class ReplayMonitor:
             return
 
         logger.info(f"リプレイフォルダを監視開始: {self.replays_folder}")
-        logger.info(f"API URL: {API_UPLOAD_URL}")
+        logger.info(f"API URL: {self.uploader.api_url}")
 
         use_polling = self.config.get('use_polling', True)
         if use_polling:
@@ -670,7 +698,8 @@ def main():
         config.update(new_config)
 
     # アップデート確認
-    updater = AutoUpdater()
+    api_base_url = config.get('api_base_url', '')
+    updater = AutoUpdater(api_base_url)
     if updater.check_for_updates():
         updater.prompt_update()
 

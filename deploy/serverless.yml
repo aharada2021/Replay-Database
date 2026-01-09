@@ -12,7 +12,7 @@ provider:
   httpApi:
     cors:
       allowedOrigins:
-        - https://wows-replay.mirage0926.com
+        - ${env:FRONTEND_URL}
         - http://localhost:3000
       allowedHeaders:
         - Content-Type
@@ -343,6 +343,7 @@ functions:
           method: get
     environment:
       TEMP_BUCKET: ${self:custom.bucketName}
+      FRONTEND_URL: ${env:FRONTEND_URL}
 
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
 resources:

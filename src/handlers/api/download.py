@@ -11,7 +11,8 @@ import boto3
 from botocore.config import Config
 
 # 環境変数
-TEMP_BUCKET = os.environ.get("TEMP_BUCKET", "wows-replay-bot-dev-temp")
+TEMP_BUCKET = os.environ.get("TEMP_BUCKET")  # serverless.ymlから設定される
+FRONTEND_URL = os.environ.get("FRONTEND_URL")  # serverless.ymlから設定される
 
 # S3クライアント（署名付きURL用に署名バージョンを指定）
 s3_client = boto3.client(
@@ -27,7 +28,7 @@ URL_EXPIRATION = 3600
 def get_cors_headers(origin=None):
     """CORS ヘッダーを取得"""
     allowed_origins = [
-        "https://wows-replay.mirage0926.com",
+        FRONTEND_URL,
         "http://localhost:3000",
     ]
 

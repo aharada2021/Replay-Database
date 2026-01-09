@@ -214,7 +214,7 @@ jobs:
           GUILD_ID: ${{ secrets.GUILD_ID }}
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
-          FRONTEND_URL: https://wows-replay.mirage0926.com
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           ALLOWED_GUILD_ID: ${{ secrets.ALLOWED_GUILD_ID }}
           ALLOWED_ROLE_IDS: ${{ secrets.ALLOWED_ROLE_IDS }}
         run: |
@@ -286,7 +286,7 @@ jobs:
           GUILD_ID: ${{ secrets.GUILD_ID }}
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
-          FRONTEND_URL: https://wows-replay.mirage0926.com
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           ALLOWED_GUILD_ID: ${{ secrets.ALLOWED_GUILD_ID }}
           ALLOWED_ROLE_IDS: ${{ secrets.ALLOWED_ROLE_IDS }}
         run: |

@@ -5,12 +5,14 @@ Auto-uploader経由でアップロードされたリプレイの処理完了時�
 Discordへ通知を送信する
 """
 
+import os
 import requests
 import yaml
 from pathlib import Path
 
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
+FRONTEND_URL = os.environ.get("FRONTEND_URL")  # serverless.ymlから設定される
 
 # マップ名設定ファイルを読み込み
 _map_config = None
@@ -70,7 +72,7 @@ def send_replay_notification(
     bot_token: str,
     record: dict,
     mp4_url: str = None,
-    web_ui_base_url: str = "https://wows-replay.mirage0926.com",
+    web_ui_base_url: str = None,
 ) -> bool:
     """
     リプレイ処理完了通知を送信
@@ -88,6 +90,10 @@ def send_replay_notification(
     if not channel_id or not bot_token:
         print("Discord notification skipped: missing channel_id or bot_token")
         return False
+
+    # 環境変数からFRONTEND_URLを使用（引数で上書き可能）
+    if web_ui_base_url is None:
+        web_ui_base_url = FRONTEND_URL
 
     try:
         # レコードから情報を抽出

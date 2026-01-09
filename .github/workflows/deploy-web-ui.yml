@@ -18,9 +18,9 @@ on:
           - production
 
 env:
-  CLOUDFRONT_DISTRIBUTION_ID: E312DFOIWOIX5S
-  S3_BUCKET_PROD: wows-replay-web-ui-prod
-  CUSTOM_DOMAIN: wows-replay.mirage0926.com
+  CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+  S3_BUCKET_PROD: ${{ secrets.S3_BUCKET_PROD }}
+  CUSTOM_DOMAIN: ${{ secrets.CUSTOM_DOMAIN }}
 
 jobs:
   deploy-prod:
@@ -49,7 +49,8 @@ jobs:
 
       - name: Build Nuxt 3 application
         env:
-          API_BASE_URL: https://wows-replay.mirage0926.com
+          API_BASE_URL: https://${{ secrets.CUSTOM_DOMAIN }}
+          S3_BUCKET_URL: ${{ secrets.S3_BUCKET_URL }}
         run: npm run generate
 
       - name: Configure AWS credentials
@@ -76,6 +77,5 @@ jobs:
           echo "- **Bucket**: ${{ env.S3_BUCKET_PROD }}" >> $GITHUB_STEP_SUMMARY
           echo "- **CloudFront Distribution**: ${{ env.CLOUDFRONT_DISTRIBUTION_ID }}" >> $GITHUB_STEP_SUMMARY
           echo "- **URL**: https://${{ env.CUSTOM_DOMAIN }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Basic Auth**: Enabled" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
           echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

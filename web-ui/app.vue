@@ -55,12 +55,28 @@
       <v-card>
         <v-card-title class="text-h6">
           <v-icon start>mdi-key</v-icon>
-          API Key
+          自動アップローダー設定
         </v-card-title>
         <v-card-text>
           <p class="text-body-2 mb-3">
-            自動アップローダーで使用するAPI Keyです。他の人には共有しないでください。
+            自動アップローダーのセットアップ時に入力する情報です。他の人には共有しないでください。
           </p>
+          <v-text-field
+            v-model="serverUrl"
+            label="サーバーURL"
+            readonly
+            variant="outlined"
+            density="compact"
+          >
+            <template v-slot:append>
+              <v-btn
+                icon="mdi-content-copy"
+                variant="text"
+                size="small"
+                @click="copyServerUrl"
+              ></v-btn>
+            </template>
+          </v-text-field>
           <v-text-field
             v-model="apiKeyData.apiKey"
             label="API Key"
@@ -82,7 +98,7 @@
           </v-text-field>
           <v-text-field
             v-model="apiKeyData.discordUserId"
-            label="Discord User ID"
+            label="Discord User ID (オプション)"
             readonly
             variant="outlined"
             density="compact"
@@ -118,7 +134,7 @@
             <v-stepper-header>
               <v-stepper-item title="ダウンロード" value="1" complete></v-stepper-item>
               <v-divider></v-divider>
-              <v-stepper-item title="API Key取得" value="2"></v-stepper-item>
+              <v-stepper-item title="設定情報取得" value="2"></v-stepper-item>
               <v-divider></v-divider>
               <v-stepper-item title="初回起動" value="3"></v-stepper-item>
             </v-stepper-header>
@@ -130,17 +146,24 @@
               このメニューの「自動アップローダー」をクリックしてダウンロードしてください。
             </p>
 
-            <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 2: API Key取得</h4>
+            <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 2: 設定情報取得</h4>
             <p class="text-body-2 mb-3">
-              Discordでログイン後、このメニューの「API Key」をクリックしてAPI Keyをコピーしてください。
+              Discordでログイン後、このメニューの「API Key」をクリックして以下の情報をメモしてください:
             </p>
+            <ul class="text-body-2 mb-3">
+              <li><strong>サーバーURL</strong> - 接続先サーバーのURL</li>
+              <li><strong>API Key</strong> - 認証用のキー</li>
+              <li><strong>Discord User ID</strong> - オプション（アップロード者を識別）</li>
+            </ul>
 
             <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 3: 初回起動</h4>
             <ol class="text-body-2 mb-3">
               <li>ダウンロードしたzipファイルを展開</li>
               <li><code>wows_replay_uploader.exe</code> をダブルクリックして起動</li>
-              <li>セットアップウィザードでAPI Keyを入力</li>
+              <li>セットアップウィザードで<strong>サーバーURL</strong>を入力</li>
+              <li><strong>API Key</strong>を入力</li>
               <li>リプレイフォルダは自動検出されるのでそのままEnter</li>
+              <li>Discord User IDを入力（オプション）</li>
               <li>スタートアップ登録で「Y」を選択するとPC起動時に自動起動</li>
             </ol>
 
@@ -242,6 +265,12 @@ const apiKeyData = ref({
 // セットアップガイドダイアログ
 const setupGuideDialog = ref(false)
 
+// サーバーURLを取得（apiBaseUrlから）
+const serverUrl = computed(() => {
+  const baseUrl = config.public.apiBaseUrl
+  return baseUrl || window.location.origin
+})
+
 // ログインページではヘッダー・フッターを非表示
 const showAppBar = computed(() => route.path !== '/login')
 
@@ -303,6 +332,16 @@ const showApiKeyDialog = async () => {
     alert('API Keyの取得に失敗しました。再度ログインしてください。')
   } finally {
     isLoadingApiKey.value = false
+  }
+}
+
+// サーバーURLをクリップボードにコピー
+const copyServerUrl = async () => {
+  try {
+    await navigator.clipboard.writeText(serverUrl.value)
+    copySnackbar.value = true
+  } catch (error) {
+    console.error('コピーエラー:', error)
   }
 }
 
