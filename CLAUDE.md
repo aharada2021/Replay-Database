@@ -130,7 +130,13 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
-
+- **Dual Render機能（2026-01-10）**: 敵味方両チームのリプレイがある場合に両陣営視点動画を自動生成
+  - `src/utils/dual_render.py`: チーム判定ユーティリティ
+  - `src/core/replay_processor.py`: `generate_dual_minimap_video()` メソッド追加
+  - `src/utils/dynamodb.py`: Dual関連DB操作（`dualMp4S3Key`, `hasDualReplay`）
+  - `src/handlers/api/generate_video.py`: Dual動画生成対応
+  - `src/handlers/processing/battle_result_extractor.py`: Dual検出ロジック
+  - フロントエンド: 検索結果にDualバッジ、詳細画面で両陣営視点表示
 
 ## 今後の予定
 - リプレイ処理統合テスト実装

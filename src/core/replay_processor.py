@@ -185,3 +185,102 @@ class ReplayProcessor:
         except Exception as e:
             logger.error(f"MP4生成エラー: {e}", exc_info=True)
             return False
+
+    @staticmethod
+    def generate_dual_minimap_video(
+        green_replay_path: Path,
+        red_replay_path: Path,
+        output_path: Path,
+        green_tag: Optional[str] = None,
+        red_tag: Optional[str] = None,
+    ) -> bool:
+        """
+        RenderDualを使用して両陣営視点のMP4動画を生成
+
+        Args:
+            green_replay_path: 味方視点のリプレイファイルパス
+            red_replay_path: 敵視点のリプレイファイルパス
+            output_path: 出力MP4ファイルのパス
+            green_tag: 味方チームのタグ（クランタグ等）
+            red_tag: 敵チームのタグ（クランタグ等）
+
+        Returns:
+            成功した場合True、失敗した場合False
+        """
+        try:
+            logger.info(f"RenderDualでMP4を生成: green={green_replay_path}, red={red_replay_path}")
+
+            import sys
+            import os
+
+            # FFmpegのパスを環境変数に設定
+            ffmpeg_path = "/usr/local/bin/ffmpeg"
+            if os.path.exists(ffmpeg_path):
+                logger.info(f"FFmpegバイナリが見つかりました: {ffmpeg_path}")
+                os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
+            else:
+                logger.warning(f"FFmpegバイナリが見つかりません: {ffmpeg_path}")
+                if "IMAGEIO_FFMPEG_EXE" in os.environ:
+                    logger.info(f"環境変数IMAGEIO_FFMPEG_EXE: {os.environ['IMAGEIO_FFMPEG_EXE']}")
+                else:
+                    logger.error("環境変数IMAGEIO_FFMPEG_EXEが設定されていません")
+
+            from renderer.render import RenderDual
+            from replay_parser import ReplayParser
+
+            original_stdout = sys.stdout
+            original_stderr = sys.stderr
+            devnull = open(os.devnull, "w")
+
+            try:
+                sys.stdout = devnull
+                sys.stderr = devnull
+
+                # 両方のリプレイファイルをパース
+                logger.info("greenリプレイファイルをパース中...")
+                with open(green_replay_path, "rb") as f:
+                    green_info = ReplayParser(f, strict=True, raw_data_output=False).get_info()
+
+                logger.info("redリプレイファイルをパース中...")
+                with open(red_replay_path, "rb") as f:
+                    red_info = ReplayParser(f, strict=True, raw_data_output=False).get_info()
+
+                logger.info(
+                    f"リプレイバージョン: green={green_info['open']['clientVersionFromExe']}, "
+                    f"red={red_info['open']['clientVersionFromExe']}"
+                )
+
+                # RenderDualでMP4を生成
+                logger.info("Dual MP4動画をレンダリング中...")
+
+                renderer = RenderDual(
+                    green_info["hidden"]["replay_data"],
+                    red_info["hidden"]["replay_data"],
+                    green_tag=green_tag,
+                    red_tag=red_tag,
+                    logs=False,
+                    enable_chat=True,
+                    use_tqdm=False,
+                )
+
+                # 出力パスに直接生成
+                renderer.start(str(output_path))
+
+            finally:
+                sys.stdout = original_stdout
+                sys.stderr = original_stderr
+                devnull.close()
+
+            if output_path.exists():
+                logger.info(f"Dual MP4動画の生成に成功しました: {output_path}")
+                return True
+            else:
+                logger.error(f"Dual MP4ファイルが見つかりません: {output_path}")
+                return False
+
+        except ImportError as e:
+            logger.error(f"RenderDualのインポートに失敗: {e}", exc_info=True)
+            return False
+        except Exception as e:
+            logger.error(f"Dual MP4生成エラー: {e}", exc_info=True)
+            return False

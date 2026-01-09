@@ -194,6 +194,15 @@
           <v-chip :color="getGameTypeColor(item?.gameType || item?.raw?.gameType)" size="small">
             {{ getGameTypeText(item?.gameType || item?.raw?.gameType) }}
           </v-chip>
+          <v-chip
+            v-if="item?.hasDualReplay || item?.raw?.hasDualReplay"
+            color="purple"
+            size="small"
+            class="ml-1"
+          >
+            <v-icon size="x-small" class="mr-1">mdi-eye-outline</v-icon>
+            Dual
+          </v-chip>
         </template>
 
         <!-- 勝敗 -->

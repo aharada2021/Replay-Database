@@ -109,6 +109,9 @@ def handle(event, context):
 
         print(f"Found {len(items)} replays for the same match")
 
+        # hasDualReplayフラグ（いずれかのリプレイがDual可能な場合）
+        has_dual_replay = any(item.get("hasDualReplay") for item in items)
+
         # 試合情報を構築（最初のリプレイから共通情報を取得）
         first_replay = items[0]
         match_info = {
@@ -126,6 +129,8 @@ def handle(event, context):
             "allyMainClanTag": first_replay.get("allyMainClanTag"),
             "enemyMainClanTag": first_replay.get("enemyMainClanTag"),
             "allPlayersStats": first_replay.get("allPlayersStats", []),
+            # Dual Render
+            "hasDualReplay": has_dual_replay,
             "replays": [],
         }
 
@@ -143,6 +148,10 @@ def handle(event, context):
                     "fileSize": item.get("fileSize"),
                     "mp4S3Key": item.get("mp4S3Key"),
                     "mp4GeneratedAt": item.get("mp4GeneratedAt"),
+                    # Dual Render
+                    "dualMp4S3Key": item.get("dualMp4S3Key"),
+                    "dualMp4GeneratedAt": item.get("dualMp4GeneratedAt"),
+                    "hasDualReplay": item.get("hasDualReplay", False),
                     "ownPlayer": item.get("ownPlayer"),
                     # BattleStats - 基本統計
                     "damage": item.get("damage"),
