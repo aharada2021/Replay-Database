@@ -239,6 +239,7 @@ def handle(event, context):
         ship_name = normalize_ship_name(ship_name_raw) if ship_name_raw else None
         ship_team = params.get("shipTeam")  # "ally", "enemy", or None
         ship_min_count = params.get("shipMinCount", 1)
+        player_name = params.get("playerName")  # プレイヤー名検索
         win_loss = params.get("winLoss")
         date_from = params.get("dateFrom")
         date_to = params.get("dateTo")
@@ -259,6 +260,16 @@ def handle(event, context):
             ship_filtered_arena_ids = set(item.get("arenaUniqueID") for item in ship_result.get("items", []))
             print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
 
+        # プレイヤー名検索の場合、PlayerNameIndexを使用
+        player_filtered_arena_ids = None
+        if player_name:
+            player_result = dynamodb.search_replays_by_player_name(
+                player_name=player_name,
+                limit=500,  # 十分な数を取得
+            )
+            player_filtered_arena_ids = set(item.get("arenaUniqueID") for item in player_result.get("items", []))
+            print(f"Player filter: {player_name} found {len(player_filtered_arena_ids)} matches")
+
         # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
         # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
         # そのため多めにデータを取得し、Python側で正しくソートし直す
@@ -267,10 +278,20 @@ def handle(event, context):
         # - DynamoDBはDD.MM.YYYY HH:MM:SS形式で保存
         # - 形式が異なるため、DynamoDBの文字列比較が正しく動作しない
         # - カーソル・日付によるフィルタリングはPython側で行う
+        # プレイヤー名フィルタも考慮
+        combined_filtered_count = None
+        if ship_filtered_arena_ids is not None:
+            combined_filtered_count = len(ship_filtered_arena_ids)
+        if player_filtered_arena_ids is not None:
+            if combined_filtered_count is not None:
+                combined_filtered_count = min(combined_filtered_count, len(player_filtered_arena_ids))
+            else:
+                combined_filtered_count = len(player_filtered_arena_ids)
+
         fetch_multiplier = calculate_fetch_multiplier(
             ally_clan_tag=ally_clan_tag,
             enemy_clan_tag=enemy_clan_tag,
-            ship_filtered_count=(len(ship_filtered_arena_ids) if ship_filtered_arena_ids is not None else None),
+            ship_filtered_count=combined_filtered_count,
             cursor_date_time=cursor_date_time,
             date_from=date_from,
             date_to=date_to,
@@ -295,6 +316,11 @@ def handle(event, context):
         if ship_filtered_arena_ids is not None:
             items = [item for item in items if item.get("arenaUniqueID") in ship_filtered_arena_ids]
             print(f"After ship filter: {len(items)} items")
+
+        # プレイヤー名フィルタを適用（PlayerNameIndexで取得したarenaUniqueIDでフィルタ）
+        if player_filtered_arena_ids is not None:
+            items = [item for item in items if item.get("arenaUniqueID") in player_filtered_arena_ids]
+            print(f"After player filter: {len(items)} items")
 
         # 試合単位でグループ化（プレイヤーセットベース）
         matches = {}

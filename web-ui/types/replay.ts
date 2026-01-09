@@ -162,6 +162,7 @@ export interface SearchQuery {
   shipName?: string
   shipTeam?: 'ally' | 'enemy' | ''  // 艦艇チーム条件
   shipMinCount?: number  // 艦艇最小数
+  playerName?: string  // プレイヤー名検索
   winLoss?: string
   dateFrom?: string
   dateTo?: string
