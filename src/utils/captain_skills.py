@@ -49,16 +49,27 @@ def _get_ship_data() -> Dict[str, Dict]:
     else:
         # ローカル開発環境
         project_root = Path(__file__).parent.parent.parent
-        paths_to_try.append(project_root / "minimap_renderer" / "generated" / "ships.json")
         paths_to_try.append(
-            project_root / "minimap_renderer" / "src" / "renderer" / "versions" / "14_11_0" / "resources" / "ships.json"
+            project_root / "minimap_renderer" / "generated" / "ships.json"
+        )
+        paths_to_try.append(
+            project_root
+            / "minimap_renderer"
+            / "src"
+            / "renderer"
+            / "versions"
+            / "14_11_0"
+            / "resources"
+            / "ships.json"
         )
 
     for ships_json_path in paths_to_try:
         try:
             with open(ships_json_path, "r", encoding="utf-8") as f:
                 _ship_data_cache = json.load(f)
-                print(f"Loaded ships.json from {ships_json_path}: {len(_ship_data_cache)} ships")
+                print(
+                    f"Loaded ships.json from {ships_json_path}: {len(_ship_data_cache)} ships"
+                )
                 return _ship_data_cache
         except FileNotFoundError:
             continue
@@ -66,7 +77,7 @@ def _get_ship_data() -> Dict[str, Dict]:
             print(f"Warning: Failed to load ships.json from {ships_json_path}: {e}")
             continue
 
-    print(f"Warning: ships.json not found in any of the expected locations")
+    print("Warning: ships.json not found in any of the expected locations")
     _ship_data_cache = {}
     return _ship_data_cache
 
@@ -324,7 +335,9 @@ def get_skill_display_name(internal_name: str, language: str = "en") -> str:
     return display_name
 
 
-def extract_crew_skills(replay_hidden_data: Dict[str, Any]) -> Dict[int, Dict[str, List[str]]]:
+def extract_crew_skills(
+    replay_hidden_data: Dict[str, Any],
+) -> Dict[int, Dict[str, List[str]]]:
     """
     リプレイのhiddenデータから艦長スキル情報を抽出
 
@@ -348,7 +361,9 @@ def extract_crew_skills(replay_hidden_data: Dict[str, Any]) -> Dict[int, Dict[st
         skills_by_ship_type = {}
         for ship_type, skills in learned_skills.items():
             if isinstance(skills, list):
-                skills_by_ship_type[ship_type] = [get_skill_display_name(skill) for skill in skills]
+                skills_by_ship_type[ship_type] = [
+                    get_skill_display_name(skill) for skill in skills
+                ]
 
         result[avatar_id] = {
             "crew_id": crew_id,
@@ -447,14 +462,24 @@ def map_player_to_skills(
                 # 艦艇タイプが特定できた場合、そのタイプのスキルのみを取得
                 if ship_class and ship_class in learned_skills:
                     skills = learned_skills[ship_class]
-                    result[player_name] = [get_skill_display_name(s, language="ja") for s in skills]
+                    result[player_name] = [
+                        get_skill_display_name(s, language="ja") for s in skills
+                    ]
                 else:
                     # フォールバック: 艦種が特定できない場合は旧ロジック
                     # （最初に見つかったタイプのスキルを使用）
-                    for fallback_type in ["Destroyer", "Cruiser", "Battleship", "AirCarrier", "Submarine"]:
+                    for fallback_type in [
+                        "Destroyer",
+                        "Cruiser",
+                        "Battleship",
+                        "AirCarrier",
+                        "Submarine",
+                    ]:
                         if fallback_type in learned_skills:
                             skills = learned_skills[fallback_type]
-                            result[player_name] = [get_skill_display_name(s, language="ja") for s in skills]
+                            result[player_name] = [
+                                get_skill_display_name(s, language="ja") for s in skills
+                            ]
                             break
                 break
 
