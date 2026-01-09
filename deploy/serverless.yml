@@ -183,7 +183,7 @@ functions:
       REPLAYS_TABLE: ${self:custom.replaysTable}
       UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
 
-  # バトル結果抽出（S3トリガー - S3通知は手動設定済み）
+  # バトル結果抽出（S3トリガー）
   battle-result-extractor:
     image:
       uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
@@ -192,7 +192,14 @@ functions:
     architecture: arm64
     timeout: 300  # 5分
     memorySize: 512
-    # S3トリガーは既に手動設定済み（wows-replay-bot-dev-temp/replays/*.wowsreplay）
+    events:
+      - s3:
+          bucket: ${self:custom.bucketName}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: replays/
+            - suffix: .wowsreplay
+          existing: true
     environment:
       REPLAYS_TABLE: ${self:custom.replaysTable}
       SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
