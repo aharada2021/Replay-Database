@@ -373,6 +373,10 @@ def handle(event, context):
                     "fileSize": item.get("fileSize"),
                     "mp4S3Key": item.get("mp4S3Key"),
                     "mp4GeneratedAt": item.get("mp4GeneratedAt"),
+                    # Dual Render
+                    "dualMp4S3Key": item.get("dualMp4S3Key"),
+                    "dualMp4GeneratedAt": item.get("dualMp4GeneratedAt"),
+                    "hasDualReplay": item.get("hasDualReplay", False),
                     # BattleStats - 基本統計
                     "damage": item.get("damage"),
                     "receivedDamage": item.get("receivedDamage"),
@@ -400,16 +404,24 @@ def handle(event, context):
                 }
             )
 
-        # 各試合の代表リプレイを選択（mp4生成済み > 最初にアップロードされた順）
+        # 各試合の代表リプレイを選択（dualMp4生成済み > mp4生成済み > 最初にアップロードされた順）
         for match_key, match in matches.items():
             replays = match["replays"]
 
-            # mp4が生成済みのリプレイを優先
-            replays_with_video = [r for r in replays if r.get("mp4S3Key")]
-            if replays_with_video:
-                representative = replays_with_video[0]
+            # Dual mp4が生成済みのリプレイを最優先
+            replays_with_dual = [r for r in replays if r.get("dualMp4S3Key")]
+            if replays_with_dual:
+                representative = replays_with_dual[0]
             else:
-                representative = replays[0]
+                # 次に通常mp4が生成済みのリプレイを優先
+                replays_with_video = [r for r in replays if r.get("mp4S3Key")]
+                if replays_with_video:
+                    representative = replays_with_video[0]
+                else:
+                    representative = replays[0]
+
+            # hasDualReplayフラグ（いずれかのリプレイがDual可能な場合）
+            has_dual_replay = any(r.get("hasDualReplay") for r in replays)
 
             # 代表リプレイの情報をマッチに追加
             match["representativeArenaUniqueID"] = representative.get("arenaUniqueID")
@@ -422,6 +434,10 @@ def handle(event, context):
             match["fileSize"] = representative.get("fileSize")
             match["mp4S3Key"] = representative.get("mp4S3Key")
             match["mp4GeneratedAt"] = representative.get("mp4GeneratedAt")
+            # Dual Render
+            match["dualMp4S3Key"] = representative.get("dualMp4S3Key")
+            match["dualMp4GeneratedAt"] = representative.get("dualMp4GeneratedAt")
+            match["hasDualReplay"] = has_dual_replay
             match["replayCount"] = len(replays)
 
             # 代表リプレイのBattleStatsをマッチレベルにも追加

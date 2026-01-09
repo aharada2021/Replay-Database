@@ -25,6 +25,7 @@ from utils import dynamodb
 from utils.match_key import generate_match_key, format_sortable_datetime
 from utils.captain_skills import map_player_to_skills, get_ship_class_from_params_id, get_ship_name_from_params_id
 from utils.upgrades import map_player_to_upgrades
+from utils.dual_render import are_opposing_teams
 from core.replay_metadata import ReplayMetadataParser
 
 # S3クライアント
@@ -421,8 +422,9 @@ def handle(event, context):
 def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
     """
     同じ試合の既存リプレイで動画があるかチェックし、なければ動画生成をトリガー
+    敵味方リプレイが揃っている場合はhasDualReplayフラグを設定
 
-    arenaUniqueIDは各プレイヤーごとに異なるため、match_key（プレイヤーセット）で同一試合を判定
+    arenaUniqueIDは同一試合で共通のため、同一arenaの全リプレイを検索して敵味方を判定
 
     Args:
         arena_unique_id: arenaUniqueID
@@ -431,7 +433,7 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
     try:
         table = dynamodb.get_table()
 
-        # 現在のレコードを取得してmatch_keyを生成
+        # 現在のレコードを取得
         current_record = dynamodb.get_replay_record(arena_unique_id, player_id)
         if not current_record:
             print(f"No record found for arena {arena_unique_id}, player {player_id}")
@@ -447,38 +449,51 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
 
         print(f"Checking for existing video in match: {current_match_key}")
 
-        # 同じgameTypeの全リプレイを取得（効率化のため）
-        response = table.query(
-            IndexName="GameTypeSortableIndex",
-            KeyConditionExpression="gameType = :gt",
-            ExpressionAttributeValues={":gt": game_type},
-        )
-
-        all_items = response.get("Items", [])
-        print(f"Found {len(all_items)} items with gameType={game_type}")
+        # 同一arenaUniqueIDの全リプレイを取得（敵味方判定用）
+        same_arena_items = dynamodb.get_replays_for_arena(str(arena_unique_id))
+        print(f"Found {len(same_arena_items)} replays for arena {arena_unique_id}")
 
         # ownPlayerが配列の場合、単一オブジェクトに変換
-        for item in all_items:
+        for item in same_arena_items:
             if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
                 item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
 
-        # match_keyが一致するリプレイをフィルタリング
-        same_match_items = []
-        for item in all_items:
-            if generate_match_key(item) == current_match_key:
-                same_match_items.append(item)
+        # 敵味方リプレイがあるかチェック
+        opposing_replay = None
+        for other_replay in same_arena_items:
+            if other_replay.get("playerID") == int(player_id):
+                continue  # 自分自身はスキップ
+            if are_opposing_teams(current_record, other_replay):
+                opposing_replay = other_replay
+                break
 
-        print(f"Found {len(same_match_items)} replays for the same match")
+        has_dual = opposing_replay is not None
+        print(f"Dual replay available: {has_dual}")
 
-        # 既に動画があるリプレイがあるかチェック
-        has_video = any(item.get("mp4S3Key") for item in same_match_items)
+        # Dual可能な場合、両方のレコードにhasDualReplayを設定
+        if has_dual:
+            try:
+                dynamodb.update_has_dual_replay(str(arena_unique_id), int(player_id), True)
+                dynamodb.update_has_dual_replay(str(arena_unique_id), int(opposing_replay["playerID"]), True)
+                print(f"Updated hasDualReplay flag for both replays")
+            except Exception as dual_err:
+                print(f"Warning: Failed to update hasDualReplay: {dual_err}")
 
-        if has_video:
-            print("Match already has video, skipping generation")
+        # 既にDual動画があるかチェック
+        has_dual_video = any(item.get("dualMp4S3Key") for item in same_arena_items)
+        if has_dual_video:
+            print("Match already has dual video, skipping generation")
             return
 
-        # 動画がない場合、生成をトリガー
-        print(f"No video found for match, triggering video generation for arena {arena_unique_id}, player {player_id}")
+        # 既に通常動画があるかチェック（Dualがない場合は通常動画でOK）
+        has_video = any(item.get("mp4S3Key") for item in same_arena_items)
+
+        if has_video and not has_dual:
+            print("Match already has video and no dual available, skipping generation")
+            return
+
+        # 動画がない、またはDualが可能になった場合は生成をトリガー
+        print(f"Triggering video generation for arena {arena_unique_id}, player {player_id} (dual={has_dual})")
 
         # 環境変数から関数名を取得
         stage = os.environ.get("STAGE", "dev")

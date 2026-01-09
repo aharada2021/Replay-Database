@@ -73,6 +73,7 @@ def send_replay_notification(
     record: dict,
     mp4_url: str = None,
     web_ui_base_url: str = None,
+    is_dual: bool = False,
 ) -> bool:
     """
     リプレイ処理完了通知を送信
@@ -83,6 +84,7 @@ def send_replay_notification(
         record: DynamoDBレコード
         mp4_url: 動画のPresigned URL（オプション）
         web_ui_base_url: Web UIのベースURL
+        is_dual: Dual Render動画かどうか
 
     Returns:
         送信成功/失敗
@@ -148,8 +150,12 @@ def send_replay_notification(
             clan_text += f" vs [{enemy_clan}]" if enemy_clan else " vs ???"
 
         # 1つのEmbedにまとめる
+        title = f"{win_loss_ja} - {map_name_ja}"
+        if is_dual:
+            title = f"👁 両陣営視点 - {title}"
+
         embed = {
-            "title": f"{win_loss_ja} - {map_name_ja}",
+            "title": title,
             "color": embed_color,
             "fields": [
                 {"name": "ゲームタイプ", "value": game_type_ja, "inline": True},

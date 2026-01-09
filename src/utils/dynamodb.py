@@ -572,3 +572,101 @@ def search_matches_by_ship_with_count(
         "items": response.get("Items", []),
         "last_evaluated_key": response.get("LastEvaluatedKey"),
     }
+
+
+# ====================
+# Dual Render 関連関数
+# ====================
+
+
+def get_replays_for_arena(arena_unique_id: str) -> List[Dict[str, Any]]:
+    """
+    同一arenaUniqueIDの全リプレイを取得
+
+    Args:
+        arena_unique_id: arenaUniqueID
+
+    Returns:
+        リプレイレコードのリスト
+    """
+    table = get_table()
+
+    response = table.query(
+        KeyConditionExpression="arenaUniqueID = :aid",
+        ExpressionAttributeValues={":aid": str(arena_unique_id)},
+    )
+
+    return response.get("Items", [])
+
+
+def update_dual_video_info(
+    arena_unique_id: str,
+    player_id: int,
+    dual_mp4_s3_key: str,
+) -> None:
+    """
+    Dual動画情報を更新
+
+    Args:
+        arena_unique_id: arenaUniqueID
+        player_id: プレイヤーID
+        dual_mp4_s3_key: 生成したDual MP4のS3キー
+
+    Raises:
+        Exception: DynamoDB操作エラー
+    """
+    table = get_table()
+
+    dual_mp4_generated_at = datetime.utcnow().isoformat()
+
+    table.update_item(
+        Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id},
+        UpdateExpression="SET dualMp4S3Key = :s3key, dualMp4GeneratedAt = :generated, hasDualReplay = :hasDual",
+        ExpressionAttributeValues={
+            ":s3key": dual_mp4_s3_key,
+            ":generated": dual_mp4_generated_at,
+            ":hasDual": True,
+        },
+    )
+
+
+def update_has_dual_replay(
+    arena_unique_id: str,
+    player_id: int,
+    has_dual: bool,
+) -> None:
+    """
+    hasDualReplayフラグを更新
+
+    Args:
+        arena_unique_id: arenaUniqueID
+        player_id: プレイヤーID
+        has_dual: Dualリプレイが存在するか
+
+    Raises:
+        Exception: DynamoDB操作エラー
+    """
+    table = get_table()
+
+    table.update_item(
+        Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id},
+        UpdateExpression="SET hasDualReplay = :hasDual",
+        ExpressionAttributeValues={":hasDual": has_dual},
+    )
+
+
+def batch_update_dual_video_info(
+    arena_unique_id: str,
+    player_ids: List[int],
+    dual_mp4_s3_key: str,
+) -> None:
+    """
+    複数のリプレイレコードにDual動画情報を更新
+
+    Args:
+        arena_unique_id: arenaUniqueID
+        player_ids: 更新対象のプレイヤーIDリスト
+        dual_mp4_s3_key: 生成したDual MP4のS3キー
+    """
+    for player_id in player_ids:
+        update_dual_video_info(str(arena_unique_id), player_id, dual_mp4_s3_key)

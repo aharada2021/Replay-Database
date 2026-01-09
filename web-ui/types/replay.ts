@@ -86,6 +86,10 @@ export interface ReplayProvider extends BattleStats {
   fileSize: number
   mp4S3Key?: string
   mp4GeneratedAt?: string
+  // Dual Render
+  dualMp4S3Key?: string
+  dualMp4GeneratedAt?: string
+  hasDualReplay?: boolean
   ownPlayer?: PlayerInfo
 }
 
@@ -129,6 +133,10 @@ export interface MatchRecord extends BattleStats {
   fileSize?: number
   mp4S3Key?: string
   mp4GeneratedAt?: string
+  // Dual Render
+  dualMp4S3Key?: string
+  dualMp4GeneratedAt?: string
+  hasDualReplay?: boolean
 }
 
 export interface ReplayRecord {
@@ -203,6 +211,8 @@ export interface MatchDetailResponse {
   enemyMainClanTag?: string
   allPlayersStats?: PlayerStats[]
   replays: ReplayProvider[]
+  // Dual Render
+  hasDualReplay?: boolean
 }
 
 export interface GenerateVideoRequest {

@@ -291,7 +291,13 @@
 
       <!-- 動画プレーヤー（スコアボードがある場合） -->
       <v-col cols="12" lg="4">
-        <h3 class="mb-2 text-body-2">ミニマップ動画</h3>
+        <h3 class="mb-2 text-body-2">
+          ミニマップ動画
+          <v-chip v-if="isDualVideo" color="purple" size="x-small" class="ml-1">
+            <v-icon size="x-small" class="mr-1">mdi-eye-outline</v-icon>
+            両陣営視点
+          </v-chip>
+        </h3>
         <div v-if="videoReplay" class="video-container">
           <video
             controls
@@ -302,7 +308,7 @@
           </video>
           <div class="mt-1 text-caption">
             <v-icon size="small">mdi-account</v-icon>
-            {{ videoReplay.playerName }} のリプレイ
+            {{ isDualVideo ? '両陣営' : videoReplay.playerName }} のリプレイ
           </div>
         </div>
         <v-alert v-else :type="isPolling ? 'warning' : 'info'" density="compact" class="d-flex align-center">
@@ -379,7 +385,13 @@
 
       <!-- 動画プレーヤー（スコアボードがない場合） -->
       <v-col cols="12" md="6">
-        <h3 class="mb-2">ミニマップ動画</h3>
+        <h3 class="mb-2">
+          ミニマップ動画
+          <v-chip v-if="isDualVideo" color="purple" size="x-small" class="ml-1">
+            <v-icon size="x-small" class="mr-1">mdi-eye-outline</v-icon>
+            両陣営視点
+          </v-chip>
+        </h3>
         <div v-if="videoReplay" class="video-container">
           <video
             controls
@@ -390,7 +402,7 @@
           </video>
           <div class="mt-1 text-caption">
             <v-icon size="small">mdi-account</v-icon>
-            {{ videoReplay.playerName }} のリプレイ
+            {{ isDualVideo ? '両陣営' : videoReplay.playerName }} のリプレイ
           </div>
         </div>
         <v-alert v-else :type="isPolling ? 'warning' : 'info'" density="compact" class="d-flex align-center">
@@ -653,18 +665,30 @@ const hasPlayerDetails = (player: PlayerStats): boolean => {
   return !!(player.captainSkills?.length || player.upgrades?.length)
 }
 
-// 動画があるリプレイを取得
+// 動画があるリプレイを取得（Dual動画を優先）
 const videoReplay = computed(() => {
   if (!props.match.replays) return null
+  // まずDual動画を探す
+  const dualReplay = props.match.replays.find(r => r.dualMp4S3Key)
+  if (dualReplay) return dualReplay
+  // なければ通常動画を探す
   return props.match.replays.find(r => r.mp4S3Key) || null
 })
 
-// 動画URLを生成
+// Dual動画があるかどうか
+const isDualVideo = computed(() => {
+  return videoReplay.value?.dualMp4S3Key ? true : false
+})
+
+// 動画URLを生成（Dual優先）
 const getVideoUrl = (mp4S3Key: string | undefined) => {
-  if (!mp4S3Key) return ''
+  const replay = videoReplay.value
+  // Dual動画があればそちらを優先
+  const keyToUse = replay?.dualMp4S3Key || mp4S3Key
+  if (!keyToUse) return ''
   // S3バケットURLは環境変数から取得
   const s3BucketUrl = config.public.s3BucketUrl
-  return `${s3BucketUrl}/${mp4S3Key}`
+  return `${s3BucketUrl}/${keyToUse}`
 }
 
 // リプレイをダウンロード
