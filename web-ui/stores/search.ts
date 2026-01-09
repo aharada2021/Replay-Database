@@ -14,6 +14,7 @@ export const useSearchStore = defineStore('search', {
       shipName: '',
       shipTeam: '',
       shipMinCount: 1,
+      playerName: '',  // プレイヤー名検索
       winLoss: '',
       dateFrom: '',
       dateTo: '',
@@ -45,6 +46,7 @@ export const useSearchStore = defineStore('search', {
         shipName: '',
         shipTeam: '',
         shipMinCount: 1,
+        playerName: '',  // プレイヤー名検索
         winLoss: '',
         dateFrom: '',
         dateTo: '',

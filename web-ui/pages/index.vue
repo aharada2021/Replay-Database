@@ -105,6 +105,17 @@
               ></v-select>
             </div>
 
+            <!-- プレイヤー名 -->
+            <div class="filter-item filter-item--player">
+              <v-text-field
+                v-model="searchStore.query.playerName"
+                label="プレイヤー名"
+                clearable
+                density="compact"
+                hide-details
+              ></v-text-field>
+            </div>
+
             <!-- 日時範囲 From -->
             <div class="filter-item filter-item--date">
               <v-text-field
@@ -507,6 +518,10 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   width: 160px;
 }
 
+.filter-item--player {
+  width: 160px;
+}
+
 .filter-item--count {
   width: 100px;
 }
@@ -527,6 +542,7 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   .filter-item--wide,
   .filter-item--clan,
   .filter-item--ship,
+  .filter-item--player,
   .filter-item--count,
   .filter-item--date {
     width: calc(50% - 4px);
@@ -545,6 +561,7 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   .filter-item--wide,
   .filter-item--clan,
   .filter-item--ship,
+  .filter-item--player,
   .filter-item--count,
   .filter-item--date {
     width: 100%;

@@ -433,6 +433,46 @@ def put_ship_match_index_entries(
     print(f"Ship index entries created for arena {arena_unique_id}: {len(ship_counts)} ships")
 
 
+def search_replays_by_player_name(
+    player_name: str,
+    limit: int = 100,
+    last_evaluated_key: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    """
+    プレイヤー名でリプレイを検索（PlayerNameIndex GSIを使用）
+
+    Args:
+        player_name: プレイヤー名
+        limit: 取得件数上限
+        last_evaluated_key: ページネーション用キー
+
+    Returns:
+        {
+            'items': [...],
+            'last_evaluated_key': {...} or None
+        }
+    """
+    table = get_table()
+
+    query_params = {
+        "IndexName": "PlayerNameIndex",
+        "KeyConditionExpression": "playerName = :pn",
+        "ExpressionAttributeValues": {":pn": player_name},
+        "Limit": limit,
+        "ScanIndexForward": False,  # 降順（新しい順）
+    }
+
+    if last_evaluated_key:
+        query_params["ExclusiveStartKey"] = last_evaluated_key
+
+    response = table.query(**query_params)
+
+    return {
+        "items": response.get("Items", []),
+        "last_evaluated_key": response.get("LastEvaluatedKey"),
+    }
+
+
 def search_matches_by_ship(
     ship_name: str,
     limit: int = 100,
