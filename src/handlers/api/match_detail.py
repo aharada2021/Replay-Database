@@ -84,12 +84,12 @@ def handle(event, context):
 
         # 全リプレイをスキャンして同じmatch_keyを持つものを探す
         # 小規模データベースの場合はScanで十分
-        # 大規模な場合はGameTypeIndexを使って絞り込む
+        # 大規模な場合はGameTypeSortableIndexを使って絞り込む
         game_type = seed_item.get("gameType")
 
-        # GameTypeIndexで同じゲームタイプのリプレイを取得
+        # GameTypeSortableIndexで同じゲームタイプのリプレイを取得
         all_response = table.query(
-            IndexName="GameTypeIndex",
+            IndexName="GameTypeSortableIndex",
             KeyConditionExpression="gameType = :gt",
             ExpressionAttributeValues={":gt": game_type},
         )

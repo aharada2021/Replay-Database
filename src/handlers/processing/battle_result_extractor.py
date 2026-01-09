@@ -379,7 +379,7 @@ def check_and_trigger_video_generation(arena_unique_id: int, player_id: int):
 
         # 同じgameTypeの全リプレイを取得（効率化のため）
         response = table.query(
-            IndexName="GameTypeIndex",
+            IndexName="GameTypeSortableIndex",
             KeyConditionExpression="gameType = :gt",
             ExpressionAttributeValues={":gt": game_type},
         )

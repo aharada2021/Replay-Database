@@ -390,14 +390,6 @@ resources:
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
-          - IndexName: MapIdIndex
-            KeySchema:
-              - AttributeName: mapId
-                KeyType: HASH
-              - AttributeName: dateTime
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
           # 新しいGSI: dateTimeSortable (YYYYMMDDHHMMSS形式) でソート
           # 旧GSI (dateTime = DD.MM.YYYY形式) は年をまたぐと正しくソートされない
           - IndexName: GameTypeSortableIndex
