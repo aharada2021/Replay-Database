@@ -258,7 +258,7 @@ functions:
     environment:
       DISCORD_CLIENT_ID: ${env:DISCORD_APPLICATION_ID}
       DISCORD_CLIENT_SECRET: ${env:DISCORD_CLIENT_SECRET}
-      FRONTEND_URL: ${env:FRONTEND_URL, 'https://wows-replay.mirage0926.com'}
+      FRONTEND_URL: ${env:FRONTEND_URL, ''}
       SESSIONS_TABLE: ${self:custom.sessionsTable}
 
   # Discord OAuth2 コールバック
@@ -277,7 +277,7 @@ functions:
     environment:
       DISCORD_CLIENT_ID: ${env:DISCORD_APPLICATION_ID}
       DISCORD_CLIENT_SECRET: ${env:DISCORD_CLIENT_SECRET}
-      FRONTEND_URL: ${env:FRONTEND_URL, 'https://wows-replay.mirage0926.com'}
+      FRONTEND_URL: ${env:FRONTEND_URL, ''}
       SESSIONS_TABLE: ${self:custom.sessionsTable}
       ALLOWED_GUILD_ID: ${env:ALLOWED_GUILD_ID, ''}
       ALLOWED_ROLE_IDS: ${env:ALLOWED_ROLE_IDS, ''}
