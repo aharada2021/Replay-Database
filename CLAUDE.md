@@ -52,7 +52,7 @@ git push origin develop  # dev環境へ自動デプロイ
 |------|----------------|---------------|
 | ブランチ | main | develop |
 | Web UI | https://wows-replay.mirage0926.com | https://dev-wows-replay.mirage0926.com |
-| CloudFront | E312DFOIWOIX5S | ED8NWPEEI4970 |
+| CloudFront | (GitHub Secrets参照) | (GitHub Secrets参照) |
 | S3 (Web UI) | wows-replay-web-ui-prod | wows-replay-web-ui-dev |
 | S3 (一時ファイル) | wows-replay-bot-prod-temp | wows-replay-bot-dev-temp |
 | DynamoDB | wows-replays-prod | wows-replays-dev |
@@ -86,13 +86,13 @@ cd web-ui && npm run generate && aws s3 sync .output/public s3://wows-replay-web
 | `GUILD_ID` | Discord サーバーID | - |
 | `UPLOAD_API_KEY` | リプレイアップロード用APIキー | - |
 | `FRONTEND_URL` | フロントエンドURL | `https://wows-replay.example.com` |
-| `ALLOWED_GUILD_ID` | アクセス許可するギルドID | `487923834868072449` |
-| `ALLOWED_ROLE_IDS` | アクセス許可するロールID（カンマ区切り） | `role1,role2` |
+| `ALLOWED_GUILD_ID` | アクセス許可するギルドID | - |
+| `ALLOWED_ROLE_IDS` | アクセス許可するロールID（カンマ区切り） | - |
 
 ### Web UI (`deploy-web-ui.yml`) - 環境別Secrets
 | Secret名 | 説明 | production例 | development例 |
 |----------|------|-------------|---------------|
-| `CLOUDFRONT_DISTRIBUTION_ID` | CloudFront ID | `E312DFOIWOIX5S` | (dev用ID) |
+| `CLOUDFRONT_DISTRIBUTION_ID` | CloudFront ID | (prod用ID) | (dev用ID) |
 | `S3_BUCKET_WEB_UI` | Web UI用S3バケット | `wows-replay-web-ui-prod` | `wows-replay-web-ui-dev` |
 | `CUSTOM_DOMAIN` | カスタムドメイン | `wows-replay.example.com` | `dev.wows-replay.example.com` |
 | `S3_BUCKET_URL` | 動画配信S3 URL | `https://...-prod-temp.s3...` | `https://...-dev-temp.s3...` |
@@ -199,8 +199,8 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 - マップ名を日本語表示に変更（`useMapNames`composable使用）
 
 ### Discord認証のギルド・ロール設定変更（2026-01-08完了）
-- ギルドID: `487923834868072449`に変更
-- ロールベースアクセス制御を追加: `487924554111516672`, `1458737823585927179`
+- ギルドID: GitHub Secretsで設定
+- ロールベースアクセス制御を追加（GitHub Secretsで設定）
 - OAuth2スコープに`guilds.members.read`を追加
 - 許可されたロールを持つユーザーのみアクセス可能に
 
@@ -370,7 +370,7 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
   - `wows-replay-bot-prod-temp`: S3（手動作成）
 - **AWSリソース作成（dev）**:
   - `wows-replay-web-ui-dev`: S3
-  - CloudFront: ED8NWPEEI4970（S3 + API Gateway両方をorigin）
+  - CloudFront: S3 + API Gateway両方をorigin
   - ACM証明書: dev-wows-replay.mirage0926.com
   - Route53: dev-wows-replay.mirage0926.com → CloudFront
 - **データ移行**: dev→prodへ242試合、2986艦艇インデックス、531 S3オブジェクト（1.3GB）を移行
@@ -381,7 +381,7 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 - **スクリプト追加**: `scripts/migrate_dynamodb.py`（DynamoDB移行）
 - **GitHub Environments**: production / development 各14シークレット設定
 - **開発用Discord App**: 別アプリケーションを使用（完全分離）
-- **注意**: IAMユーザー`githubactions`に`cloudfront:CreateInvalidation`権限追加が必要
+- **注意**: GitHub Actions用IAMユーザーに`cloudfront:CreateInvalidation`権限追加が必要
 
 ### ハードコードURL/FQDN環境変数化（2026-01-09完了）
 - **概要**: ハードコードされていたURL/FQDNをすべてGitHub Secrets経由で環境変数として注入
