@@ -81,6 +81,7 @@ python3 scripts/backfill_battlestats.py  # BattleStats詳細フィールド追�
 python3 scripts/backfill_captain_skills.py  # 艦長スキル追加
 python3 scripts/backfill_ship_class.py  # 艦種（shipClass）追加
 python3 scripts/backfill_skills_japanese.py  # 艦長スキル日本語化
+python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイプ対応）
 # DRY_RUN=true で実行すると、書き込みなしで対象レコードを確認可能
 ```
 
