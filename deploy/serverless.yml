@@ -91,6 +91,10 @@ custom:
   replaysTable: wows-replays-${self:provider.stage}
   sessionsTable: wows-sessions-${self:provider.stage}
   shipMatchIndexTable: wows-ship-match-index-${self:provider.stage}
+  # 開発環境でのみ艦長スキルデバッグを有効化
+  debugCaptainSkills:
+    dev: 'true'
+    prod: 'false'
   # Dockerイメージを使用するため、pythonRequirementsは不要
   # pythonRequirements:
   #   dockerizePip: true
@@ -204,6 +208,7 @@ functions:
       REPLAYS_TABLE: ${self:custom.replaysTable}
       SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
       STAGE: ${self:provider.stage}
+      DEBUG_CAPTAIN_SKILLS: ${self:custom.debugCaptainSkills.${self:provider.stage}, 'false'}
 
   # 検索API
   search-api:

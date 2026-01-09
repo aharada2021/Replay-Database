@@ -404,7 +404,9 @@ def get_player_skills_from_replay(
 
 def map_player_to_skills(
     replay_hidden_data: Dict[str, Any],
-) -> Dict[str, List[str]]:
+    debug: bool = False,
+    include_raw: bool = False,
+) -> Dict[str, Any]:
     """
     プレイヤー名から艦長スキルへのマッピングを生成
 
@@ -414,13 +416,19 @@ def map_player_to_skills(
 
     Args:
         replay_hidden_data: ReplayParserの hidden セクションデータ
+        debug: デバッグログを出力するかどうか
+        include_raw: 生データ（内部スキル名、crew_id等）も含めるかどうか
 
     Returns:
-        {player_name: [skill1, skill2, ...]}
+        include_raw=False: {player_name: [skill1, skill2, ...]}
+        include_raw=True: {player_name: {"skills": [...], "raw": {...}}}
     """
     result = {}
     players_data = replay_hidden_data.get("players", {})
     crew_data = replay_hidden_data.get("crew", {})
+
+    if debug:
+        print(f"[DEBUG] map_player_to_skills: players count = {len(players_data)}, crew count = {len(crew_data)}")
 
     for player_id, player_info in players_data.items():
         if not isinstance(player_info, dict):
@@ -446,13 +454,27 @@ def map_player_to_skills(
             if isinstance(c_info, dict) and c_info.get("crew_id") == crew_id:
                 learned_skills = c_info.get("learned_skills", {})
 
+                if debug:
+                    print(f"[DEBUG] {player_name}: crew_id={crew_id}, shipParamsId={ship_params_id}, ship_class={ship_class}")
+                    print(f"[DEBUG] {player_name}: learned_skills keys = {list(learned_skills.keys())}")
+                    # 各艦種のスキル数を出力
+                    for st, sk in learned_skills.items():
+                        print(f"[DEBUG] {player_name}: {st} has {len(sk)} skills: {sk[:3]}..." if len(sk) > 3 else f"[DEBUG] {player_name}: {st} has {len(sk)} skills: {sk}")
+
                 # 艦艇タイプが特定できた場合、そのタイプのスキルのみを取得
+                used_ship_class = None
+                is_fallback = False
+                raw_skills = []
+
                 if ship_class and ship_class in learned_skills:
-                    skills = learned_skills[ship_class]
-                    result[player_name] = [get_skill_display_name(s, language="ja") for s in skills]
+                    raw_skills = learned_skills[ship_class]
+                    used_ship_class = ship_class
+                    if debug:
+                        print(f"[DEBUG] {player_name}: Using {ship_class} skills (raw): {raw_skills}")
                 else:
                     # フォールバック: 艦種が特定できない場合は旧ロジック
                     # （最初に見つかったタイプのスキルを使用）
+                    is_fallback = True
                     for fallback_type in [
                         "Destroyer",
                         "Cruiser",
@@ -461,9 +483,29 @@ def map_player_to_skills(
                         "Submarine",
                     ]:
                         if fallback_type in learned_skills:
-                            skills = learned_skills[fallback_type]
-                            result[player_name] = [get_skill_display_name(s, language="ja") for s in skills]
+                            raw_skills = learned_skills[fallback_type]
+                            used_ship_class = fallback_type
+                            if debug:
+                                print(f"[DEBUG] {player_name}: FALLBACK to {fallback_type} skills (raw): {raw_skills}")
                             break
+
+                display_skills = [get_skill_display_name(s, language="ja") for s in raw_skills]
+
+                if include_raw:
+                    result[player_name] = {
+                        "skills": display_skills,
+                        "raw": {
+                            "crew_id": crew_id,
+                            "ship_params_id": ship_params_id,
+                            "detected_ship_class": ship_class,
+                            "used_ship_class": used_ship_class,
+                            "is_fallback": is_fallback,
+                            "raw_skill_names": raw_skills,
+                            "all_learned_skills_keys": list(learned_skills.keys()),
+                        },
+                    }
+                else:
+                    result[player_name] = display_skills
                 break
 
     return result
