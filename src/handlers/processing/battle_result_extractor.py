@@ -23,12 +23,65 @@ from parsers.battle_stats_extractor import (
 from parsers.battlestats_parser import BattleStatsParser
 from utils import dynamodb
 from utils.match_key import generate_match_key, format_sortable_datetime
-from utils.captain_skills import map_player_to_skills, get_ship_class_from_params_id
+from utils.captain_skills import map_player_to_skills, get_ship_class_from_params_id, get_ship_name_from_params_id
 from utils.upgrades import map_player_to_upgrades
+from core.replay_metadata import ReplayMetadataParser
 
 # S3クライアント
 s3_client = boto3.client("s3")
 lambda_client = boto3.client("lambda")
+
+
+def extract_players_info_from_metadata(metadata: dict) -> dict:
+    """
+    リプレイメタデータからプレイヤー情報を抽出（API呼び出しなし）
+
+    Args:
+        metadata: リプレイメタデータ
+
+    Returns:
+        {
+            'own': [{'name': str, 'shipId': int, 'shipName': str}, ...],
+            'allies': [{'name': str, 'shipId': int, 'shipName': str}, ...],
+            'enemies': [{'name': str, 'shipId': int, 'shipName': str}, ...]
+        }
+    """
+    players_info = {"own": [], "allies": [], "enemies": []}
+
+    try:
+        vehicles = metadata.get("vehicles", [])
+
+        for player in vehicles:
+            ship_id = player.get("shipId", 0)
+            player_name = player.get("name", "Unknown")
+
+            # ships.jsonから艦艇名を取得（見つからない場合は空文字）
+            ship_name = get_ship_name_from_params_id(ship_id) or ""
+
+            player_data = {
+                "name": player_name,
+                "shipId": ship_id,
+                "shipName": ship_name,
+            }
+
+            relation = player.get("relation", 2)
+
+            if relation == 0:
+                players_info["own"].append(player_data)
+            elif relation == 1:
+                players_info["allies"].append(player_data)
+            else:
+                players_info["enemies"].append(player_data)
+
+        print(
+            f"Extracted players info: own={len(players_info['own'])}, "
+            f"allies={len(players_info['allies'])}, enemies={len(players_info['enemies'])}"
+        )
+
+    except Exception as e:
+        print(f"Error extracting players info: {e}")
+
+    return players_info
 
 
 def build_all_players_stats(
@@ -166,6 +219,12 @@ def handle(event, context):
             # with文を抜けてファイルが完全に閉じられる
 
             try:
+                # リプレイメタデータを解析してプレイヤー情報を取得
+                metadata = ReplayMetadataParser.parse_replay_metadata(tmp_path)
+                players_info = {"own": [], "allies": [], "enemies": []}
+                if metadata:
+                    players_info = extract_players_info_from_metadata(metadata)
+
                 # BattleStatsパケットを抽出
                 battle_results = extract_battle_stats(str(tmp_path))
 
@@ -234,6 +293,17 @@ def handle(event, context):
                 old_record["arenaUniqueID"] = str(arena_unique_id)
                 old_record["winLoss"] = win_loss
                 old_record["experienceEarned"] = experience_earned
+
+                # プレイヤー情報を追加（upload APIで省略されたデータを補完）
+                if players_info.get("own"):
+                    own_player = players_info["own"][0]
+                    old_record["ownPlayer"] = own_player
+                    old_record["playerShip"] = own_player.get("shipName", "")
+                    old_record["playerShipId"] = own_player.get("shipId", 0)
+                if players_info.get("allies"):
+                    old_record["allies"] = players_info["allies"]
+                if players_info.get("enemies"):
+                    old_record["enemies"] = players_info["enemies"]
 
                 # BattleStatsから詳細統計を抽出
                 players_public_info = battle_results.get("playersPublicInfo", {})

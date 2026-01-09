@@ -30,6 +30,9 @@ COPY src/parsers/ ./parsers/
 COPY src/utils/ ./utils/
 COPY config/map_names.yaml ./config/
 
+# 艦艇データ（ships.json）をコピー
+COPY minimap_renderer/generated/ships.json ./data/ships.json
+
 # パーミッション設定
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
 

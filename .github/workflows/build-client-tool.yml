@@ -1,24 +1,29 @@
 name: Build Client Tool
 
 on:
-  # タグがプッシュされた時に実行
+  # mainブランチへのpush時、client_tool配下の変更で実行
   push:
-    tags:
-      - 'client-v*'
+    branches:
+      - main
+    paths:
+      - 'client_tool/**'
   # 手動実行も可能
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 1.0.0)'
-        required: true
-        default: '1.0.0'
+        description: 'Version number (optional, defaults to version in code)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
 
 jobs:
   build:
+    name: Build
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
 
     steps:
       - name: Checkout code
@@ -64,13 +69,21 @@ jobs:
 
       - name: Get version
         id: version
+        working-directory: client_tool
         run: |
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            echo "VERSION=${{ github.event.inputs.version }}" >> $env:GITHUB_OUTPUT
+          # 手動実行でバージョンが指定された場合はそれを使用
+          $inputVersion = "${{ github.event.inputs.version }}"
+          if ($inputVersion -ne "") {
+            echo "VERSION=$inputVersion" >> $env:GITHUB_OUTPUT
           } else {
-            $tag = "${{ github.ref_name }}"
-            $version = $tag -replace "client-v", ""
-            echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+            # wows_replay_uploader.py から VERSION を抽出
+            $content = Get-Content wows_replay_uploader.py -Raw
+            if ($content -match 'VERSION\s*=\s*"([^"]+)"') {
+              $version = $matches[1]
+              echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+            } else {
+              echo "VERSION=unknown" >> $env:GITHUB_OUTPUT
+            }
           }
 
       - name: Upload artifact
@@ -80,10 +93,18 @@ jobs:
           path: client_tool/release/
           retention-days: 30
 
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wows_replay_uploader-zip
+          path: client_tool/wows_replay_uploader.zip
+          retention-days: 30
+
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: client-v${{ steps.version.outputs.VERSION }}
           name: WoWS Replay Uploader v${{ steps.version.outputs.VERSION }}
           body: |
             ## WoWS Replay Auto Uploader v${{ steps.version.outputs.VERSION }}
@@ -107,13 +128,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Release Asset (manual trigger)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+  upload-dev:
+    name: Upload to S3 (Dev)
+    runs-on: ubuntu-latest
+    needs: build
+    environment: development
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
-          name: wows_replay_uploader-${{ steps.version.outputs.VERSION }}-zip
-          path: client_tool/wows_replay_uploader.zip
-          retention-days: 30
+          name: wows_replay_uploader-zip
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -123,6 +148,36 @@ jobs:
           aws-region: ap-northeast-1
 
       - name: Upload to S3
+        env:
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
-          aws s3 cp client_tool/wows_replay_uploader.zip s3://wows-replay-bot-dev-temp/downloads/wows_replay_uploader.zip
-          aws s3 cp client_tool/wows_replay_uploader.zip s3://wows-replay-bot-dev-temp/downloads/wows_replay_uploader-${{ steps.version.outputs.VERSION }}.zip
+          aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader.zip
+          aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader-${VERSION}.zip
+
+  upload-prod:
+    name: Upload to S3 (Prod)
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wows_replay_uploader-zip
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Upload to S3
+        env:
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader.zip
+          aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader-${VERSION}.zip
