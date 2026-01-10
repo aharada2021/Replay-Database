@@ -119,7 +119,7 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "DetectionTorpedoRange": "Vigilance",
     "HeFireProbability": "Demolition Expert",
     "GmRangeAaDamageBubbles": "Main Battery and AA Specialist",
-    "PlanesDefenseDamageConstant": "Aircraft Armor", 
+    "PlanesDefenseDamageConstant": "Aircraft Armor",
     "PlanesForsageDuration": "Improved Engine Boost",
     "DetectionVisibilityRange": "Concealment Expert",
     "ConsumablesReload": "Consumable Specialist",
@@ -130,7 +130,7 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "DefenseCritProbability": "Preventive Maintenance",
     "DetectionAlert": "Priority Target",
     "Maneuverability": "Last Stand",
-    "GmShellReload": "Expert Loader", 
+    "GmShellReload": "Expert Loader",
     "PlanesConsumablesCallfightersUpgrade": "Search and Destroy",
     "ArmamentReloadAaDamage": "Adrenaline Rush",
     "TorpedoSpeed": "Swift Fish",
@@ -154,7 +154,7 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "ConsumablesCrashcrewRegencrewUpgrade": "Improved Repair Party Readiness",
     "ConsumablesSpotterUpgrade": "Eye in the Sky",
     "DefenceUw": "Emergency Repair Expert",
-    "DetectionVisibilityCrashcrew": "Hidden Menace", #多分隠れた脅威
+    "DetectionVisibilityCrashcrew": "Hidden Menace",  # 多分隠れた脅威
     "HeFireProbabilityCv": "Pyrotechnician",
     "HeSapDamage": "Heavy HE and SAP Shells",
     "PlanesApDamage": "Enhanced Armor-Piercing Ammunition",
@@ -176,16 +176,16 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "TriggerGmReload": "Fearless Brawler",
     "TriggerSpeed": "Swift in Silence",
     "TriggerSpeedAccuracy": "Outnumbered",
-    "TriggerSpreading": "Dazzle", # 多分幻惑
+    "TriggerSpreading": "Dazzle",  # 多分幻惑
     "TriggerPingerReloadBuff": "Enhanced Sonar",
     "TriggerPingerSpeedBuff": "Enhanced Impulse Generator",
     "SubmarineHoldSectors": "Sonar Operator",
-    "TriggerConsSonarTimeCoeff": "undefiend1 skill", #不明なスキルなので仮名称を当てる
+    "TriggerConsSonarTimeCoeff": "undefiend1 skill",  # 不明なスキルなので仮名称を当てる
     "TriggerSeenTorpedoReload": "Torpedo Crew Training",
     "SubmarineTorpedoPingDamage": "Homing Torpedo Expert",
     "TriggerConsRudderTimeCoeff": "Helmsman",
     "SubmarineBatteryCapacity": "Improved Battery Capacity",
-    "SubmarineDangerAlert": "Incoming Fire Alert", #潜水艦の擲弾接近警報
+    "SubmarineDangerAlert": "Incoming Fire Alert",  # 潜水艦の擲弾接近警報
     "SubmarineBatteryBurnDown": "Improved Battery Efficiency",
     "SubmarineSpeed": "Enlarged Propeller Shaft",
     "SubmarineConsumablesReload": "Improved Consumables",
@@ -453,11 +453,20 @@ def map_player_to_skills(
                 learned_skills = c_info.get("learned_skills", {})
 
                 if debug:
-                    print(f"[DEBUG] {player_name}: crew_id={crew_id}, shipParamsId={ship_params_id}, ship_class={ship_class}")
-                    print(f"[DEBUG] {player_name}: learned_skills keys = {list(learned_skills.keys())}")
+                    print(
+                        f"[DEBUG] {player_name}: crew_id={crew_id}, "
+                        f"shipParamsId={ship_params_id}, ship_class={ship_class}"
+                    )
+                    print(
+                        f"[DEBUG] {player_name}: learned_skills keys = "
+                        f"{list(learned_skills.keys())}"
+                    )
                     # 各艦種のスキル数を出力
                     for st, sk in learned_skills.items():
-                        print(f"[DEBUG] {player_name}: {st} has {len(sk)} skills: {sk[:3]}..." if len(sk) > 3 else f"[DEBUG] {player_name}: {st} has {len(sk)} skills: {sk}")
+                        if len(sk) > 3:
+                            print(f"[DEBUG] {player_name}: {st} has {len(sk)} skills: {sk[:3]}...")
+                        else:
+                            print(f"[DEBUG] {player_name}: {st} has {len(sk)} skills: {sk}")
 
                 # 艦艇タイプが特定できた場合、そのタイプのスキルのみを取得
                 used_ship_class = None
