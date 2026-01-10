@@ -83,18 +83,44 @@ def handle(event, context):
         print(f"Target match_key: {target_match_key}")
 
         # 全リプレイをスキャンして同じmatch_keyを持つものを探す
-        # 小規模データベースの場合はScanで十分
-        # 大規模な場合はGameTypeSortableIndexを使って絞り込む
+        # GameTypeSortableIndexを使って同じ日時範囲のリプレイを取得
         game_type = seed_item.get("gameType")
+        date_time_sortable = seed_item.get("dateTimeSortable", "")
 
-        # GameTypeSortableIndexで同じゲームタイプのリプレイを取得
-        all_response = table.query(
-            IndexName="GameTypeSortableIndex",
-            KeyConditionExpression="gameType = :gt",
-            ExpressionAttributeValues={":gt": game_type},
-        )
+        # 同じ日のデータに絞り込む（日付範囲: 当日の00:00:00〜23:59:59）
+        # dateTimeSortableは YYYYMMDDHHMMSS 形式
+        if date_time_sortable and len(date_time_sortable) >= 8:
+            date_prefix = date_time_sortable[:8]  # YYYYMMDD
+            date_start = date_prefix + "000000"
+            date_end = date_prefix + "235959"
+        else:
+            # フォールバック: 全データを取得（ページネーション対応）
+            date_start = "00000000000000"
+            date_end = "99999999999999"
 
-        all_items = all_response.get("Items", [])
+        # GameTypeSortableIndexで同じゲームタイプ・同日のリプレイを取得
+        all_items = []
+        last_evaluated_key = None
+
+        while True:
+            query_kwargs = {
+                "IndexName": "GameTypeSortableIndex",
+                "KeyConditionExpression": "gameType = :gt AND dateTimeSortable BETWEEN :start AND :end",
+                "ExpressionAttributeValues": {
+                    ":gt": game_type,
+                    ":start": date_start,
+                    ":end": date_end,
+                },
+            }
+            if last_evaluated_key:
+                query_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+            all_response = table.query(**query_kwargs)
+            all_items.extend(all_response.get("Items", []))
+
+            last_evaluated_key = all_response.get("LastEvaluatedKey")
+            if not last_evaluated_key:
+                break
 
         # ownPlayerが配列の場合、単一オブジェクトに変換
         for item in all_items:
