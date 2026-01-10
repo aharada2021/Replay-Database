@@ -29,6 +29,7 @@ class DecimalEncoder(json.JSONEncoder):
             return int(obj)
         return super().default(obj)
 
+
 # 環境変数
 COMMENTS_TABLE = os.environ.get("COMMENTS_TABLE", "wows-comments-dev")
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "wows-sessions-dev")
