@@ -150,6 +150,9 @@ export interface MatchRecord extends BattleStats {
   dualMp4S3Key?: string
   dualMp4GeneratedAt?: string
   hasDualReplay?: boolean
+
+  // コメント数
+  commentCount?: number
 }
 
 export interface ReplayRecord {
@@ -258,4 +261,18 @@ export interface User {
   username: string
   globalName: string | null
   avatar: string | null
+}
+
+export interface Comment {
+  arenaUniqueID: string
+  commentId: string
+  discordUserId: string
+  discordUsername: string
+  discordGlobalName: string | null
+  discordAvatar: string | null
+  content: string
+  createdAt: string
+  updatedAt: string | null
+  likes: string[]
+  likeCount: number
 }

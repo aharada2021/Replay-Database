@@ -358,6 +358,8 @@ def handle(event, context):
                     "enemyMainClanTag": item.get("enemyMainClanTag"),
                     # 全プレイヤー統計
                     "allPlayersStats": item.get("allPlayersStats", []),
+                    # コメント数
+                    "commentCount": item.get("commentCount", 0),
                 }
 
             # リプレイ提供者情報を追加（BattleStatsを含む）
