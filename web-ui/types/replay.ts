@@ -60,6 +60,17 @@ export interface BattleStats {
 // 艦種タイプ
 export type ShipClass = 'Destroyer' | 'Cruiser' | 'Battleship' | 'AirCarrier' | 'Submarine' | 'Auxiliary'
 
+// 艦長スキル生データ（DEBUG_CAPTAIN_SKILLS=true時のみ）
+export interface CaptainSkillsRaw {
+  crew_id: number
+  ship_params_id: number
+  detected_ship_class: string | null
+  used_ship_class: string | null
+  is_fallback: boolean
+  raw_skill_names: string[]
+  all_learned_skills_keys: string[]
+}
+
 // 全プレイヤーの統計（チーム情報付き）
 export interface PlayerStats extends BattleStats {
   playerName: string
@@ -71,6 +82,8 @@ export interface PlayerStats extends BattleStats {
   isOwn?: boolean
   // 艦長スキル
   captainSkills?: string[]
+  // 艦長スキル生データ（DEBUG_CAPTAIN_SKILLS=true時のみ）
+  captainSkillsRaw?: CaptainSkillsRaw
   // アップグレード
   upgrades?: string[]
 }

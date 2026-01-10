@@ -142,10 +142,21 @@ def build_all_players_stats(
 
     # hiddenデータから艦長スキルとアップグレードを抽出
     player_skills_map = {}
+    player_skills_raw_map = {}  # 生データ用
     player_upgrades_map = {}
+    # 環境変数でデバッグモードを制御
+    debug_skills = os.environ.get("DEBUG_CAPTAIN_SKILLS", "").lower() == "true"
     if hidden_data:
         try:
-            player_skills_map = map_player_to_skills(hidden_data)
+            # デバッグモードの場合は生データも取得
+            if debug_skills:
+                skills_result = map_player_to_skills(hidden_data, debug=True, include_raw=True)
+                # include_raw=Trueの場合、{player_name: {"skills": [...], "raw": {...}}}
+                for pn, data in skills_result.items():
+                    player_skills_map[pn] = data["skills"]
+                    player_skills_raw_map[pn] = data["raw"]
+            else:
+                player_skills_map = map_player_to_skills(hidden_data, debug=False)
         except Exception as e:
             print(f"Warning: Failed to extract captain skills: {e}")
 
@@ -179,6 +190,9 @@ def build_all_players_stats(
         # 艦長スキルを追加（味方のみ利用可能）
         if player_name in player_skills_map:
             stats_data["captainSkills"] = player_skills_map[player_name]
+            # デバッグモードの場合、生データも追加
+            if player_name in player_skills_raw_map:
+                stats_data["captainSkillsRaw"] = player_skills_raw_map[player_name]
 
         # アップグレードを追加（味方のみ利用可能）
         if player_name in player_upgrades_map:

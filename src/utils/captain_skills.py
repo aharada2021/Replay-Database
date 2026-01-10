@@ -119,13 +119,13 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "DetectionTorpedoRange": "Vigilance",
     "HeFireProbability": "Demolition Expert",
     "GmRangeAaDamageBubbles": "Main Battery and AA Specialist",
-    "PlanesDefenseDamageConstant": "Air Supremacy",
-    "PlanesForsageDuration": "Engine Tuning",
+    "PlanesDefenseDamageConstant": "Aircraft Armor",
+    "PlanesForsageDuration": "Improved Engine Boost",
     "DetectionVisibilityRange": "Concealment Expert",
-    "ConsumablesReload": "Improved Engine Boost",
+    "ConsumablesReload": "Consumable Specialist",
     "DefenceFireProbability": "Fire Prevention Expert",
     "PlanesAimingBoost": "Aiming Facility Maintenance",
-    "PlanesSpeed": "Swift Fish",
+    "PlanesSpeed": "Improved Engines",
     "ConsumablesAdditional": "Superintendent",
     "DefenseCritProbability": "Preventive Maintenance",
     "DetectionAlert": "Priority Target",
@@ -138,56 +138,56 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "AtbaAccuracy": "Long-Range Secondary Battery Shells",
     "AaPrioritysectorDamageConstant": "Focus Fire Training",
     "DetectionAiming": "Incoming Fire Alert",
-    "PlanesReload": "Improved Engine Boost",
-    "TorpedoDamage": "Torpedo Armament Expertise",
+    "PlanesReload": "Air Supremacy",
+    "TorpedoDamage": "Pack A Punch",
     "ConsumablesFighterAdditional": "Direction Center for Fighters",
-    "PlanesConsumablesSpeedboosterReload": "Enhanced Aircraft Armor",
+    "PlanesConsumablesSpeedboosterReload": "Engine Techie",
     "HePenetration": "Inertia Fuse for HE Shells",
     "DetectionDirection": "Radio Location",
     "AaDamageConstantBubbles": "AA Defense and ASW Expert",
-    "AaDamageConstantBubblesCv": "Enhanced Reactions",
-    "ApDamageBb": "Close Quarters Combat",
+    "AaDamageConstantBubblesCv": "Secondary Armament Expert",
+    "ApDamageBb": "Super-Heavy AP Shells",
     "ApDamageCa": "Heavy AP Shells",
-    "ApDamageDd": "Main Battery and AA Expert",
-    "AtbaRange": "Manual Secondary Battery Aiming",
-    "AtbaUpgrade": "Improved Secondary Battery Aiming",
+    "ApDamageDd": "Extra-Heavy Ammunition",
+    "AtbaRange": "Long-Range Secondary Battery Shells",
+    "AtbaUpgrade": "Manual Secondary Battery Aiming",
     "ConsumablesCrashcrewRegencrewUpgrade": "Improved Repair Party Readiness",
-    "ConsumablesSpotterUpgrade": "Enhanced Fighter Consumable",
+    "ConsumablesSpotterUpgrade": "Eye in the Sky",
     "DefenceUw": "Emergency Repair Expert",
-    "DetectionVisibilityCrashcrew": "Swift in Silence",
+    "DetectionVisibilityCrashcrew": "Hidden Menace",  # 多分隠れた脅威
     "HeFireProbabilityCv": "Pyrotechnician",
-    "HeSapDamage": "Super-Heavy AP Shells",
-    "PlanesApDamage": "Armored Deck",
+    "HeSapDamage": "Heavy HE and SAP Shells",
+    "PlanesApDamage": "Enhanced Armor-Piercing Ammunition",
     "PlanesConsumablesCallfightersAdditional": "Patrol Group Leader",
-    "PlanesConsumablesCallfightersPreparationtime": "Interceptor",
-    "PlanesConsumablesCallfightersRange": "Enhanced Patrol Group",
-    "PlanesConsumablesRegeneratehealthUpgrade": "Enhanced Aircraft Armor",
-    "PlanesDefenseDamageBubbles": "Enhanced Armor-Piercing Ammunition",
-    "PlanesDivebomberSpeed": "Enhanced Dive Bomber Accuracy",
-    "PlanesForsageRenewal": "Engine Techie",
+    "PlanesConsumablesCallfightersPreparationtime": "Enhanced Reactions",
+    "PlanesConsumablesCallfightersRange": "Interceptor",
+    "PlanesConsumablesRegeneratehealthUpgrade": "Repair Specialist",
+    "PlanesDefenseDamageBubbles": "Enhanced Aircraft Armor",
+    "PlanesDivebomberSpeed": "Bomber Flight Control",
+    "PlanesForsageRenewal": "Last Gasp",
     "PlanesHp": "Survivability Expert",
-    "PlanesTorpedoArmingrange": "Proximity Fuze",
+    "PlanesTorpedoArmingrange": "Torpedo Bomber",
     "PlanesTorpedoSpeed": "Torpedo Bomber Acceleration",
-    "PlanesTorpedoUwReduced": "Enhanced Torpedo Bomber Aiming",
+    "PlanesTorpedoUwReduced": "Proximity Fuze",
     "TorpedoFloodingProbability": "Liquidator",
-    "TriggerSpeedBb": "Emergency Engine Power",
+    "TriggerSpeedBb": "Brisk",
     "TriggerGmAtbaReloadBb": "Close Quarters Expert",
     "TriggerGmAtbaReloadCa": "Top Grade Gunner",
     "TriggerGmReload": "Fearless Brawler",
-    "TriggerSpeed": "Swift Fish",
-    "TriggerSpeedAccuracy": "Eye in the Sky",
-    "TriggerSpreading": "Consumable Specialist",
-    "TriggerPingerReloadBuff": "Improved Sonar",
-    "TriggerPingerSpeedBuff": "Enhanced Sonar",
+    "TriggerSpeed": "Swift in Silence",
+    "TriggerSpeedAccuracy": "Outnumbered",
+    "TriggerSpreading": "Dazzle",  # 多分幻惑
+    "TriggerPingerReloadBuff": "Enhanced Sonar",
+    "TriggerPingerSpeedBuff": "Enhanced Impulse Generator",
     "SubmarineHoldSectors": "Sonar Operator",
-    "TriggerConsSonarTimeCoeff": "Submarine Vigilance",
+    "TriggerConsSonarTimeCoeff": "undefiend1 skill",  # 不明なスキルなので仮名称を当てる
     "TriggerSeenTorpedoReload": "Torpedo Crew Training",
     "SubmarineTorpedoPingDamage": "Homing Torpedo Expert",
-    "TriggerConsRudderTimeCoeff": "Expert Rear Gunner",
-    "SubmarineBatteryCapacity": "Enhanced Battery Capacity",
-    "SubmarineDangerAlert": "Enhanced Impulse Generator",
-    "SubmarineBatteryBurnDown": "Optimized Battery",
-    "SubmarineSpeed": "Improved Battery Efficiency",
+    "TriggerConsRudderTimeCoeff": "Helmsman",
+    "SubmarineBatteryCapacity": "Improved Battery Capacity",
+    "SubmarineDangerAlert": "Incoming Fire Alert",  # 潜水艦の擲弾接近警報
+    "SubmarineBatteryBurnDown": "Improved Battery Efficiency",
+    "SubmarineSpeed": "Enlarged Propeller Shaft",
     "SubmarineConsumablesReload": "Improved Consumables",
     "SubmarineConsumablesDuration": "Extended Consumables",
     "TriggerBurnGmReload": "Furious",
@@ -205,7 +205,7 @@ SKILL_DISPLAY_TO_JAPANESE = {
     "Consumable Enhancements": "消耗品強化",
     "Vigilance": "警戒",
     "Demolition Expert": "爆発物専門家",
-    "Main Battery and AA Specialist": "主砲・対空兵装技術者",
+    "Main Battery and AA Specialist": "主砲・対空兵装専門家",
     "Concealment Expert": "隠蔽処理専門家",
     "Superintendent": "管理",
     "Preventive Maintenance": "予防整備",
@@ -278,30 +278,28 @@ SKILL_DISPLAY_TO_JAPANESE = {
     "Sonarman Expert": "ソナー操作専門家",
     "Improved Battery Efficiency": "改良型バッテリー効率",
     "Enlarged Propeller Shaft": "大型プロペラ・シャフト",
-    "Submarine Adrenaline Rush": "潜水艦アドレナリン・ラッシュ",
+    "Submarine Adrenaline Rush": "アドレナリン・ラッシュ",
     "Improved Sonar": "ソナー改良",
     "Sonar Operator": "ソナー操作員",
     "Submarine Vigilance": "潜水艦警戒",
-    "Homing Torpedo Expert": "誘導魚雷専門家",
-    "Expert Rear Gunner": "後部機銃手熟練",
-    "Enhanced Battery Capacity": "蓄電池容量強化",
-    "Optimized Battery": "蓄電池最適化",
-    "Improved Consumables": "消耗品改良",
-    "Extended Consumables": "消耗品延長",
+    "Homing Torpedo Expert": "魚雷誘導マスター",
+    "Improved Consumables": "消耗品技術者",
+    "Extended Consumables": "消耗品強化",
     # その他
     "Incoming Fire Alert": "敵弾接近警報",
-    "Expert Loader": "熟練装填手",
+    "Expert Loader": "装填手",
     "Torpedo Armament Expertise": "魚雷兵装専門家",
     "Enhanced Fighter Consumable": "戦闘機消耗品強化",
     "Armored Deck": "装甲甲板",
     "Enhanced Patrol Group": "哨戒隊強化",
     "Enhanced Dive Bomber Accuracy": "急降下爆撃機精度強化",
     "Engine Tuning": "エンジン調整",
-    "Aiming Facility Maintenance": "照準設備整備",
-    "Torpedo Bomber Acceleration": "雷撃機加速",
+    "Aiming Facility Maintenance": "照準安定化",
+    "Torpedo Bomber Acceleration": "高速航空魚雷",
     "Enhanced Torpedo Bomber Aiming": "雷撃機照準強化",
     "Emergency Engine Power": "緊急エンジン出力",
     "Improved Secondary Battery Aiming": "副砲照準改良",
+    "undefiend1 skill": "不明なスキル1"
 }
 
 
@@ -404,7 +402,9 @@ def get_player_skills_from_replay(
 
 def map_player_to_skills(
     replay_hidden_data: Dict[str, Any],
-) -> Dict[str, List[str]]:
+    debug: bool = False,
+    include_raw: bool = False,
+) -> Dict[str, Any]:
     """
     プレイヤー名から艦長スキルへのマッピングを生成
 
@@ -414,13 +414,19 @@ def map_player_to_skills(
 
     Args:
         replay_hidden_data: ReplayParserの hidden セクションデータ
+        debug: デバッグログを出力するかどうか
+        include_raw: 生データ（内部スキル名、crew_id等）も含めるかどうか
 
     Returns:
-        {player_name: [skill1, skill2, ...]}
+        include_raw=False: {player_name: [skill1, skill2, ...]}
+        include_raw=True: {player_name: {"skills": [...], "raw": {...}}}
     """
     result = {}
     players_data = replay_hidden_data.get("players", {})
     crew_data = replay_hidden_data.get("crew", {})
+
+    if debug:
+        print(f"[DEBUG] map_player_to_skills: players count = {len(players_data)}, crew count = {len(crew_data)}")
 
     for player_id, player_info in players_data.items():
         if not isinstance(player_info, dict):
@@ -446,13 +452,36 @@ def map_player_to_skills(
             if isinstance(c_info, dict) and c_info.get("crew_id") == crew_id:
                 learned_skills = c_info.get("learned_skills", {})
 
+                if debug:
+                    print(
+                        f"[DEBUG] {player_name}: crew_id={crew_id}, "
+                        f"shipParamsId={ship_params_id}, ship_class={ship_class}"
+                    )
+                    print(
+                        f"[DEBUG] {player_name}: learned_skills keys = "
+                        f"{list(learned_skills.keys())}"
+                    )
+                    # 各艦種のスキル数を出力
+                    for st, sk in learned_skills.items():
+                        if len(sk) > 3:
+                            print(f"[DEBUG] {player_name}: {st} has {len(sk)} skills: {sk[:3]}...")
+                        else:
+                            print(f"[DEBUG] {player_name}: {st} has {len(sk)} skills: {sk}")
+
                 # 艦艇タイプが特定できた場合、そのタイプのスキルのみを取得
+                used_ship_class = None
+                is_fallback = False
+                raw_skills = []
+
                 if ship_class and ship_class in learned_skills:
-                    skills = learned_skills[ship_class]
-                    result[player_name] = [get_skill_display_name(s, language="ja") for s in skills]
+                    raw_skills = learned_skills[ship_class]
+                    used_ship_class = ship_class
+                    if debug:
+                        print(f"[DEBUG] {player_name}: Using {ship_class} skills (raw): {raw_skills}")
                 else:
                     # フォールバック: 艦種が特定できない場合は旧ロジック
                     # （最初に見つかったタイプのスキルを使用）
+                    is_fallback = True
                     for fallback_type in [
                         "Destroyer",
                         "Cruiser",
@@ -461,9 +490,29 @@ def map_player_to_skills(
                         "Submarine",
                     ]:
                         if fallback_type in learned_skills:
-                            skills = learned_skills[fallback_type]
-                            result[player_name] = [get_skill_display_name(s, language="ja") for s in skills]
+                            raw_skills = learned_skills[fallback_type]
+                            used_ship_class = fallback_type
+                            if debug:
+                                print(f"[DEBUG] {player_name}: FALLBACK to {fallback_type} skills (raw): {raw_skills}")
                             break
+
+                display_skills = [get_skill_display_name(s, language="ja") for s in raw_skills]
+
+                if include_raw:
+                    result[player_name] = {
+                        "skills": display_skills,
+                        "raw": {
+                            "crew_id": crew_id,
+                            "ship_params_id": ship_params_id,
+                            "detected_ship_class": ship_class,
+                            "used_ship_class": used_ship_class,
+                            "is_fallback": is_fallback,
+                            "raw_skill_names": raw_skills,
+                            "all_learned_skills_keys": list(learned_skills.keys()),
+                        },
+                    }
+                else:
+                    result[player_name] = display_skills
                 break
 
     return result

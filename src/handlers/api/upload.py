@@ -103,7 +103,13 @@ def handle(event, context):
             players_info = {"own": [], "allies": [], "enemies": []}
 
             # プレイヤーIDとプレイヤー名を取得
-            player_id = metadata.get("playerID", 0)
+            # メタデータのplayerIDは常に0なので、vehicles配列から自分のプレイヤーIDを取得
+            player_id = 0
+            vehicles = metadata.get("vehicles", [])
+            for vehicle in vehicles:
+                if vehicle.get("relation") == 0:  # relation=0 は自分
+                    player_id = vehicle.get("id", 0)
+                    break
             player_name = metadata.get("playerName", "Unknown")
 
             # 一時的なIDを生成（日時+プレイヤーID+マップ名のハッシュ）

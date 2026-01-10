@@ -548,6 +548,79 @@
                   <tr class="category-header"><td colspan="3">潜在ダメージ内訳</td></tr>
                   <tr><td></td><td>potentialDamageArt (砲撃)</td><td class="text-right">{{ formatNumber(player.potentialDamageArt) }}</td></tr>
                   <tr><td></td><td>potentialDamageTpd (魚雷)</td><td class="text-right">{{ formatNumber(player.potentialDamageTpd) }}</td></tr>
+
+                  <!-- 艦長スキル・アップグレード（生データ） -->
+                  <tr class="category-header"><td colspan="3">艦長スキル・アップグレード</td></tr>
+                  <tr>
+                    <td></td>
+                    <td>captainSkills (表示名)</td>
+                    <td class="text-right">
+                      <code class="raw-data">{{ JSON.stringify(player.captainSkills || []) }}</code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td></td>
+                    <td>captainSkills 件数</td>
+                    <td class="text-right">{{ player.captainSkills?.length || 0 }}</td>
+                  </tr>
+                  <tr>
+                    <td></td>
+                    <td>upgrades (配列)</td>
+                    <td class="text-right">
+                      <code class="raw-data">{{ JSON.stringify(player.upgrades || []) }}</code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td></td>
+                    <td>upgrades 件数</td>
+                    <td class="text-right">{{ player.upgrades?.length || 0 }}</td>
+                  </tr>
+
+                  <!-- 艦長スキル生データ（DEBUG_CAPTAIN_SKILLS=true時のみ） -->
+                  <template v-if="player.captainSkillsRaw">
+                    <tr class="category-header"><td colspan="3">艦長スキル生データ (DEBUG_CAPTAIN_SKILLS=true)</td></tr>
+                    <tr>
+                      <td></td>
+                      <td>crew_id</td>
+                      <td class="text-right">{{ player.captainSkillsRaw.crew_id }}</td>
+                    </tr>
+                    <tr>
+                      <td></td>
+                      <td>ship_params_id</td>
+                      <td class="text-right">{{ player.captainSkillsRaw.ship_params_id }}</td>
+                    </tr>
+                    <tr>
+                      <td></td>
+                      <td>detected_ship_class</td>
+                      <td class="text-right">{{ player.captainSkillsRaw.detected_ship_class || '(検出失敗)' }}</td>
+                    </tr>
+                    <tr>
+                      <td></td>
+                      <td>used_ship_class</td>
+                      <td class="text-right">{{ player.captainSkillsRaw.used_ship_class }}</td>
+                    </tr>
+                    <tr>
+                      <td></td>
+                      <td>is_fallback</td>
+                      <td class="text-right" :class="player.captainSkillsRaw.is_fallback ? 'text-warning' : ''">
+                        {{ player.captainSkillsRaw.is_fallback ? '⚠️ YES (フォールバック使用)' : 'NO' }}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td></td>
+                      <td>raw_skill_names (内部名)</td>
+                      <td class="text-right">
+                        <code class="raw-data">{{ JSON.stringify(player.captainSkillsRaw.raw_skill_names || []) }}</code>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td></td>
+                      <td>all_learned_skills_keys</td>
+                      <td class="text-right">
+                        <code class="raw-data">{{ JSON.stringify(player.captainSkillsRaw.all_learned_skills_keys || []) }}</code>
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
               </v-table>
             </v-expansion-panel-text>
@@ -854,5 +927,17 @@ const formatDateTime = (dateTime: string) => {
   background: rgba(255, 255, 255, 0.1);
   font-weight: bold;
   padding-top: 12px !important;
+}
+
+/* 生データ表示用 */
+.raw-data {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  word-break: break-all;
+  max-width: 400px;
+  display: inline-block;
+  text-align: left;
 }
 </style>
