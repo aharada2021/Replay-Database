@@ -15,15 +15,51 @@ from botocore.exceptions import ClientError
 # 環境変数
 COMMENTS_TABLE = os.environ.get("COMMENTS_TABLE", "wows-comments-dev")
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "wows-sessions-dev")
+REPLAYS_TABLE = os.environ.get("REPLAYS_TABLE", "wows-replays-dev")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "")
 
 # DynamoDB
 dynamodb = boto3.resource("dynamodb")
 comments_table = dynamodb.Table(COMMENTS_TABLE)
 sessions_table = dynamodb.Table(SESSIONS_TABLE)
+replays_table = dynamodb.Table(REPLAYS_TABLE)
 
 # コメント文字数制限
 MAX_COMMENT_LENGTH = 1000
+
+
+def update_replays_comment_count(arena_unique_id: str, delta: int):
+    """
+    ReplaysTableのコメント数を更新
+
+    Args:
+        arena_unique_id: 試合ID
+        delta: 増減値（+1 または -1）
+    """
+    try:
+        # 該当arenaUniqueIDの全レコードを取得
+        response = replays_table.query(
+            KeyConditionExpression="arenaUniqueID = :aid",
+            ExpressionAttributeValues={":aid": arena_unique_id},
+            ProjectionExpression="arenaUniqueID, playerID",
+        )
+
+        # 各レコードのcommentCountを更新
+        for item in response.get("Items", []):
+            replays_table.update_item(
+                Key={
+                    "arenaUniqueID": item["arenaUniqueID"],
+                    "playerID": item["playerID"],
+                },
+                UpdateExpression="SET commentCount = if_not_exists(commentCount, :zero) + :delta",
+                ExpressionAttributeValues={":zero": 0, ":delta": delta},
+            )
+
+        print(f"Updated commentCount for {arena_unique_id}: delta={delta}, records={len(response.get('Items', []))}")
+
+    except Exception as e:
+        # コメントカウント更新失敗はログのみ（コメント操作自体は成功させる）
+        print(f"Failed to update commentCount for {arena_unique_id}: {e}")
 
 
 def get_cors_headers(origin=None):
@@ -234,6 +270,9 @@ def handle_post_comment(event, arena_unique_id, cors_headers):
 
         comments_table.put_item(Item=comment)
 
+        # ReplaysTableのコメント数を更新
+        update_replays_comment_count(arena_unique_id, delta=1)
+
         return {
             "statusCode": 201,
             "headers": {**cors_headers, "Content-Type": "application/json"},
@@ -363,6 +402,9 @@ def handle_delete_comment(event, arena_unique_id, comment_id, cors_headers):
                     "body": json.dumps({"error": "Comment not found"}),
                 }
             raise
+
+        # ReplaysTableのコメント数を更新
+        update_replays_comment_count(arena_unique_id, delta=-1)
 
         return {
             "statusCode": 200,

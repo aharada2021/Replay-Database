@@ -150,6 +150,9 @@ export interface MatchRecord extends BattleStats {
   dualMp4S3Key?: string
   dualMp4GeneratedAt?: string
   hasDualReplay?: boolean
+
+  // コメント数
+  commentCount?: number
 }
 
 export interface ReplayRecord {

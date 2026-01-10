@@ -259,6 +259,20 @@
           </div>
         </template>
 
+        <!-- コメント数 -->
+        <template v-slot:item.commentCount="{ item }">
+          <v-chip
+            v-if="(item?.commentCount || item?.raw?.commentCount || 0) > 0"
+            size="x-small"
+            color="info"
+            variant="tonal"
+          >
+            <v-icon size="x-small" class="mr-1">mdi-comment</v-icon>
+            {{ item?.commentCount || item?.raw?.commentCount || 0 }}
+          </v-chip>
+          <span v-else class="text-grey">-</span>
+        </template>
+
         <!-- 詳細ボタン -->
         <template v-slot:item.actions="{ item }">
           <v-btn
@@ -407,6 +421,7 @@ const headers = [
   { title: '初回アップロード者', key: 'ownPlayer', sortable: false },
   { title: '味方艦艇', key: 'allyShips', sortable: false },
   { title: '敵艦艇', key: 'enemyShips', sortable: false },
+  { title: 'コメント', key: 'commentCount', sortable: true, width: '80px' },
   { title: '', key: 'actions', sortable: false, width: '50px' },
 ]
 

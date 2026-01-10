@@ -391,6 +391,7 @@ functions:
     environment:
       COMMENTS_TABLE: ${self:custom.commentsTable}
       SESSIONS_TABLE: ${self:custom.sessionsTable}
+      REPLAYS_TABLE: ${self:custom.replaysTable}
 
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
 resources:
