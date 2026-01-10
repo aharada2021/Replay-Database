@@ -50,6 +50,11 @@
       <v-card v-if="matchAsRecord" class="mb-4">
         <MatchDetailExpansion :match="matchAsRecord" :is-polling="isPolling" />
       </v-card>
+
+      <!-- コメントセクション -->
+      <v-card class="mb-4">
+        <MatchComments :arena-unique-id="match.arenaUniqueID" />
+      </v-card>
     </div>
   </div>
 </template>

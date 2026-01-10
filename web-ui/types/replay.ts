@@ -259,3 +259,17 @@ export interface User {
   globalName: string | null
   avatar: string | null
 }
+
+export interface Comment {
+  arenaUniqueID: string
+  commentId: string
+  discordUserId: string
+  discordUsername: string
+  discordGlobalName: string | null
+  discordAvatar: string | null
+  content: string
+  createdAt: string
+  updatedAt: string | null
+  likes: string[]
+  likeCount: number
+}

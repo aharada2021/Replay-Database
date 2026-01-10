@@ -5,6 +5,7 @@ import type {
   MatchDetailResponse,
   GenerateVideoRequest,
   GenerateVideoResponse,
+  Comment,
 } from '~/types/replay'
 
 export const useApi = () => {
@@ -156,11 +157,158 @@ export const useApi = () => {
     return `${baseUrl}/api/download?key=${encodeURIComponent(s3Key)}`
   }
 
+  /**
+   * コメント一覧取得
+   */
+  const getComments = async (arenaUniqueID: string): Promise<Comment[]> => {
+    try {
+      const url = `${baseUrl}/api/comments/${encodeURIComponent(arenaUniqueID)}`
+
+      const response = await $fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+      })
+
+      let parsedResponse: { comments: Comment[] }
+      if (typeof response === 'string') {
+        parsedResponse = JSON.parse(response)
+      } else {
+        parsedResponse = response as { comments: Comment[] }
+      }
+
+      return parsedResponse.comments || []
+    } catch (error) {
+      console.error('[API] Get comments error:', error)
+      return []
+    }
+  }
+
+  /**
+   * コメント投稿
+   */
+  const postComment = async (
+    arenaUniqueID: string,
+    content: string
+  ): Promise<Comment | null> => {
+    try {
+      const url = `${baseUrl}/api/comments/${encodeURIComponent(arenaUniqueID)}`
+
+      const response = await $fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ content }),
+      })
+
+      let parsedResponse: Comment
+      if (typeof response === 'string') {
+        parsedResponse = JSON.parse(response)
+      } else {
+        parsedResponse = response as Comment
+      }
+
+      return parsedResponse
+    } catch (error) {
+      console.error('[API] Post comment error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * コメント編集
+   */
+  const updateComment = async (
+    arenaUniqueID: string,
+    commentId: string,
+    content: string
+  ): Promise<Comment | null> => {
+    try {
+      const url = `${baseUrl}/api/comments/${encodeURIComponent(arenaUniqueID)}/${encodeURIComponent(commentId)}`
+
+      const response = await $fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ content }),
+      })
+
+      let parsedResponse: Comment
+      if (typeof response === 'string') {
+        parsedResponse = JSON.parse(response)
+      } else {
+        parsedResponse = response as Comment
+      }
+
+      return parsedResponse
+    } catch (error) {
+      console.error('[API] Update comment error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * コメント削除
+   */
+  const deleteComment = async (
+    arenaUniqueID: string,
+    commentId: string
+  ): Promise<void> => {
+    try {
+      const url = `${baseUrl}/api/comments/${encodeURIComponent(arenaUniqueID)}/${encodeURIComponent(commentId)}`
+
+      await $fetch(url, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+    } catch (error) {
+      console.error('[API] Delete comment error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * コメントいいね（トグル）
+   */
+  const likeComment = async (
+    arenaUniqueID: string,
+    commentId: string
+  ): Promise<Comment | null> => {
+    try {
+      const url = `${baseUrl}/api/comments/${encodeURIComponent(arenaUniqueID)}/${encodeURIComponent(commentId)}/like`
+
+      const response = await $fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      let parsedResponse: Comment
+      if (typeof response === 'string') {
+        parsedResponse = JSON.parse(response)
+      } else {
+        parsedResponse = response as Comment
+      }
+
+      return parsedResponse
+    } catch (error) {
+      console.error('[API] Like comment error:', error)
+      throw error
+    }
+  }
+
   return {
     searchReplays,
     getMatchDetail,
     getReplayDetail,
     generateVideo,
     getReplayDownloadUrl,
+    getComments,
+    postComment,
+    updateComment,
+    deleteComment,
+    likeComment,
   }
 }

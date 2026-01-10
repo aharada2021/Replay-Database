@@ -84,6 +84,7 @@ provider:
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.sessionsTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.shipMatchIndexTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.shipMatchIndexTable}/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.commentsTable}
 
 # カスタム変数
 custom:
@@ -91,6 +92,7 @@ custom:
   replaysTable: wows-replays-${self:provider.stage}
   sessionsTable: wows-sessions-${self:provider.stage}
   shipMatchIndexTable: wows-ship-match-index-${self:provider.stage}
+  commentsTable: wows-comments-${self:provider.stage}
   # 開発環境でのみ艦長スキルデバッグを有効化
   debugCaptainSkills:
     dev: 'true'
@@ -357,6 +359,39 @@ functions:
       TEMP_BUCKET: ${self:custom.bucketName}
       FRONTEND_URL: ${env:FRONTEND_URL}
 
+  # ========================================
+  # コメントAPI
+  # ========================================
+
+  # コメントCRUD API
+  comments-api:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.comments.handle
+    architecture: arm64
+    timeout: 30
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/comments/{arenaUniqueID}
+          method: get
+      - httpApi:
+          path: /api/comments/{arenaUniqueID}
+          method: post
+      - httpApi:
+          path: /api/comments/{arenaUniqueID}/{commentId}
+          method: put
+      - httpApi:
+          path: /api/comments/{arenaUniqueID}/{commentId}
+          method: delete
+      - httpApi:
+          path: /api/comments/{arenaUniqueID}/{commentId}/like
+          method: post
+    environment:
+      COMMENTS_TABLE: ${self:custom.commentsTable}
+      SESSIONS_TABLE: ${self:custom.sessionsTable}
+
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
 resources:
   Resources:
@@ -445,6 +480,23 @@ resources:
           - AttributeName: shipName
             KeyType: HASH
           - AttributeName: arenaUniqueID
+            KeyType: RANGE
+
+    # DynamoDBテーブル（コメント用）
+    CommentsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.commentsTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: arenaUniqueID
+            AttributeType: S
+          - AttributeName: commentId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: arenaUniqueID
+            KeyType: HASH
+          - AttributeName: commentId
             KeyType: RANGE
 
 # Dockerイメージを使用するため、pluginsは不要
