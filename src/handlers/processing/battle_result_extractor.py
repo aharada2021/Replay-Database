@@ -22,6 +22,7 @@ from parsers.battle_stats_extractor import (
 )
 from parsers.battlestats_parser import BattleStatsParser
 from utils import dynamodb
+from utils.dynamodb import calculate_main_clan_tag
 from utils.match_key import generate_match_key, format_sortable_datetime
 from utils.captain_skills import (
     map_player_to_skills,
@@ -85,6 +86,39 @@ def extract_players_info_from_metadata(metadata: dict) -> dict:
 
     except Exception as e:
         print(f"Error extracting players info: {e}")
+
+    return players_info
+
+
+def enrich_players_with_clan_tags(players_info: dict, hidden_data: dict) -> dict:
+    """
+    hidden_dataからクランタグを抽出してプレイヤー情報に追加
+
+    Args:
+        players_info: プレイヤー情報 {'own': [...], 'allies': [...], 'enemies': [...]}
+        hidden_data: リプレイのhiddenデータ
+
+    Returns:
+        クランタグが追加されたプレイヤー情報
+    """
+    if not hidden_data:
+        return players_info
+
+    # hidden_dataからプレイヤー名→クランタグのマップを作成
+    clan_tag_map = {}
+    players_data = hidden_data.get("players", {})
+    for player_id, player_info in players_data.items():
+        player_name = player_info.get("name", "")
+        clan_tag = player_info.get("clanTag", "")
+        if player_name and clan_tag:
+            clan_tag_map[player_name] = clan_tag
+
+    # 各プレイヤーにクランタグを追加
+    for category in ["own", "allies", "enemies"]:
+        for player in players_info.get(category, []):
+            player_name = player.get("name", "")
+            if player_name in clan_tag_map:
+                player["clanTag"] = clan_tag_map[player_name]
 
     return players_info
 
@@ -260,6 +294,10 @@ def handle(event, context):
                 except Exception as hidden_err:
                     print(f"Warning: Failed to extract hidden data: {hidden_err}")
 
+                # hidden_dataからクランタグを抽出してプレイヤー情報に追加
+                if hidden_data:
+                    players_info = enrich_players_with_clan_tags(players_info, hidden_data)
+
                 # arenaUniqueIDを取得
                 arena_unique_id = get_arena_unique_id(battle_results)
 
@@ -323,6 +361,26 @@ def handle(event, context):
                     old_record["allies"] = players_info["allies"]
                 if players_info.get("enemies"):
                     old_record["enemies"] = players_info["enemies"]
+
+                # クラン戦の場合、クランタグを計算
+                game_type = old_record.get("gameType", "")
+                if game_type == "clan":
+                    # 味方クラン: 自分 + allies
+                    own_player = old_record.get("ownPlayer", {})
+                    if isinstance(own_player, list):
+                        own_player = own_player[0] if own_player else {}
+                    ally_players = [own_player] + old_record.get("allies", []) if own_player else old_record.get(
+                        "allies", []
+                    )
+                    old_record["allyMainClanTag"] = calculate_main_clan_tag(ally_players)
+
+                    # 敵クラン: enemies
+                    old_record["enemyMainClanTag"] = calculate_main_clan_tag(old_record.get("enemies", []))
+
+                    print(
+                        f"Calculated clan tags: ally={old_record.get('allyMainClanTag')}, "
+                        f"enemy={old_record.get('enemyMainClanTag')}"
+                    )
 
                 # BattleStatsから詳細統計を抽出
                 players_public_info = battle_results.get("playersPublicInfo", {})
