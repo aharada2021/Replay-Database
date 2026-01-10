@@ -118,7 +118,7 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "ConsumablesDuration": "Consumable Enhancements",
     "DetectionTorpedoRange": "Vigilance",
     "HeFireProbability": "Demolition Expert",
-    "GmRangeAaDamageBubbles": "Main Battery and AA Specialist",# ?
+    "GmRangeAaDamageBubbles": "Main Battery and AA Specialist",
     "PlanesDefenseDamageConstant": "Aircraft Armor", 
     "PlanesForsageDuration": "Improved Engine Boost",
     "DetectionVisibilityRange": "Concealment Expert",
@@ -154,13 +154,13 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "ConsumablesCrashcrewRegencrewUpgrade": "Improved Repair Party Readiness",
     "ConsumablesSpotterUpgrade": "Eye in the Sky",
     "DefenceUw": "Emergency Repair Expert",
-    "DetectionVisibilityCrashcrew": "Swift in Silence", #????
+    "DetectionVisibilityCrashcrew": "Hidden Menace", #多分隠れた脅威
     "HeFireProbabilityCv": "Pyrotechnician",
     "HeSapDamage": "Heavy HE and SAP Shells",
     "PlanesApDamage": "Enhanced Armor-Piercing Ammunition",
     "PlanesConsumablesCallfightersAdditional": "Patrol Group Leader",
     "PlanesConsumablesCallfightersPreparationtime": "Enhanced Reactions",
-    "PlanesConsumablesCallfightersRange": "interceptor",
+    "PlanesConsumablesCallfightersRange": "Interceptor",
     "PlanesConsumablesRegeneratehealthUpgrade": "Repair Specialist",
     "PlanesDefenseDamageBubbles": "Enhanced Aircraft Armor",
     "PlanesDivebomberSpeed": "Bomber Flight Control",
@@ -176,16 +176,16 @@ SKILL_INTERNAL_TO_DISPLAY = {
     "TriggerGmReload": "Fearless Brawler",
     "TriggerSpeed": "Swift in Silence",
     "TriggerSpeedAccuracy": "Outnumbered",
-    "TriggerSpreading": "", #???
+    "TriggerSpreading": "Dazzle", # 多分幻惑
     "TriggerPingerReloadBuff": "Enhanced Sonar",
     "TriggerPingerSpeedBuff": "Enhanced Impulse Generator",
     "SubmarineHoldSectors": "Sonar Operator",
-    "TriggerConsSonarTimeCoeff": "Submarine Vigilance", #???
+    "TriggerConsSonarTimeCoeff": "undefiend1 skill", #不明なスキルなので仮名称を当てる
     "TriggerSeenTorpedoReload": "Torpedo Crew Training",
     "SubmarineTorpedoPingDamage": "Homing Torpedo Expert",
     "TriggerConsRudderTimeCoeff": "Helmsman",
     "SubmarineBatteryCapacity": "Improved Battery Capacity",
-    "SubmarineDangerAlert": "",
+    "SubmarineDangerAlert": "Incoming Fire Alert", #潜水艦の擲弾接近警報
     "SubmarineBatteryBurnDown": "Improved Battery Efficiency",
     "SubmarineSpeed": "Enlarged Propeller Shaft",
     "SubmarineConsumablesReload": "Improved Consumables",
@@ -205,7 +205,7 @@ SKILL_DISPLAY_TO_JAPANESE = {
     "Consumable Enhancements": "消耗品強化",
     "Vigilance": "警戒",
     "Demolition Expert": "爆発物専門家",
-    "Main Battery and AA Specialist": "主砲・対空兵装技術者",
+    "Main Battery and AA Specialist": "主砲・対空兵装専門家",
     "Concealment Expert": "隠蔽処理専門家",
     "Superintendent": "管理",
     "Preventive Maintenance": "予防整備",
@@ -278,12 +278,11 @@ SKILL_DISPLAY_TO_JAPANESE = {
     "Sonarman Expert": "ソナー操作専門家",
     "Improved Battery Efficiency": "改良型バッテリー効率",
     "Enlarged Propeller Shaft": "大型プロペラ・シャフト",
-    "Submarine Adrenaline Rush": "潜水艦アドレナリン・ラッシュ",
+    "Submarine Adrenaline Rush": "アドレナリン・ラッシュ",
     "Improved Sonar": "ソナー改良",
     "Sonar Operator": "ソナー操作員",
     "Submarine Vigilance": "潜水艦警戒",
     "Homing Torpedo Expert": "魚雷誘導マスター",
-    "Expert Rear Gunner": "後部機銃手熟練",
     "Improved Consumables": "消耗品技術者",
     "Extended Consumables": "消耗品強化",
     # その他
@@ -300,6 +299,7 @@ SKILL_DISPLAY_TO_JAPANESE = {
     "Enhanced Torpedo Bomber Aiming": "雷撃機照準強化",
     "Emergency Engine Power": "緊急エンジン出力",
     "Improved Secondary Battery Aiming": "副砲照準改良",
+    "undefiend1 skill": "不明なスキル1"
 }
 
 
