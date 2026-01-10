@@ -457,9 +457,7 @@ def handle_like_comment(event, arena_unique_id, comment_id, cors_headers):
         user_id = session.get("discordUserId")
 
         # 現在のコメントを取得
-        response = comments_table.get_item(
-            Key={"arenaUniqueID": arena_unique_id, "commentId": comment_id}
-        )
+        response = comments_table.get_item(Key={"arenaUniqueID": arena_unique_id, "commentId": comment_id})
 
         comment = response.get("Item")
         if not comment:
