@@ -8,9 +8,26 @@ import json
 import os
 import time
 import uuid
+from decimal import Decimal
 
 import boto3
 from botocore.exceptions import ClientError
+
+
+def decimal_to_int(obj):
+    """DynamoDBのDecimal型をintに変換"""
+    if isinstance(obj, Decimal):
+        return int(obj)
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """Decimal型をJSONエンコードするカスタムエンコーダー"""
+
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return int(obj)
+        return super().default(obj)
 
 # 環境変数
 COMMENTS_TABLE = os.environ.get("COMMENTS_TABLE", "wows-comments-dev")
@@ -197,7 +214,7 @@ def handle_get_comments(event, arena_unique_id, cors_headers):
         return {
             "statusCode": 200,
             "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": json.dumps({"comments": comments}),
+            "body": json.dumps({"comments": comments}, cls=DecimalEncoder),
         }
 
     except Exception as e:
@@ -361,7 +378,7 @@ def handle_update_comment(event, arena_unique_id, comment_id, cors_headers):
         return {
             "statusCode": 200,
             "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": json.dumps(comment),
+            "body": json.dumps(comment, cls=DecimalEncoder),
         }
 
     except Exception as e:
@@ -483,7 +500,7 @@ def handle_like_comment(event, arena_unique_id, comment_id, cors_headers):
         return {
             "statusCode": 200,
             "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": json.dumps(updated_comment),
+            "body": json.dumps(updated_comment, cls=DecimalEncoder),
         }
 
     except Exception as e:
