@@ -29,6 +29,7 @@ class DecimalEncoder(json.JSONEncoder):
             return int(obj)
         return super().default(obj)
 
+
 # 環境変数
 COMMENTS_TABLE = os.environ.get("COMMENTS_TABLE", "wows-comments-dev")
 SESSIONS_TABLE = os.environ.get("SESSIONS_TABLE", "wows-sessions-dev")
@@ -456,9 +457,7 @@ def handle_like_comment(event, arena_unique_id, comment_id, cors_headers):
         user_id = session.get("discordUserId")
 
         # 現在のコメントを取得
-        response = comments_table.get_item(
-            Key={"arenaUniqueID": arena_unique_id, "commentId": comment_id}
-        )
+        response = comments_table.get_item(Key={"arenaUniqueID": arena_unique_id, "commentId": comment_id})
 
         comment = response.get("Item")
         if not comment:

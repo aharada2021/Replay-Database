@@ -220,6 +220,7 @@ jobs:
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           ALLOWED_GUILD_ID: ${{ secrets.ALLOWED_GUILD_ID }}
           ALLOWED_ROLE_IDS: ${{ secrets.ALLOWED_ROLE_IDS }}
+          NOTIFICATION_CHANNEL_ID: ${{ secrets.NOTIFICATION_CHANNEL_ID }}
         run: |
           cd deploy
           serverless deploy --stage dev --region ap-northeast-1
@@ -292,6 +293,7 @@ jobs:
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           ALLOWED_GUILD_ID: ${{ secrets.ALLOWED_GUILD_ID }}
           ALLOWED_ROLE_IDS: ${{ secrets.ALLOWED_ROLE_IDS }}
+          NOTIFICATION_CHANNEL_ID: ${{ secrets.NOTIFICATION_CHANNEL_ID }}
         run: |
           cd deploy
           serverless deploy --stage prod --region ap-northeast-1

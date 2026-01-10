@@ -299,7 +299,7 @@ SKILL_DISPLAY_TO_JAPANESE = {
     "Enhanced Torpedo Bomber Aiming": "雷撃機照準強化",
     "Emergency Engine Power": "緊急エンジン出力",
     "Improved Secondary Battery Aiming": "副砲照準改良",
-    "undefiend1 skill": "不明なスキル1"
+    "undefiend1 skill": "不明なスキル1",
 }
 
 
@@ -457,10 +457,7 @@ def map_player_to_skills(
                         f"[DEBUG] {player_name}: crew_id={crew_id}, "
                         f"shipParamsId={ship_params_id}, ship_class={ship_class}"
                     )
-                    print(
-                        f"[DEBUG] {player_name}: learned_skills keys = "
-                        f"{list(learned_skills.keys())}"
-                    )
+                    print(f"[DEBUG] {player_name}: learned_skills keys = " f"{list(learned_skills.keys())}")
                     # 各艦種のスキル数を出力
                     for st, sk in learned_skills.items():
                         if len(sk) > 3:

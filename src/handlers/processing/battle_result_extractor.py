@@ -369,8 +369,8 @@ def handle(event, context):
                     own_player = old_record.get("ownPlayer", {})
                     if isinstance(own_player, list):
                         own_player = own_player[0] if own_player else {}
-                    ally_players = [own_player] + old_record.get("allies", []) if own_player else old_record.get(
-                        "allies", []
+                    ally_players = (
+                        [own_player] + old_record.get("allies", []) if own_player else old_record.get("allies", [])
                     )
                     old_record["allyMainClanTag"] = calculate_main_clan_tag(ally_players)
 
