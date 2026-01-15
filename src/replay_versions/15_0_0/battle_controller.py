@@ -32,18 +32,18 @@ class BattleController(IBattleController):
 
         self._dead_planes = {}
 
-        Entity.subscribe_method_call('Avatar', 'onBattleEnd', self.onBattleEnd)
-        Entity.subscribe_method_call('Avatar', 'onArenaStateReceived', self.onArenaStateReceived)
-        Entity.subscribe_method_call('Avatar', 'onGameRoomStateChanged', self.onPlayerInfoUpdate)
-        Entity.subscribe_method_call('Avatar', 'receiveVehicleDeath', self.receiveVehicleDeath)
+        Entity.subscribe_method_call("Avatar", "onBattleEnd", self.onBattleEnd)
+        Entity.subscribe_method_call("Avatar", "onArenaStateReceived", self.onArenaStateReceived)
+        Entity.subscribe_method_call("Avatar", "onGameRoomStateChanged", self.onPlayerInfoUpdate)
+        Entity.subscribe_method_call("Avatar", "receiveVehicleDeath", self.receiveVehicleDeath)
         # Entity.subscribe_method_call('Vehicle', 'setConsumables', self.onSetConsumable)
         # Entity.subscribe_method_call('Vehicle', 'onRibbon', self.onRibbon)
-        Entity.subscribe_method_call('Avatar', 'onAchievementEarned', self.onAchievementEarned)
-        Entity.subscribe_method_call('Avatar', 'receiveDamageStat', self.receiveDamageStat)
-        Entity.subscribe_method_call('Avatar', 'receive_planeDeath', self.receive_planeDeath)
-        Entity.subscribe_method_call('Avatar', 'onNewPlayerSpawnedInBattle', self.onNewPlayerSpawnedInBattle)
+        Entity.subscribe_method_call("Avatar", "onAchievementEarned", self.onAchievementEarned)
+        Entity.subscribe_method_call("Avatar", "receiveDamageStat", self.receiveDamageStat)
+        Entity.subscribe_method_call("Avatar", "receive_planeDeath", self.receive_planeDeath)
+        Entity.subscribe_method_call("Avatar", "onNewPlayerSpawnedInBattle", self.onNewPlayerSpawnedInBattle)
 
-        Entity.subscribe_method_call('Vehicle', 'receiveDamagesOnShip', self.g_receiveDamagesOnShip)
+        Entity.subscribe_method_call("Vehicle", "receiveDamagesOnShip", self.g_receiveDamagesOnShip)
 
     def onSetConsumable(self, vehicle, blob):
         print(pickle.loads(blob))
@@ -54,7 +54,7 @@ class BattleController(IBattleController):
 
     @property
     def battle_logic(self):
-        return next(e for e in self._entities.values() if e.get_name() == 'BattleLogic')
+        return next(e for e in self._entities.values() if e.get_name() == "BattleLogic")
 
     def create_entity(self, entity: Entity):
         self._entities[entity.id] = entity
@@ -68,16 +68,15 @@ class BattleController(IBattleController):
     def get_info(self):
 
         # use avatar id here for backward compatibility
-        avatar = next(entity for entity in self.entities.values() if entity.get_name() == 'Avatar')
+        avatar = next(entity for entity in self.entities.values() if entity.get_name() == "Avatar")
         self._ribbons[avatar.id] = {}
-        for ribbon_info in avatar.properties['client']['privateVehicleState']['ribbons']:
-            self._ribbons[avatar.id][ribbon_info['ribbonId']] = ribbon_info['count']
+        for ribbon_info in avatar.properties["client"]["privateVehicleState"]["ribbons"]:
+            self._ribbons[avatar.id][ribbon_info["ribbonId"]] = ribbon_info["count"]
 
         # adding killed planes data
         players = copy.deepcopy(self._players.get_info())
         for player in players.values():
-            player['planesCount'] = self._dead_planes.get(
-                player.get('shipId', 0), 0)
+            player["planesCount"] = self._dead_planes.get(player.get("shipId", 0), 0)
 
         return dict(
             achievements=self._achievements,
@@ -95,11 +94,11 @@ class BattleController(IBattleController):
             skills=dict(),
             crew=dict(self.getCrewInformation()),
             arena_id=self._arena_id,
-            post_battle=self.postBattleResult
+            post_battle=self.postBattleResult,
         )
 
     def _getCrewInfo(self, vehicle):
-        learned_skills_packed = vehicle.properties['client']['crewModifiersCompactParams']['learnedSkills']
+        learned_skills_packed = vehicle.properties["client"]["crewModifiersCompactParams"]["learnedSkills"]
 
         learned_skills = {}
         for type_id, type_name in SHIP_TYPE_BY_ID.items():
@@ -107,18 +106,17 @@ class BattleController(IBattleController):
                 continue
 
             learned_skills[type_name] = [
-                SKILL_TYPE_ID_TO_NAME.get(skill_id)
-                for skill_id in learned_skills_packed[type_id]
+                SKILL_TYPE_ID_TO_NAME.get(skill_id) for skill_id in learned_skills_packed[type_id]
             ]
 
         return {
-            'crew_id': vehicle.properties['client']['crewModifiersCompactParams']['paramsId'],
-            'learned_skills': learned_skills
+            "crew_id": vehicle.properties["client"]["crewModifiersCompactParams"]["paramsId"],
+            "learned_skills": learned_skills,
         }
 
     def getCrewInformation(self):
         for e in self.entities.values():
-            if e.get_name() != 'Vehicle':
+            if e.get_name() != "Vehicle":
                 continue
             yield e.id, self._getCrewInfo(e)
 
@@ -127,81 +125,63 @@ class BattleController(IBattleController):
         for killedVehicleId, fraggerVehicleId, typeDeath in self._death_map:
             death_type = DEATH_TYPES.get(typeDeath)
             if death_type is None:
-                logging.warning('Unknown death type %s', typeDeath)
+                logging.warning("Unknown death type %s", typeDeath)
                 continue
 
             deaths[killedVehicleId] = {
-                'killer_id': fraggerVehicleId,
-                'icon': death_type['icon'],
-                'name': death_type['name'],
+                "killer_id": fraggerVehicleId,
+                "icon": death_type["icon"],
+                "name": death_type["name"],
             }
         return deaths
 
     def _getCapturePointsInfo(self):
-        return self.battle_logic.properties['client']['state'].get('controlPoints', [])
+        return self.battle_logic.properties["client"]["state"].get("controlPoints", [])
 
     def _getTasksInfo(self):
-        tasks = self.battle_logic.properties['client']['state'].get('tasks', [])
+        tasks = self.battle_logic.properties["client"]["state"].get("tasks", [])
         for task in tasks:
-            if not task['showOnHUD']:
+            if not task["showOnHUD"]:
                 continue
 
             yield {
-                "category": Category.names[task['category']],
-                "status": Status.names[task['status']],
-                "name": task['id'],
-                "type": TaskType.names[task['type']]
+                "category": Category.names[task["category"]],
+                "status": Status.names[task["status"]],
+                "name": task["id"],
+                "type": TaskType.names[task["type"]],
             }
 
     def onBattleEnd(self, avatar):
         self._battle_result = dict(
-            winner_team_id=self.battle_logic.properties['client']['battleResult']['winnerTeamId'],
-            victory_type=self.battle_logic.properties['client']['battleResult']['finishReason'],
+            winner_team_id=self.battle_logic.properties["client"]["battleResult"]["winnerTeamId"],
+            victory_type=self.battle_logic.properties["client"]["battleResult"]["finishReason"],
         )
 
     def onNewPlayerSpawnedInBattle(self, avatar, playersData, botsData, observersData):
-        self._players.create_or_update_players(
-            pickle.loads(playersData, encoding='bytes'),
-            PlayerType.PLAYER
-        )
-        self._players.create_or_update_players(
-            pickle.loads(botsData, encoding='bytes'),
-            PlayerType.BOT
-        )
-        self._players.create_or_update_players(
-            pickle.loads(observersData, encoding='bytes'),
-            PlayerType.OBSERVER
-        )
+        self._players.create_or_update_players(pickle.loads(playersData, encoding="bytes"), PlayerType.PLAYER)
+        self._players.create_or_update_players(pickle.loads(botsData, encoding="bytes"), PlayerType.BOT)
+        self._players.create_or_update_players(pickle.loads(observersData, encoding="bytes"), PlayerType.OBSERVER)
 
-    def onArenaStateReceived(self, avatar, arenaUniqueId, teamBuildTypeId, preBattlesInfo, playersStates, botsStates,
-                             observersState, buildingsInfo):
+    def onArenaStateReceived(
+        self,
+        avatar,
+        arenaUniqueId,
+        teamBuildTypeId,
+        preBattlesInfo,
+        playersStates,
+        botsStates,
+        observersState,
+        buildingsInfo,
+    ):
         self._arena_id = arenaUniqueId
-        self._players.create_or_update_players(
-            pickle.loads(playersStates, encoding='bytes'),
-            PlayerType.PLAYER
-        )
-        self._players.create_or_update_players(
-            pickle.loads(botsStates, encoding='bytes'),
-            PlayerType.BOT
-        )
-        self._players.create_or_update_players(
-            pickle.loads(observersState, encoding='bytes'),
-            PlayerType.OBSERVER
-        )
+        self._players.create_or_update_players(pickle.loads(playersStates, encoding="bytes"), PlayerType.PLAYER)
+        self._players.create_or_update_players(pickle.loads(botsStates, encoding="bytes"), PlayerType.BOT)
+        self._players.create_or_update_players(pickle.loads(observersState, encoding="bytes"), PlayerType.OBSERVER)
 
     def onPlayerInfoUpdate(self, avatar, playersData, botsData, observersData):
-        self._players.create_or_update_players(
-            pickle.loads(playersData, encoding='bytes'),
-            PlayerType.PLAYER
-        )
-        self._players.create_or_update_players(
-            pickle.loads(botsData, encoding='bytes'),
-            PlayerType.BOT
-        )
-        self._players.create_or_update_players(
-            pickle.loads(observersData, encoding='bytes'),
-            PlayerType.OBSERVER
-        )
+        self._players.create_or_update_players(pickle.loads(playersData, encoding="bytes"), PlayerType.PLAYER)
+        self._players.create_or_update_players(pickle.loads(botsData, encoding="bytes"), PlayerType.BOT)
+        self._players.create_or_update_players(pickle.loads(observersData, encoding="bytes"), PlayerType.OBSERVER)
 
     def receiveDamageStat(self, avatar, blob):
         normalized = {}
@@ -216,16 +196,16 @@ class BattleController(IBattleController):
     def onAchievementEarned(self, avatar, avatar_id, achievement_id):
         # also rearrange ids for backward compatibility
         player = self._players.get_info()[avatar_id]
-        self._achievements.setdefault(player['avatarId'], {}).setdefault(achievement_id, 0)
-        self._achievements[player['avatarId']][achievement_id] += 1
+        self._achievements.setdefault(player["avatarId"], {}).setdefault(achievement_id, 0)
+        self._achievements[player["avatarId"]][achievement_id] += 1
 
     def receiveVehicleDeath(self, avatar, killedVehicleId, fraggerVehicleId, typeDeath):
         self._death_map.append((killedVehicleId, fraggerVehicleId, typeDeath))
 
     def g_receiveDamagesOnShip(self, vehicle, damages):
         for damage_info in damages:
-            self._shots_damage_map.setdefault(vehicle.id, {}).setdefault(damage_info['vehicleID'], 0)
-            self._shots_damage_map[vehicle.id][damage_info['vehicleID']] += damage_info['damage']
+            self._shots_damage_map.setdefault(vehicle.id, {}).setdefault(damage_info["vehicleID"], 0)
+            self._shots_damage_map[vehicle.id][damage_info["vehicleID"]] += damage_info["damage"]
 
     def receive_planeDeath(self, avatar, squadronID, planeIDs, reason, attackerId):
         self._dead_planes.setdefault(attackerId, 0)
@@ -237,4 +217,4 @@ class BattleController(IBattleController):
 
     @map.setter
     def map(self, value):
-        self._map = value.lstrip('spaces/')
+        self._map = value.lstrip("spaces/")

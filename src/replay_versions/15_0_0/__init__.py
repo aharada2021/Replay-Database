@@ -2,4 +2,4 @@
 
 from .battle_controller import BattleController
 
-__all__ = ['BattleController']
+__all__ = ["BattleController"]
