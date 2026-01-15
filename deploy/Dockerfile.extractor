@@ -20,6 +20,10 @@ RUN pip install --no-cache-dir -r requirements_lambda.txt
 
 # replays_unpack_upstreamをコピーしてパッチ適用（変更頻度: 低）
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
+
+# 追加のWoWSバージョンサポートをコピー（サブモジュール更新待ちの間の対応）
+COPY src/replay_versions/ ./replays_unpack_upstream/replay_unpack/clients/wows/versions/
+
 RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
     ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
 

@@ -1,10 +1,6 @@
 # coding=utf-8
 from replay_unpack.core.unicoding import unicodize
-from .constants import (
-    id_property_map,
-    id_property_map_bots,
-    id_property_map_observer
-)
+from .constants import id_property_map, id_property_map_bots, id_property_map_observer
 
 
 class PlayerType:
@@ -26,7 +22,7 @@ class PlayersInfo(object):
         elif player_type == PlayerType.OBSERVER:
             property_map = id_property_map_observer
         else:
-            raise RuntimeError('Unknown player')
+            raise RuntimeError("Unknown player")
 
         player_dict = dict()
         for key, value in player_info:
@@ -42,7 +38,7 @@ class PlayersInfo(object):
         for player_info in players_info:
             player_dict = self._convert_to_dict(player_info, players_type)
 
-            self._players.setdefault(player_dict['id'], {}).update(player_dict)
+            self._players.setdefault(player_dict["id"], {}).update(player_dict)
 
     def get_info(self):
         return self._players
