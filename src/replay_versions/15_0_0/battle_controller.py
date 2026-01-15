@@ -233,7 +233,7 @@ class BattleController(IBattleController):
 
     @property
     def map(self):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     @map.setter
     def map(self, value):

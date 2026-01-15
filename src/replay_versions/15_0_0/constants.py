@@ -22,12 +22,13 @@ property_id_map_bots = {value: key for key, value in id_property_map.items()}
 
 
 # ModsShell.API_v_1_0.battleGate.PlayersInfo.gSharedObserverInfo._numMemberMap
-id_property_map_observer = {0: 'accountDBID', 1: 'avatarId', 2: 'dogTag', 3: 'id', 4: 'invitationsEnabled', 5: 'isAlive',
-                            6: 'isClientLoaded', 7: 'isConnected', 8: 'isLeaver', 9: 'isPreBattleOwner', 10: 'name',
-                            11: 'playerMode', 12: 'preBattleIdOnStart', 13: 'preBattleSign', 14: 'prebattleId',
-                            15: 'realm', 16: 'teamId'}
+id_property_map_observer = {
+    0: 'accountDBID', 1: 'avatarId', 2: 'dogTag', 3: 'id', 4: 'invitationsEnabled', 5: 'isAlive',
+    6: 'isClientLoaded', 7: 'isConnected', 8: 'isLeaver', 9: 'isPreBattleOwner', 10: 'name',
+    11: 'playerMode', 12: 'preBattleIdOnStart', 13: 'preBattleSign', 14: 'prebattleId',
+    15: 'realm', 16: 'teamId'
+}
 property_id_map_bots_observer = {value: key for key, value in id_property_map.items()}
-
 
 
 class DamageStatsType:
