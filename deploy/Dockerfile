@@ -38,14 +38,16 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY config/requirements_lambda.txt .
 RUN pip install --no-cache-dir -r requirements_lambda.txt
 
-# minimap_rendererをインストール（元のreplay_unpackを含む）
+# minimap_rendererをコピー
 COPY minimap_renderer/ ./minimap_renderer/
+
+# minimap_renderer用の追加WoWSバージョンサポートをコピー（pip install前にソースに追加）
+COPY src/minimap_renderer_versions/replay_unpack/15_0_0/ ./minimap_renderer/src/replay_unpack/clients/wows/versions/15_0_0/
+COPY src/minimap_renderer_versions/renderer/15_0_0/ ./minimap_renderer/src/renderer/versions/15_0_0/
+
+# minimap_rendererをインストール（15_0_0を含む状態でインストール）
 RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt && \
     pip install --no-cache-dir ./minimap_renderer/
-
-# minimap_renderer用の追加WoWSバージョンサポートをコピー（サブモジュール更新待ちの間の対応）
-COPY src/minimap_renderer_versions/replay_unpack/15_0_0/ /var/lang/lib/python3.10/site-packages/replay_unpack/clients/wows/versions/15_0_0/
-COPY src/minimap_renderer_versions/renderer/15_0_0/ /var/lang/lib/python3.10/site-packages/renderer/versions/15_0_0/
 
 # replays_unpack_upstreamをコピーしてパッチ適用（battle_result_extractor用）
 COPY replays_unpack_upstream/ ./replays_unpack_upstream/
