@@ -349,13 +349,29 @@ def search_replays(
         response = table.query(**query_params)
 
     else:
-        # フィルタなしの場合はScan
-        scan_params = {"Limit": limit}
+        # フィルタなしの場合: 全gameTypeをGSI経由でクエリしてマージ
+        # Scanは物理ストレージ順でdateTime順が保証されないため、GSIを使用
+        all_game_types = ["pvp", "clan", "ranked", "cooperative", "unknown"]
+        all_items = []
 
-        if last_evaluated_key:
-            scan_params["ExclusiveStartKey"] = last_evaluated_key
+        for gt in all_game_types:
+            query_params = {
+                "IndexName": "GameTypeSortableIndex",
+                "KeyConditionExpression": "gameType = :gt",
+                "ExpressionAttributeValues": {":gt": gt},
+                "Limit": limit,  # 各gameTypeからlimit件取得
+                "ScanIndexForward": False,  # 降順（新しい順）
+            }
+            try:
+                gt_response = table.query(**query_params)
+                all_items.extend(gt_response.get("Items", []))
+            except Exception as e:
+                print(f"Warning: Failed to query gameType={gt}: {e}")
 
-        response = table.scan(**scan_params)
+        # dateTimeSortableでソートしてlimit件に制限
+        # dateTimeSortableがない場合は末尾に配置
+        all_items.sort(key=lambda x: x.get("dateTimeSortable", "00000000000000"), reverse=True)
+        response = {"Items": all_items[:limit], "LastEvaluatedKey": None}
 
     # 勝敗フィルタ（クライアント側フィルタ）
     items = response.get("Items", [])
