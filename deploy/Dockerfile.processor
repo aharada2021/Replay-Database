@@ -32,6 +32,11 @@ COPY minimap_renderer/requirements.txt ./minimap_renderer/requirements.txt
 RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt
 
 COPY minimap_renderer/ ./minimap_renderer/
+
+# minimap_renderer用の追加WoWSバージョンサポートをコピー（pip install前にソースに追加）
+COPY src/minimap_renderer_versions/replay_unpack/15_0_0/ ./minimap_renderer/src/replay_unpack/clients/wows/versions/15_0_0/
+COPY src/minimap_renderer_versions/renderer/15_0_0/ ./minimap_renderer/src/renderer/versions/15_0_0/
+
 RUN pip install --no-cache-dir ./minimap_renderer/
 
 # アプリケーションコードをまとめてコピー（変更頻度: 高）
