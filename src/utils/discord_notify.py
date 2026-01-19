@@ -10,7 +10,6 @@ import requests
 import yaml
 from pathlib import Path
 
-
 DISCORD_API_BASE = "https://discord.com/api/v10"
 FRONTEND_URL = os.environ.get("FRONTEND_URL")  # serverless.ymlから設定される
 

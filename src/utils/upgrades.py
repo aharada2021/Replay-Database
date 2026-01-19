@@ -12,7 +12,6 @@ from io import BytesIO
 from functools import lru_cache
 from typing import Dict, List, Optional, Any
 
-
 # PCMコード → 日本語名のマッピング
 # スロット1-6の標準アップグレード + 特殊アップグレード
 UPGRADE_NAMES_JA: Dict[str, str] = {
