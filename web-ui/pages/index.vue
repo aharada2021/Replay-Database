@@ -157,6 +157,7 @@
     <!-- 検索結果 -->
     <v-card>
       <v-data-table
+        :key="`page-${searchStore.currentPage}-${searchStore.results?.length || 0}`"
         :headers="headers"
         :items="searchStore.results || []"
         :loading="searchStore.loading || false"
