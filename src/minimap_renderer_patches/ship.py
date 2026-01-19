@@ -46,22 +46,16 @@ class LayerShipBase(LayerBase):
             renderer (Renderer): The renderer.
         """
         self._renderer = renderer
-        self._replay_data = (
-            replay_data if replay_data else self._renderer.replay_data
-        )
+        self._replay_data = replay_data if replay_data else self._renderer.replay_data
         self._color = color
-        self._holders = generate_holder(
-            self._replay_data.player_info, renderer.resman, color
-        )
+        self._holders = generate_holder(self._replay_data.player_info, renderer.resman, color)
         self._abilities = renderer.resman.load_json("abilities.json")
         self._ships = renderer.resman.load_json("ships.json")
         self._consumable_cache: dict[int, Image.Image] = {}
         self._owner = self._replay_data.player_info[self._replay_data.owner_id]
         self._owner_view_range = self._get_max_dist()
         self._deads: list[int] = []
-        self._image_dead = Image.new(
-            renderer.minimap_fg.mode, renderer.minimap_fg.size
-        )
+        self._image_dead = Image.new(renderer.minimap_fg.mode, renderer.minimap_fg.size)
 
     def _get_max_dist(self):
         ship = self._ships[self._owner.ship_params_id]
@@ -84,13 +78,9 @@ class LayerShipBase(LayerBase):
         max_dist = max_dist * max_dist_coef
         modernizations = self._renderer.resman.load_json("modernizations.json")
 
-        if mods := set(self._owner.modernization).intersection(
-            modernizations["mb_range_modifiers"]
-        ):
+        if mods := set(self._owner.modernization).intersection(modernizations["mb_range_modifiers"]):
             for mod_id in mods:
-                max_dist *= modernizations["modernizations"][mod_id][
-                    "modifiers"
-                ]["GMMaxDist"]
+                max_dist *= modernizations["modernizations"][mod_id]["modifiers"]["GMMaxDist"]
         return max_dist
 
     def draw(self, game_time: int, image: Image.Image):
@@ -122,33 +112,23 @@ class LayerShipBase(LayerBase):
 
             owner_view_range = self._owner_view_range
 
-            if acs := self._renderer.conman.active_consumables.get(
-                owner_vehicle.vehicle_id, None
-            ):
+            if acs := self._renderer.conman.active_consumables.get(owner_vehicle.vehicle_id, None):
                 # Convert integer key to string for JSON compatibility
                 if 1 in acs:
-                    owner_abilities = self._abilities[
-                        self._owner.ship_params_id
-                    ]
+                    owner_abilities = self._abilities[self._owner.ship_params_id]
                     # Use string key '1' instead of integer 1
                     index = owner_abilities["id_to_index"].get(str(1)) or owner_abilities["id_to_index"].get(1)
                     subtype = owner_abilities["id_to_subtype"].get(str(1)) or owner_abilities["id_to_subtype"].get(1)
                     if index and subtype:
-                        owner_view_range *= owner_abilities[f"{index}.{subtype}"][
-                            "artilleryDistCoeff"
-                        ]
+                        owner_view_range *= owner_abilities[f"{index}.{subtype}"]["artilleryDistCoeff"]
 
             is_in_view_range = False
 
             if vehicle.is_visible and vehicle != owner_vehicle:
-                distance_bw = hypot(
-                    vehicle.x - owner_vehicle.x, vehicle.y - owner_vehicle.y
-                )
+                distance_bw = hypot(vehicle.x - owner_vehicle.x, vehicle.y - owner_vehicle.y)
                 owner_ship = self._ships[self._owner.ship_params_id]
                 owner_view_range *= 1.25
-                owner_view_range = max(
-                    owner_view_range, MIN_VIEW_DISTANCES[owner_ship["level"]]
-                )
+                owner_view_range = max(owner_view_range, MIN_VIEW_DISTANCES[owner_ship["level"]])
                 distance_m = distance_bw * 30
                 is_in_view_range = owner_view_range >= distance_m
             elif vehicle.is_visible and vehicle == owner_vehicle:
@@ -159,11 +139,7 @@ class LayerShipBase(LayerBase):
                 color = COLORS_NORMAL[0 if self._color == "green" else 1]
             else:
                 relation = player.relation
-                color = (
-                    COLORS_NORMAL[0]
-                    if vehicle.relation == -1
-                    else COLORS_NORMAL[vehicle.relation]
-                )
+                color = COLORS_NORMAL[0] if vehicle.relation == -1 else COLORS_NORMAL[vehicle.relation]
 
             player = player_info[vehicle.player_id]
 
@@ -197,17 +173,13 @@ class LayerShipBase(LayerBase):
                         vx = 15
                         vy = 65
                         draw = ImageDraw.Draw(holder)
-                        draw.rectangle(
-                            ((vx, vy), (vx + 5, vy + 5)), fill="orange"
-                        )
+                        draw.rectangle(((vx, vy), (vx + 5, vy + 5)), fill="orange")
 
                     if is_in_view_range:
                         draw_health_bar(
                             holder,
                             color=color,
-                            hp_per=round(
-                                vehicle.health / player.max_health, 2
-                            ),
+                            hp_per=round(vehicle.health / player.max_health, 2),
                         )
 
                     side_points = [
@@ -252,9 +224,7 @@ class LayerShipBase(LayerBase):
                     )
 
                     if holder and angle:
-                        holder = holder.rotate(
-                            angle, Image.Resampling.BICUBIC, expand=True
-                        )
+                        holder = holder.rotate(angle, Image.Resampling.BICUBIC, expand=True)
                     image.alpha_composite(
                         holder,
                         dest=(
@@ -277,9 +247,7 @@ class LayerShipBase(LayerBase):
                 dest=(x - round(icon.width / 2), y - round(icon.height / 2)),
             )
 
-    def _ship_consumable(
-        self, image: Image.Image, vehicle_id: int, params_id: int, y=20
-    ):
+    def _ship_consumable(self, image: Image.Image, vehicle_id: int, params_id: int, y=20):
         """Draws the currently in used consumable(s) to the ship's icon holder.
 
         Args:
@@ -287,9 +255,7 @@ class LayerShipBase(LayerBase):
             vehicle_id (int): The vehicle id.
             params_id (int): The vehicle's game params id.
         """
-        if ac := self._renderer.conman.active_consumables.get(
-            vehicle_id, None
-        ):
+        if ac := self._renderer.conman.active_consumables.get(vehicle_id, None):
             aid_hash = hash(tuple(ac))
 
             if c_image := self._consumable_cache.get(aid_hash, None):
