@@ -10,7 +10,6 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 from collections import Counter
 
-
 # DynamoDBクライアント（遅延初期化）
 _dynamodb = None
 REPLAYS_TABLE_NAME = os.environ.get("REPLAYS_TABLE", "wows-replays-dev")

@@ -32,6 +32,10 @@ COPY minimap_renderer/requirements.txt ./minimap_renderer/requirements.txt
 RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt
 
 COPY minimap_renderer/ ./minimap_renderer/
+
+# ship.pyの型変換パッチを適用（整数キーと文字列キーの両方に対応）
+COPY src/minimap_renderer_patches/ship.py ./minimap_renderer/src/renderer/layers/ship.py
+
 RUN pip install --no-cache-dir ./minimap_renderer/
 
 # アプリケーションコードをまとめてコピー（変更頻度: 高）

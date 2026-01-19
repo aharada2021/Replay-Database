@@ -38,8 +38,13 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY config/requirements_lambda.txt .
 RUN pip install --no-cache-dir -r requirements_lambda.txt
 
-# minimap_rendererをインストール（元のreplay_unpackを含む）
+# minimap_rendererをコピー
 COPY minimap_renderer/ ./minimap_renderer/
+
+# ship.pyの型変換パッチを適用（整数キーと文字列キーの両方に対応）
+COPY src/minimap_renderer_patches/ship.py ./minimap_renderer/src/renderer/layers/ship.py
+
+# minimap_rendererをインストール
 RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt && \
     pip install --no-cache-dir ./minimap_renderer/
 
