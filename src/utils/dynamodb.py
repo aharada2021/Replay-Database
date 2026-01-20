@@ -175,7 +175,7 @@ def update_battle_result(
 
 def update_video_info(arena_unique_id: int, player_id: int, mp4_s3_key: str) -> None:
     """
-    動画情報を更新
+    動画情報を更新（旧テーブルと新テーブル両方）
 
     Args:
         arena_unique_id: arenaUniqueID
@@ -185,10 +185,15 @@ def update_video_info(arena_unique_id: int, player_id: int, mp4_s3_key: str) -> 
     Raises:
         Exception: DynamoDB操作エラー
     """
+    import time
+    from utils.dynamodb_tables import BattleTableClient, normalize_game_type
+
     table = get_table()
 
     mp4_generated_at = datetime.utcnow().isoformat()
+    mp4_generated_at_unix = int(time.time())
 
+    # 旧テーブルを更新
     table.update_item(
         Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id},
         UpdateExpression="SET mp4S3Key = :s3key, mp4GeneratedAt = :generated",
@@ -197,6 +202,22 @@ def update_video_info(arena_unique_id: int, player_id: int, mp4_s3_key: str) -> 
             ":generated": mp4_generated_at,
         },
     )
+
+    # 新テーブルも更新（gameTypeを旧テーブルから取得）
+    try:
+        record = table.get_item(
+            Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}
+        ).get("Item")
+        if record:
+            game_type = normalize_game_type(record.get("gameType", "other"))
+            battle_client = BattleTableClient(game_type)
+            battle_client.update_video_info(
+                arena_unique_id=str(arena_unique_id),
+                mp4_s3_key=mp4_s3_key,
+                generated_at=mp4_generated_at_unix,
+            )
+    except Exception as e:
+        print(f"Warning: Failed to update new table: {e}")
 
 
 def get_replay_record(arena_unique_id: int, player_id: int) -> Optional[Dict[str, Any]]:
@@ -628,7 +649,7 @@ def update_dual_video_info(
     dual_mp4_s3_key: str,
 ) -> None:
     """
-    Dual動画情報を更新
+    Dual動画情報を更新（旧テーブルと新テーブル両方）
 
     Args:
         arena_unique_id: arenaUniqueID
@@ -638,10 +659,15 @@ def update_dual_video_info(
     Raises:
         Exception: DynamoDB操作エラー
     """
+    import time
+    from utils.dynamodb_tables import BattleTableClient, normalize_game_type
+
     table = get_table()
 
     dual_mp4_generated_at = datetime.utcnow().isoformat()
+    dual_mp4_generated_at_unix = int(time.time())
 
+    # 旧テーブルを更新
     table.update_item(
         Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id},
         UpdateExpression="SET dualMp4S3Key = :s3key, dualMp4GeneratedAt = :generated, hasDualReplay = :hasDual",
@@ -651,6 +677,22 @@ def update_dual_video_info(
             ":hasDual": True,
         },
     )
+
+    # 新テーブルも更新（gameTypeを旧テーブルから取得）
+    try:
+        record = table.get_item(
+            Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}
+        ).get("Item")
+        if record:
+            game_type = normalize_game_type(record.get("gameType", "other"))
+            battle_client = BattleTableClient(game_type)
+            battle_client.update_dual_video_info(
+                arena_unique_id=str(arena_unique_id),
+                dual_mp4_s3_key=dual_mp4_s3_key,
+                generated_at=dual_mp4_generated_at_unix,
+            )
+    except Exception as e:
+        print(f"Warning: Failed to update new table for dual video: {e}")
 
 
 def update_has_dual_replay(
