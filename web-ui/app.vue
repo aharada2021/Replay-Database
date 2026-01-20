@@ -193,7 +193,7 @@
 
     <v-app-bar v-if="showAppBar" color="primary" density="compact" height="48">
       <v-app-bar-nav-icon size="small" @click="drawer = !drawer"></v-app-bar-nav-icon>
-      <v-toolbar-title class="text-body-1">WoWS Replay Database</v-toolbar-title>
+      <v-toolbar-title class="text-body-1 cursor-pointer" @click="router.push('/')">WoWS Replay Database</v-toolbar-title>
       <v-spacer></v-spacer>
 
       <!-- ユーザーメニュー -->
@@ -228,7 +228,7 @@
     </v-app-bar>
 
     <v-main>
-      <v-container fluid>
+      <v-container fluid class="pa-2">
         <NuxtPage />
       </v-container>
     </v-main>
@@ -365,3 +365,9 @@ const copyDiscordUserId = async () => {
   }
 }
 </script>
+
+<style scoped>
+.cursor-pointer {
+  cursor: pointer;
+}
+</style>
