@@ -157,6 +157,10 @@ def search_matches(
             map_id=map_id,
         )
 
+        # GSIからフィルタリングしてarenaUniqueIDを収集
+        filtered_items = []
+        arena_ids_to_fetch = []
+
         for item in query_result.get("items", []):
             # インデックスフィルタ
             if filtered_arena_ids is not None:
@@ -173,7 +177,24 @@ def search_matches(
             if cursor_unix_time and item.get("unixTime", 0) >= cursor_unix_time:
                 continue
 
-            all_items.append(item)
+            arena_id = item.get("arenaUniqueID")
+            if arena_id:
+                filtered_items.append(item)
+                arena_ids_to_fetch.append(arena_id)
+
+        # BatchGetItemで完全なMATCHレコードを一括取得
+        if arena_ids_to_fetch:
+            full_matches = battle_client.batch_get_matches(arena_ids_to_fetch)
+
+            for item in filtered_items:
+                arena_id = item.get("arenaUniqueID")
+                full_match = full_matches.get(arena_id)
+                if full_match:
+                    item = full_match
+
+                # gameTypeを追加（テーブルから判断）
+                item["gameType"] = gt
+                all_items.append(item)
 
     # unixTime降順でソート
     all_items.sort(key=lambda x: x.get("unixTime", 0), reverse=True)
@@ -193,8 +214,19 @@ def search_matches(
         uploaders = item.get("uploaders", [])
         if uploaders:
             rep = uploaders[0]
+            rep_player_name = rep.get("playerName", "")
             item["representativePlayerID"] = rep.get("playerID")
-            item["representativePlayerName"] = rep.get("playerName")
+            item["representativePlayerName"] = rep_player_name
+
+            # ownPlayer を生成（allies から shipName と clanTag を取得）
+            own_player = {"name": rep_player_name}
+            allies = item.get("allies", [])
+            for ally in allies:
+                if ally.get("name") == rep_player_name:
+                    own_player["shipName"] = ally.get("shipName", "")
+                    own_player["clanTag"] = ally.get("clanTag", "")
+                    break
+            item["ownPlayer"] = own_player
         item["replayCount"] = len(uploaders)
         item["hasDualReplay"] = item.get("dualRendererAvailable", False)
         # allPlayersStatsは含まれていない（別APIで取得）

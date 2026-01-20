@@ -19,7 +19,7 @@ export const useSearchStore = defineStore('search', {
       dateFrom: '',
       dateTo: '',
       limit: ITEMS_PER_PAGE,
-      cursorDateTime: null as string | null,
+      cursorUnixTime: null as number | null,  // Unix時間ベースのカーソル
     } as SearchQuery,
     results: [] as MatchRecord[],
     loading: false,
@@ -27,8 +27,8 @@ export const useSearchStore = defineStore('search', {
     totalCount: 0,
     // ページング用の状態
     currentPageNum: 1,
-    cursorHistory: [] as (string | null)[],  // 各ページのカーソルを保存
-    cursorFromResponse: null as string | null,  // 最新のレスポンスからのカーソル
+    cursorHistory: [] as (number | null)[],  // 各ページのカーソルを保存（Unix時間）
+    cursorFromResponse: null as number | null,  // 最新のレスポンスからのカーソル（Unix時間）
     hasMoreFromResponse: false,  // 次のページがあるか
   }),
 

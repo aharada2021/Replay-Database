@@ -167,7 +167,7 @@
         :expanded="expanded"
         @update:expanded="onExpandedChange"
         @click:row="onRowClick"
-        item-value="matchKey"
+        item-value="arenaUniqueID"
         v-model:sort-by="sortBy"
         :custom-key-sort="customKeySort"
         density="compact"
@@ -392,12 +392,12 @@ const onExpandedChange = (newExpanded: any[]) => {
 
 // 行クリック時の展開トグル
 const onRowClick = (_event: Event, { item }: { item: any }) => {
-  const matchKey = item.matchKey
-  const index = expanded.value.indexOf(matchKey)
+  const arenaId = item.arenaUniqueID
+  const index = expanded.value.indexOf(arenaId)
   if (index === -1) {
-    expanded.value = [...expanded.value, matchKey]
+    expanded.value = [...expanded.value, arenaId]
   } else {
-    expanded.value = expanded.value.filter((key: string) => key !== matchKey)
+    expanded.value = expanded.value.filter((key: string) => key !== arenaId)
   }
 }
 

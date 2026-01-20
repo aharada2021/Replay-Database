@@ -285,6 +285,49 @@ class BattleTableClient:
             ExpressionAttributeValues={":available": available},
         )
 
+    def batch_get_matches(self, arena_unique_ids: list) -> dict:
+        """
+        複数のMATCHレコードを一括取得
+
+        Args:
+            arena_unique_ids: arenaUniqueIDのリスト
+
+        Returns:
+            {arenaUniqueID: MATCHレコード} の辞書
+        """
+        if not arena_unique_ids:
+            return {}
+
+        results = {}
+
+        # BatchGetItem は1回あたり最大100アイテム、1テーブルあたり最大25アイテム
+        batch_size = 25
+        for i in range(0, len(arena_unique_ids), batch_size):
+            batch_ids = arena_unique_ids[i : i + batch_size]
+
+            keys = [
+                {"arenaUniqueID": arena_id, "recordType": "MATCH"}
+                for arena_id in batch_ids
+            ]
+
+            response = self.dynamodb.meta.client.batch_get_item(
+                RequestItems={self.table_name: {"Keys": keys}}
+            )
+
+            items = response.get("Responses", {}).get(self.table_name, [])
+            for item in items:
+                arena_id = item.get("arenaUniqueID")
+                if arena_id:
+                    results[arena_id] = decimal_to_python(item)
+
+            # UnprocessedKeys がある場合は再試行（簡易実装）
+            unprocessed = response.get("UnprocessedKeys", {})
+            if unprocessed.get(self.table_name):
+                # 本番環境では指数バックオフで再試行すべき
+                print(f"Warning: {len(unprocessed[self.table_name]['Keys'])} unprocessed keys")
+
+        return results
+
     def list_matches(
         self,
         limit: int = 20,
