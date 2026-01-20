@@ -159,9 +159,8 @@ onMounted(async () => {
   try {
     const data = await api.getMatchDetail(arenaUniqueID)
     if (data) {
-      match.value = data
-
-      // allPlayersStatsがない場合は別途取得（新DynamoDB設計対応）
+      // allPlayersStatsがない場合は別途取得してからmatch.valueをセット
+      // （MatchDetailExpansionがマウント時に再取得しないようにするため）
       if (!data.allPlayersStats || data.allPlayersStats.length === 0) {
         const statsData = await api.getMatchStats(arenaUniqueID)
         if (statsData && statsData.allPlayersStats) {
@@ -169,7 +168,11 @@ onMounted(async () => {
             ...data,
             allPlayersStats: statsData.allPlayersStats,
           }
+        } else {
+          match.value = data
         }
+      } else {
+        match.value = data
       }
 
       // 動画が未生成の場合はポーリング開始

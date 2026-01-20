@@ -201,13 +201,13 @@ export interface SearchQuery {
   dateFrom?: string
   dateTo?: string
   limit?: number
-  cursorDateTime?: string | null  // カーソルベースのページネーション用
+  cursorUnixTime?: number | null  // カーソルベースのページネーション用（Unix時間）
 }
 
 export interface SearchResponse {
   items: MatchRecord[]
   count: number
-  cursorDateTime?: string | null  // 次のページ用カーソル
+  cursorUnixTime?: number | null  // 次のページ用カーソル（Unix時間）
   hasMore?: boolean  // 次のページがあるか
 }
 
