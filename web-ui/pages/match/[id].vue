@@ -100,6 +100,17 @@ const loadMatch = async () => {
   try {
     const data = await api.getMatchDetail(arenaUniqueID)
     if (data) {
+      // allPlayersStatsがない場合は別途取得（新DynamoDB設計対応）
+      if (!data.allPlayersStats || data.allPlayersStats.length === 0) {
+        const statsData = await api.getMatchStats(arenaUniqueID)
+        if (statsData && statsData.allPlayersStats) {
+          match.value = {
+            ...data,
+            allPlayersStats: statsData.allPlayersStats,
+          }
+          return
+        }
+      }
       match.value = data
     }
   } catch (err: any) {
@@ -149,6 +160,18 @@ onMounted(async () => {
     const data = await api.getMatchDetail(arenaUniqueID)
     if (data) {
       match.value = data
+
+      // allPlayersStatsがない場合は別途取得（新DynamoDB設計対応）
+      if (!data.allPlayersStats || data.allPlayersStats.length === 0) {
+        const statsData = await api.getMatchStats(arenaUniqueID)
+        if (statsData && statsData.allPlayersStats) {
+          match.value = {
+            ...data,
+            allPlayersStats: statsData.allPlayersStats,
+          }
+        }
+      }
+
       // 動画が未生成の場合はポーリング開始
       if (isVideoMissing.value) {
         startPolling()

@@ -2,6 +2,10 @@
 試合詳細APIハンドラー
 
 特定の試合IDに対する全リプレイを取得
+
+新テーブル構造対応版:
+- /api/match/{arenaUniqueID} - 試合基本情報を取得
+- /api/match/{arenaUniqueID}/stats - 全プレイヤー統計を取得
 """
 
 import json
@@ -9,6 +13,10 @@ from decimal import Decimal
 
 from utils import dynamodb
 from utils.match_key import generate_match_key
+from utils.dynamodb_tables import (
+    BattleTableClient,
+    find_match_game_type,
+)
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -24,6 +32,10 @@ def handle(event, context):
     """
     試合詳細APIのハンドラー
 
+    ルーティング:
+    - /api/match/{arenaUniqueID} -> 試合詳細
+    - /api/match/{arenaUniqueID}/stats -> 試合統計
+
     Args:
         event: APIイベント
         context: Lambdaコンテキスト
@@ -31,6 +43,11 @@ def handle(event, context):
     Returns:
         APIレスポンス
     """
+    # パスを確認してルーティング
+    raw_path = event.get("rawPath", "") or event.get("path", "")
+    if raw_path.endswith("/stats"):
+        return handle_stats(event, context)
+
     try:
         # CORS headers
         cors_headers = {
@@ -215,6 +232,223 @@ def handle(event, context):
 
     except Exception as e:
         print(f"Error in match_detail_api_handler: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+        return {
+            "statusCode": 500,
+            "headers": {"Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"error": str(e)}),
+        }
+
+
+def handle_stats(event, context):
+    """
+    試合統計APIのハンドラー
+
+    新テーブル構造からSTATSレコードを取得
+
+    Args:
+        event: APIイベント
+        context: Lambdaコンテキスト
+
+    Returns:
+        APIレスポンス
+    """
+    try:
+        # CORS headers
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+        }
+
+        # OPTIONS request (preflight)
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        if http_method == "OPTIONS":
+            return {"statusCode": 200, "headers": cors_headers, "body": ""}
+
+        # パスパラメータからarenaUniqueIDを取得
+        path_parameters = event.get("pathParameters", {})
+        arena_unique_id = path_parameters.get("arenaUniqueID")
+
+        if not arena_unique_id:
+            return {
+                "statusCode": 400,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "arenaUniqueID is required"}),
+            }
+
+        # gameTypeを特定
+        game_type = find_match_game_type(arena_unique_id)
+
+        if not game_type:
+            return {
+                "statusCode": 404,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Match not found"}),
+            }
+
+        # STATSレコードを取得
+        battle_client = BattleTableClient(game_type)
+        stats = battle_client.get_stats(arena_unique_id)
+
+        if not stats:
+            return {
+                "statusCode": 404,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Stats not found"}),
+            }
+
+        # レスポンス
+        return {
+            "statusCode": 200,
+            "headers": cors_headers,
+            "body": json.dumps(
+                {
+                    "arenaUniqueID": arena_unique_id,
+                    "allPlayersStats": stats.get("allPlayersStats", []),
+                },
+                cls=DecimalEncoder,
+            ),
+        }
+
+    except Exception as e:
+        print(f"Error in match_stats_api_handler: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+        return {
+            "statusCode": 500,
+            "headers": {"Access-Control-Allow-Origin": "*"},
+            "body": json.dumps({"error": str(e)}),
+        }
+
+
+def handle_new(event, context):
+    """
+    試合詳細APIのハンドラー（新テーブル構造）
+
+    新テーブル構造からMATCH + UPLOADSを取得
+
+    Args:
+        event: APIイベント
+        context: Lambdaコンテキスト
+
+    Returns:
+        APIレスポンス
+    """
+    try:
+        # CORS headers
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+        }
+
+        # OPTIONS request (preflight)
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        if http_method == "OPTIONS":
+            return {"statusCode": 200, "headers": cors_headers, "body": ""}
+
+        # パスパラメータからarenaUniqueIDを取得
+        path_parameters = event.get("pathParameters", {})
+        arena_unique_id = path_parameters.get("arenaUniqueID")
+
+        if not arena_unique_id:
+            return {
+                "statusCode": 400,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "arenaUniqueID is required"}),
+            }
+
+        # gameTypeを特定
+        game_type = find_match_game_type(arena_unique_id)
+
+        if not game_type:
+            return {
+                "statusCode": 404,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Match not found"}),
+            }
+
+        # MATCH + UPLOADSを取得
+        battle_client = BattleTableClient(game_type)
+        full_match = battle_client.get_full_match(arena_unique_id)
+
+        if not full_match or not full_match.get("match"):
+            return {
+                "statusCode": 404,
+                "headers": cors_headers,
+                "body": json.dumps({"error": "Match not found"}),
+            }
+
+        match_data = full_match["match"]
+        uploads = full_match.get("uploads", [])
+
+        # レスポンス形式に変換（旧形式との互換性）
+        match_info = {
+            "arenaUniqueID": arena_unique_id,
+            "dateTime": match_data.get("dateTime"),
+            "unixTime": match_data.get("unixTime"),
+            "mapId": match_data.get("mapId"),
+            "mapDisplayName": match_data.get("mapDisplayName"),
+            "gameType": game_type,
+            "clientVersion": match_data.get("clientVersion"),
+            "winLoss": match_data.get("winLoss"),
+            "ownPlayer": {
+                "name": match_data.get("allyPerspectivePlayerName"),
+            },
+            "allies": match_data.get("allies", []),
+            "enemies": match_data.get("enemies", []),
+            "allyMainClanTag": match_data.get("allyMainClanTag"),
+            "enemyMainClanTag": match_data.get("enemyMainClanTag"),
+            "hasDualReplay": match_data.get("dualRendererAvailable", False),
+            "commentCount": match_data.get("commentCount", 0),
+            "mp4S3Key": match_data.get("mp4S3Key"),
+            # allPlayersStatsは別APIで取得（RCU最適化のため）
+            "allPlayersStats": [],
+            "replays": [],
+        }
+
+        # UPLOADレコードをreplays配列に変換
+        for upload in uploads:
+            match_info["replays"].append(
+                {
+                    "arenaUniqueID": arena_unique_id,
+                    "playerID": upload.get("playerID"),
+                    "playerName": upload.get("playerName"),
+                    "team": upload.get("team"),
+                    "uploadedBy": upload.get("uploadedBy"),
+                    "uploadedAt": upload.get("uploadedAt"),
+                    "s3Key": upload.get("s3Key"),
+                    "fileName": upload.get("fileName"),
+                    "fileSize": upload.get("fileSize"),
+                    "ownPlayer": upload.get("ownPlayer"),
+                    # 戦闘統計
+                    "damage": upload.get("damage"),
+                    "kills": upload.get("kills"),
+                    "spottingDamage": upload.get("spottingDamage"),
+                    "potentialDamage": upload.get("potentialDamage"),
+                    "receivedDamage": upload.get("receivedDamage"),
+                    "baseXP": upload.get("baseXP"),
+                    "citadels": upload.get("citadels"),
+                    "fires": upload.get("fires"),
+                    "floods": upload.get("floods"),
+                }
+            )
+
+        # レスポンス
+        return {
+            "statusCode": 200,
+            "headers": cors_headers,
+            "body": json.dumps(match_info, cls=DecimalEncoder),
+        }
+
+    except Exception as e:
+        print(f"Error in match_detail_new_api_handler: {e}")
         import traceback
 
         traceback.print_exc()

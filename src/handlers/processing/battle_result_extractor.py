@@ -23,6 +23,12 @@ from parsers.battle_stats_extractor import (
 from parsers.battlestats_parser import BattleStatsParser
 from utils import dynamodb
 from utils.dynamodb import calculate_main_clan_tag
+from utils.dynamodb_tables import (
+    BattleTableClient,
+    IndexTableClient,
+    normalize_game_type,
+    parse_datetime_to_unix,
+)
 from utils.match_key import generate_match_key, format_sortable_datetime
 from utils.captain_skills import (
     map_player_to_skills,
@@ -238,6 +244,258 @@ def build_all_players_stats(
     result.sort(key=lambda x: x.get("damage", 0), reverse=True)
 
     return result
+
+
+def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
+    """
+    新テーブル構造にデータを保存
+
+    Args:
+        old_record: 既存レコード（旧形式）
+        all_players_stats: 全プレイヤー統計情報
+    """
+    try:
+        raw_game_type = old_record.get("gameType", "other")
+        game_type = normalize_game_type(raw_game_type)
+        arena_unique_id = str(old_record.get("arenaUniqueID", ""))
+        date_time = old_record.get("dateTime", "")
+        unix_time = parse_datetime_to_unix(date_time)
+        player_id = old_record.get("playerID", 0)
+        player_name = old_record.get("playerName", "")
+
+        # BattleTableClient を使用
+        battle_client = BattleTableClient(game_type)
+
+        # ownPlayer の処理
+        own_player = old_record.get("ownPlayer", {})
+        if isinstance(own_player, list):
+            own_player = own_player[0] if own_player else {}
+
+        # 既存のMATCHレコードをチェック
+        existing_match = battle_client.get_match(arena_unique_id)
+
+        if existing_match:
+            # 既存の試合にアップローダーを追加
+            # 既存のアップローダーに含まれていないか確認
+            existing_uploaders = existing_match.get("uploaders", [])
+            already_uploaded = any(
+                u.get("playerID") == player_id for u in existing_uploaders
+            )
+
+            if not already_uploaded:
+                # このプレイヤーのチームを判定（既存の視点プレイヤーと比較）
+                existing_perspective_id = existing_match.get("allyPerspectivePlayerID", 0)
+                # ownPlayerの名前が既存のalliesに含まれていればally、そうでなければenemy
+                existing_allies = [a.get("name") for a in existing_match.get("allies", [])]
+                team = "ally" if own_player.get("name") in existing_allies else "enemy"
+
+                battle_client.add_uploader(arena_unique_id, player_id, player_name, team)
+                print(f"Added uploader to existing MATCH: player {player_id} as {team}")
+
+                # dualRendererAvailableを更新（敵味方両方のリプレイがある場合）
+                if team == "enemy":
+                    battle_client.update_dual_renderer_available(arena_unique_id, True)
+                    print("Updated dualRendererAvailable to True")
+        else:
+            # allies/enemies のフォーマット
+            allies = []
+            for player in old_record.get("allies", []):
+                allies.append({
+                    "name": player.get("name", ""),
+                    "clanTag": player.get("clanTag", ""),
+                    "shipName": player.get("shipName", ""),
+                    "shipId": player.get("shipId", 0),
+                })
+
+            enemies = []
+            for player in old_record.get("enemies", []):
+                enemies.append({
+                    "name": player.get("name", ""),
+                    "clanTag": player.get("clanTag", ""),
+                    "shipName": player.get("shipName", ""),
+                    "shipId": player.get("shipId", 0),
+                })
+
+            # MATCH レコードを作成
+            match_record = {
+                "arenaUniqueID": arena_unique_id,
+                "recordType": "MATCH",
+                "listingKey": "ACTIVE",
+                "unixTime": unix_time,
+                "dateTime": date_time,
+                "mapId": old_record.get("mapId", ""),
+                "mapDisplayName": old_record.get("mapDisplayName", ""),
+                "clientVersion": old_record.get("clientVersion", ""),
+                "allyPerspectivePlayerID": player_id,
+                "allyPerspectivePlayerName": player_name,
+                "winLoss": old_record.get("winLoss", "unknown"),
+                "allyMainClanTag": old_record.get("allyMainClanTag", ""),
+                "enemyMainClanTag": old_record.get("enemyMainClanTag", ""),
+                "allies": allies,
+                "enemies": enemies,
+                "mp4S3Key": old_record.get("mp4S3Key"),
+                "mp4GeneratedAt": None,
+                "dualRendererAvailable": old_record.get("hasDualReplay", False),
+                "commentCount": 0,
+                "uploaders": [{
+                    "playerID": player_id,
+                    "playerName": player_name,
+                    "team": "ally",
+                }],
+            }
+            battle_client.put_match(match_record)
+            print(f"Saved MATCH record to {game_type} table")
+
+            # STATS レコードを保存（新規MATCHの場合のみ）
+            if all_players_stats:
+                battle_client.put_stats(arena_unique_id, all_players_stats)
+                print(f"Saved STATS record with {len(all_players_stats)} players")
+
+            # インデックステーブルを更新（新規MATCHの場合のみ）
+            index_client = IndexTableClient()
+
+            # Ship index
+            ship_counts = {}
+            for player in allies + [own_player]:
+                ship_name = player.get("shipName", "")
+                if ship_name:
+                    ship_name_upper = ship_name.upper()
+                    if ship_name_upper not in ship_counts:
+                        ship_counts[ship_name_upper] = {"ally": 0, "enemy": 0}
+                    ship_counts[ship_name_upper]["ally"] += 1
+
+            for player in enemies:
+                ship_name = player.get("shipName", "")
+                if ship_name:
+                    ship_name_upper = ship_name.upper()
+                    if ship_name_upper not in ship_counts:
+                        ship_counts[ship_name_upper] = {"ally": 0, "enemy": 0}
+                    ship_counts[ship_name_upper]["enemy"] += 1
+
+            for ship_name, counts in ship_counts.items():
+                index_client.put_ship_index(
+                    ship_name=ship_name,
+                    game_type=game_type,
+                    unix_time=unix_time,
+                    arena_unique_id=arena_unique_id,
+                    ally_count=counts["ally"],
+                    enemy_count=counts["enemy"],
+                )
+            print(f"Saved {len(ship_counts)} ship index entries")
+
+            # Player index
+            player_count = 0
+            for player in allies + [own_player]:
+                p_name = player.get("name", "")
+                if p_name:
+                    index_client.put_player_index(
+                        player_name=p_name,
+                        game_type=game_type,
+                        unix_time=unix_time,
+                        arena_unique_id=arena_unique_id,
+                        team="ally",
+                        clan_tag=player.get("clanTag", ""),
+                        ship_name=player.get("shipName", ""),
+                    )
+                    player_count += 1
+
+            for player in enemies:
+                p_name = player.get("name", "")
+                if p_name:
+                    index_client.put_player_index(
+                        player_name=p_name,
+                        game_type=game_type,
+                        unix_time=unix_time,
+                        arena_unique_id=arena_unique_id,
+                        team="enemy",
+                        clan_tag=player.get("clanTag", ""),
+                        ship_name=player.get("shipName", ""),
+                    )
+                    player_count += 1
+            print(f"Saved {player_count} player index entries")
+
+            # Clan index
+            clan_counts = {}
+            ally_main_clan = old_record.get("allyMainClanTag", "")
+            enemy_main_clan = old_record.get("enemyMainClanTag", "")
+
+            for player in allies + [own_player]:
+                clan_tag = player.get("clanTag", "")
+                if clan_tag:
+                    if clan_tag not in clan_counts:
+                        clan_counts[clan_tag] = {"ally": 0, "enemy": 0}
+                    clan_counts[clan_tag]["ally"] += 1
+
+            for player in enemies:
+                clan_tag = player.get("clanTag", "")
+                if clan_tag:
+                    if clan_tag not in clan_counts:
+                        clan_counts[clan_tag] = {"ally": 0, "enemy": 0}
+                    clan_counts[clan_tag]["enemy"] += 1
+
+            for clan_tag, counts in clan_counts.items():
+                is_main = clan_tag in [ally_main_clan, enemy_main_clan]
+                team = "ally" if counts["ally"] > counts["enemy"] else "enemy"
+                index_client.put_clan_index(
+                    clan_tag=clan_tag,
+                    game_type=game_type,
+                    unix_time=unix_time,
+                    arena_unique_id=arena_unique_id,
+                    team=team,
+                    member_count=counts["ally"] + counts["enemy"],
+                    is_main_clan=is_main,
+                )
+            print(f"Saved {len(clan_counts)} clan index entries")
+
+        # UPLOAD レコードを保存（新規・既存どちらの場合も）
+        # 既存MATCHの場合、このプレイヤーのチームを判定
+        upload_team = "ally"
+        if existing_match:
+            existing_allies = [a.get("name") for a in existing_match.get("allies", [])]
+            upload_team = "ally" if own_player.get("name") in existing_allies else "enemy"
+
+        upload_record = {
+            "arenaUniqueID": arena_unique_id,
+            "playerID": player_id,
+            "playerName": player_name,
+            "team": upload_team,
+            "s3Key": old_record.get("s3Key", ""),
+            "fileName": old_record.get("fileName", ""),
+            "fileSize": old_record.get("fileSize", 0),
+            "uploadedAt": unix_time,
+            "uploadedBy": old_record.get("uploadedBy", ""),
+            "ownPlayer": {
+                "name": own_player.get("name", ""),
+                "clanTag": own_player.get("clanTag", ""),
+                "shipName": own_player.get("shipName", ""),
+                "shipId": own_player.get("shipId", 0),
+            },
+            # 戦闘統計
+            "damage": old_record.get("damage", 0),
+            "kills": old_record.get("kills", 0),
+            "spottingDamage": old_record.get("spottingDamage", 0),
+            "potentialDamage": old_record.get("potentialDamage", 0),
+            "receivedDamage": old_record.get("receivedDamage", 0),
+            "baseXP": old_record.get("baseXP", 0),
+            "experienceEarned": old_record.get("experienceEarned", 0),
+            "citadels": old_record.get("citadels", 0),
+            "fires": old_record.get("fires", 0),
+            "floods": old_record.get("floods", 0),
+            "damageAP": old_record.get("damageAP", 0),
+            "damageHE": old_record.get("damageHE", 0),
+            "damageTorps": old_record.get("damageTorps", 0),
+            "damageFire": old_record.get("damageFire", 0),
+            "damageFlooding": old_record.get("damageFlooding", 0),
+            "hitsAP": old_record.get("hitsAP", 0),
+            "hitsHE": old_record.get("hitsHE", 0),
+        }
+        battle_client.put_upload(upload_record)
+        print(f"Saved UPLOAD record for player {player_id} as {upload_team}")
+
+    except Exception as e:
+        print(f"Warning: Failed to save to new tables: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def handle(event, context):
@@ -472,6 +730,10 @@ def handle(event, context):
                     )
                 except Exception as ship_idx_err:
                     print(f"Warning: Failed to create ship index entries: {ship_idx_err}")
+
+                # 新テーブル構造にも保存（移行期間中は両方に保存）
+                all_players_stats = old_record.get("allPlayersStats", [])
+                save_to_new_tables(old_record, all_players_stats)
 
                 # 動画生成チェック: 同じ試合の既存リプレイで動画があるかチェック
                 check_and_trigger_video_generation(arena_unique_id, player_id)

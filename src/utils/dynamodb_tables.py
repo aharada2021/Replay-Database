@@ -255,6 +255,36 @@ class BattleTableClient:
             },
         )
 
+    def add_uploader(
+        self, arena_unique_id: str, player_id: int, player_name: str, team: str
+    ):
+        """
+        MATCHレコードにアップローダーを追加
+        """
+        new_uploader = {
+            "playerID": player_id,
+            "playerName": player_name,
+            "team": team,
+        }
+        self.table.update_item(
+            Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"},
+            UpdateExpression="SET uploaders = list_append(if_not_exists(uploaders, :empty), :uploader)",
+            ExpressionAttributeValues={
+                ":empty": [],
+                ":uploader": [new_uploader],
+            },
+        )
+
+    def update_dual_renderer_available(self, arena_unique_id: str, available: bool):
+        """
+        dualRendererAvailableフラグを更新
+        """
+        self.table.update_item(
+            Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"},
+            UpdateExpression="SET dualRendererAvailable = :available",
+            ExpressionAttributeValues={":available": available},
+        )
+
     def list_matches(
         self,
         limit: int = 20,

@@ -2,6 +2,11 @@
 検索APIハンドラー
 
 Web UIからの検索リクエストを処理
+
+新テーブル構造対応版:
+- gameType別テーブル（clan, ranked, random, other）
+- MATCHレコードは試合単位で事前グループ化済み
+- ListingIndex を使用した高速ページネーション
 """
 
 import json
@@ -10,6 +15,12 @@ from datetime import datetime, timedelta
 from functools import lru_cache
 
 from utils import dynamodb
+from utils.dynamodb_tables import (
+    BattleTableClient,
+    IndexTableClient,
+    normalize_game_type,
+    parse_index_sk,
+)
 from utils.match_key import generate_match_key
 
 
@@ -220,6 +231,151 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(obj)
 
 
+def search_new_tables(
+    game_type: str = None,
+    map_id: str = None,
+    ship_name: str = None,
+    ship_team: str = None,
+    player_name: str = None,
+    clan_tag: str = None,
+    ally_clan_tag: str = None,
+    enemy_clan_tag: str = None,
+    limit: int = 30,
+    cursor_unix_time: int = None,
+) -> dict:
+    """
+    新テーブル構造を使用した検索
+
+    Returns:
+        {
+            "items": [...],
+            "nextCursor": int or None,
+            "hasMore": bool
+        }
+    """
+    index_client = IndexTableClient()
+    results = []
+    filtered_arena_ids = None
+
+    # インデックス検索（艦艇、プレイヤー、クラン）
+    if ship_name:
+        ship_result = index_client.search_by_ship(
+            ship_name=ship_name,
+            game_type=normalize_game_type(game_type) if game_type else None,
+            limit=500,
+        )
+        filtered_arena_ids = set()
+        for item in ship_result.get("items", []):
+            parsed = parse_index_sk(item.get("SK", ""))
+            if parsed.get("arenaUniqueID"):
+                # チームフィルタ
+                if ship_team == "ally" and item.get("allyCount", 0) < 1:
+                    continue
+                if ship_team == "enemy" and item.get("enemyCount", 0) < 1:
+                    continue
+                filtered_arena_ids.add(parsed["arenaUniqueID"])
+        print(f"Ship filter: {ship_name} found {len(filtered_arena_ids)} matches")
+
+    if player_name:
+        player_result = index_client.search_by_player(
+            player_name=player_name,
+            game_type=normalize_game_type(game_type) if game_type else None,
+            limit=500,
+        )
+        player_arena_ids = set()
+        for item in player_result.get("items", []):
+            parsed = parse_index_sk(item.get("SK", ""))
+            if parsed.get("arenaUniqueID"):
+                player_arena_ids.add(parsed["arenaUniqueID"])
+        if filtered_arena_ids is not None:
+            filtered_arena_ids = filtered_arena_ids.intersection(player_arena_ids)
+        else:
+            filtered_arena_ids = player_arena_ids
+        print(f"Player filter: {player_name} found {len(player_arena_ids)} matches")
+
+    if clan_tag:
+        clan_result = index_client.search_by_clan(
+            clan_tag=clan_tag,
+            game_type=normalize_game_type(game_type) if game_type else None,
+            limit=500,
+        )
+        clan_arena_ids = set()
+        for item in clan_result.get("items", []):
+            parsed = parse_index_sk(item.get("SK", ""))
+            if parsed.get("arenaUniqueID"):
+                clan_arena_ids.add(parsed["arenaUniqueID"])
+        if filtered_arena_ids is not None:
+            filtered_arena_ids = filtered_arena_ids.intersection(clan_arena_ids)
+        else:
+            filtered_arena_ids = clan_arena_ids
+        print(f"Clan filter: {clan_tag} found {len(clan_arena_ids)} matches")
+
+    # gameType指定の場合は単一テーブルをクエリ
+    # 指定なしの場合は全テーブルをクエリしてマージ
+    game_types_to_query = []
+    if game_type:
+        game_types_to_query = [normalize_game_type(game_type)]
+    else:
+        game_types_to_query = ["clan", "ranked", "random", "other"]
+
+    all_items = []
+    for gt in game_types_to_query:
+        battle_client = BattleTableClient(gt)
+        query_result = battle_client.list_matches(
+            limit=limit * 3,  # 余裕を持って取得
+            map_id=map_id,
+        )
+
+        for item in query_result.get("items", []):
+            # インデックスフィルタ
+            if filtered_arena_ids is not None:
+                if item.get("arenaUniqueID") not in filtered_arena_ids:
+                    continue
+
+            # クランタグフィルタ
+            if ally_clan_tag and item.get("allyMainClanTag") != ally_clan_tag:
+                continue
+            if enemy_clan_tag and item.get("enemyMainClanTag") != enemy_clan_tag:
+                continue
+
+            # カーソルフィルタ（Unix時間）
+            if cursor_unix_time and item.get("unixTime", 0) >= cursor_unix_time:
+                continue
+
+            all_items.append(item)
+
+    # unixTime降順でソート
+    all_items.sort(key=lambda x: x.get("unixTime", 0), reverse=True)
+
+    # ページネーション
+    has_more = len(all_items) > limit
+    paginated = all_items[:limit]
+
+    # 次のカーソル
+    next_cursor = None
+    if has_more and paginated:
+        next_cursor = paginated[-1].get("unixTime")
+
+    # レスポンス形式に変換（旧形式との互換性）
+    for item in paginated:
+        # uploaders から代表リプレイ情報を設定
+        uploaders = item.get("uploaders", [])
+        if uploaders:
+            rep = uploaders[0]
+            item["representativePlayerID"] = rep.get("playerID")
+            item["representativePlayerName"] = rep.get("playerName")
+        item["replayCount"] = len(uploaders)
+        item["hasDualReplay"] = item.get("dualRendererAvailable", False)
+        # allPlayersStatsは含まれていない（別APIで取得）
+        item["allPlayersStats"] = []
+
+    return {
+        "items": paginated,
+        "nextCursor": next_cursor,
+        "hasMore": has_more,
+    }
+
+
 def handle(event, context):
     """
     検索APIのハンドラー
@@ -264,13 +420,45 @@ def handle(event, context):
         ship_team = params.get("shipTeam")  # "ally", "enemy", or None
         ship_min_count = params.get("shipMinCount", 1)
         player_name = params.get("playerName")  # プレイヤー名検索
+        clan_tag = params.get("clanTag")  # クラン検索（新テーブル用）
         win_loss = params.get("winLoss")
         date_from = params.get("dateFrom")
         date_to = params.get("dateTo")
-        limit = params.get("limit", 50)
+        limit = params.get("limit", 30)
         # カーソルベースのページネーション
         # cursorDateTime: 前回の最後のマッチのdateTime（これより前のデータを取得）
         cursor_date_time = params.get("cursorDateTime")
+        cursor_unix_time = params.get("cursorUnixTime")  # 新テーブル用
+        # 新テーブル使用フラグ
+        use_new_tables = params.get("useNewTables", False)
+
+        # 新テーブルを使用する場合
+        if use_new_tables:
+            result = search_new_tables(
+                game_type=game_type,
+                map_id=map_id,
+                ship_name=ship_name,
+                ship_team=ship_team,
+                player_name=player_name,
+                clan_tag=clan_tag,
+                ally_clan_tag=ally_clan_tag,
+                enemy_clan_tag=enemy_clan_tag,
+                limit=limit,
+                cursor_unix_time=cursor_unix_time,
+            )
+            return {
+                "statusCode": 200,
+                "headers": cors_headers,
+                "body": json.dumps(
+                    {
+                        "items": result["items"],
+                        "cursorUnixTime": result["nextCursor"],
+                        "hasMore": result["hasMore"],
+                        "count": len(result["items"]),
+                    },
+                    cls=DecimalEncoder,
+                ),
+            }
 
         # 艦艇検索の場合、インデックステーブルを使用
         ship_filtered_arena_ids = None

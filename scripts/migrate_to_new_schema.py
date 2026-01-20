@@ -327,24 +327,25 @@ class DataMigrator:
         self, arena_id: str, game_type: str, unix_time: int, all_players_stats: list
     ) -> list:
         """プレイヤーインデックスレコードを作成"""
-        records = []
+        # playerName で重複排除（ボット名など同名プレイヤーが存在する場合がある）
+        seen_players = {}
+        sk = f"{game_type}#{unix_time}#{arena_id}"
 
         for player in all_players_stats:
             player_name = player.get("playerName", "")
             if not player_name:
                 continue
+            # 最初に見つかったものを使用（重複排除）
+            if player_name not in seen_players:
+                seen_players[player_name] = {
+                    "playerName": player_name,
+                    "SK": sk,
+                    "team": player.get("team", ""),
+                    "clanTag": player.get("clanTag", ""),
+                    "shipName": player.get("shipName", ""),
+                }
 
-            sk = f"{game_type}#{unix_time}#{arena_id}"
-            record = {
-                "playerName": player_name,
-                "SK": sk,
-                "team": player.get("team", ""),
-                "clanTag": player.get("clanTag", ""),
-                "shipName": player.get("shipName", ""),
-            }
-            records.append(record)
-
-        return records
+        return list(seen_players.values())
 
     def create_clan_index_records(
         self,

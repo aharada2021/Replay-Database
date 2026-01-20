@@ -6,6 +6,7 @@ import type {
   GenerateVideoRequest,
   GenerateVideoResponse,
   Comment,
+  PlayerStats,
 } from '~/types/replay'
 
 export const useApi = () => {
@@ -69,6 +70,38 @@ export const useApi = () => {
       return parsedResponse
     } catch (error) {
       console.error('[API] Get match detail error:', error)
+      return null
+    }
+  }
+
+  /**
+   * 試合統計取得（allPlayersStatsを取得）
+   * 新DynamoDB設計でSTATSレコードを別途取得するために使用
+   */
+  const getMatchStats = async (
+    arenaUniqueID: string
+  ): Promise<{ allPlayersStats: PlayerStats[] } | null> => {
+    try {
+      const url = `${baseUrl}/api/match/${encodeURIComponent(arenaUniqueID)}/stats`
+
+      const response = await $fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      // レスポンスが文字列の場合、JSONをパース
+      let parsedResponse: { allPlayersStats: PlayerStats[] }
+      if (typeof response === 'string') {
+        parsedResponse = JSON.parse(response)
+      } else {
+        parsedResponse = response as { allPlayersStats: PlayerStats[] }
+      }
+
+      return parsedResponse
+    } catch (error) {
+      console.error('[API] Get match stats error:', error)
       return null
     }
   }
@@ -302,6 +335,7 @@ export const useApi = () => {
   return {
     searchReplays,
     getMatchDetail,
+    getMatchStats,
     getReplayDetail,
     generateVideo,
     getReplayDownloadUrl,
