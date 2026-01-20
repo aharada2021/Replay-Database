@@ -193,10 +193,7 @@
 
     <v-app-bar v-if="showAppBar" color="primary" density="compact" height="48">
       <v-app-bar-nav-icon size="small" @click="drawer = !drawer"></v-app-bar-nav-icon>
-      <v-toolbar-title class="text-body-1 cursor-pointer" @click="router.push('/')">
-        <span class="d-none d-sm-inline">WoWS Replay Database</span>
-        <span class="d-inline d-sm-none">Replay DB</span>
-      </v-toolbar-title>
+      <v-toolbar-title class="text-body-1 cursor-pointer" @click="router.push('/')">WoWS Replay Database</v-toolbar-title>
       <v-spacer></v-spacer>
 
       <!-- ユーザーメニュー -->
