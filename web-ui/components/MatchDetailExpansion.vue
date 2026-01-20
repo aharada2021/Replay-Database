@@ -1,7 +1,15 @@
 <template>
   <div class="pa-4">
+    <!-- Stats読み込み中 -->
+    <v-row v-if="isLoadingStats">
+      <v-col cols="12" class="text-center py-8">
+        <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
+        <div class="text-caption mt-2">戦闘統計を読み込み中...</div>
+      </v-col>
+    </v-row>
+
     <!-- スコアボード + ミニマップ動画 横並び -->
-    <v-row v-if="hasAllPlayersStats">
+    <v-row v-else-if="hasAllPlayersStats">
       <!-- 全プレイヤー戦闘統計（スコアボード） -->
       <v-col cols="12" lg="8">
         <div class="d-flex align-center mb-2">
@@ -633,7 +641,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import type { MatchRecord, PlayerStats, ShipClass } from '~/types/replay'
 
@@ -649,6 +657,41 @@ const api = useApi()
 const isDebugMode = computed(() => route.query.debug === 'true')
 const { getShipClassShortLabel, getShipClassIcon } = useShipClass()
 const config = useRuntimeConfig()
+
+// Stats取得用のstate
+const fetchedStats = ref<PlayerStats[]>([])
+const isLoadingStats = ref(false)
+const statsError = ref<string | null>(null)
+
+// コンポーネントがマウントされた時にstatsを取得
+onMounted(async () => {
+  // 既にallPlayersStatsがあればfetch不要
+  if (props.match.allPlayersStats && props.match.allPlayersStats.length > 0) {
+    return
+  }
+
+  // arenaUniqueIDがなければfetch不可
+  const arenaId = props.match.arenaUniqueID
+  if (!arenaId) {
+    return
+  }
+
+  // statsを取得
+  isLoadingStats.value = true
+  statsError.value = null
+
+  try {
+    const statsData = await api.getMatchStats(arenaId)
+    if (statsData && statsData.allPlayersStats) {
+      fetchedStats.value = statsData.allPlayersStats
+    }
+  } catch (err: any) {
+    console.error('Failed to fetch stats:', err)
+    statsError.value = err.message || 'Stats取得エラー'
+  } finally {
+    isLoadingStats.value = false
+  }
+})
 
 // 艦種のソート優先度（空母→戦艦→巡洋艦→駆逐艦→潜水艦）
 const SHIP_CLASS_PRIORITY: Record<string, number> = {
@@ -666,9 +709,19 @@ const sortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
 // カスタムソートが適用されているか
 const isCustomSorted = computed(() => sortBy.value.length > 0)
 
+// 全プレイヤー統計（propsまたはfetch結果を使用）
+const allPlayersStats = computed(() => {
+  // propsにあればそちらを優先
+  if (props.match.allPlayersStats && props.match.allPlayersStats.length > 0) {
+    return props.match.allPlayersStats
+  }
+  // なければfetch結果を使用
+  return fetchedStats.value
+})
+
 // 全プレイヤー統計があるかどうか
 const hasAllPlayersStats = computed(() => {
-  return props.match.allPlayersStats && props.match.allPlayersStats.length > 0
+  return allPlayersStats.value && allPlayersStats.value.length > 0
 })
 
 // スコアボードのヘッダー（圧縮版）
@@ -697,8 +750,8 @@ const getTotalHits = (player: PlayerStats): number => {
 
 // デフォルトソート: 味方→敵、艦種順、XP順、ダメージ順
 const defaultSortedPlayersStats = computed(() => {
-  if (!props.match.allPlayersStats) return []
-  return [...props.match.allPlayersStats]
+  if (!allPlayersStats.value || allPlayersStats.value.length === 0) return []
+  return [...allPlayersStats.value]
     .map(p => ({ ...p, totalHits: getTotalHits(p) }))
     .sort((a, b) => {
       // 1. チーム（味方が先）

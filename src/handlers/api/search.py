@@ -2,62 +2,23 @@
 検索APIハンドラー
 
 Web UIからの検索リクエストを処理
+
+テーブル構造:
+- gameType別テーブル（clan, ranked, random, other）
+- MATCHレコードは試合単位で事前グループ化済み
+- ListingIndex を使用した高速ページネーション
+- allPlayersStatsは別途/statsエンドポイントで取得
 """
 
 import json
 from decimal import Decimal
-from datetime import datetime, timedelta
-from functools import lru_cache
 
-from utils import dynamodb
-from utils.match_key import generate_match_key
-
-
-@lru_cache(maxsize=2048)
-def parse_datetime_for_sort(date_str: str) -> datetime:
-    """
-    日時文字列をソート用にパース（メモ化による高速化）
-
-    Args:
-        date_str: "DD.MM.YYYY HH:MM:SS" 形式の日時文字列
-
-    Returns:
-        datetime オブジェクト（パース失敗時は最小値）
-    """
-    if not date_str:
-        return datetime.min
-
-    try:
-        # "DD.MM.YYYY HH:MM:SS" 形式
-        return datetime.strptime(date_str, "%d.%m.%Y %H:%M:%S")
-    except ValueError:
-        try:
-            # ISO形式のフォールバック
-            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        except ValueError:
-            return datetime.min
-
-
-def convert_cursor_to_sortable(cursor_datetime: str) -> str:
-    """
-    カーソル日時をdateTimeSortable形式に変換
-
-    Args:
-        cursor_datetime: "DD.MM.YYYY HH:MM:SS" 形式の日時文字列
-
-    Returns:
-        "YYYYMMDDHHMMSS" 形式の文字列（パース失敗時はNone）
-    """
-    if not cursor_datetime:
-        return None
-
-    try:
-        # "DD.MM.YYYY HH:MM:SS" 形式をパース
-        dt = datetime.strptime(cursor_datetime, "%d.%m.%Y %H:%M:%S")
-        # "YYYYMMDDHHMMSS" 形式に変換
-        return dt.strftime("%Y%m%d%H%M%S")
-    except ValueError:
-        return None
+from utils.dynamodb_tables import (
+    BattleTableClient,
+    IndexTableClient,
+    normalize_game_type,
+    parse_index_sk,
+)
 
 
 def normalize_ship_name(name: str) -> str:
@@ -92,125 +53,6 @@ def normalize_ship_name(name: str) -> str:
     return normalized
 
 
-def parse_frontend_date(date_str: str) -> datetime:
-    """
-    フロントエンドの日付文字列をパース
-
-    Args:
-        date_str: "YYYY-MM-DD" 形式の日付文字列
-
-    Returns:
-        datetime オブジェクト（パース失敗時はNone）
-    """
-    if not date_str:
-        return None
-
-    try:
-        # "YYYY-MM-DD" 形式
-        return datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        return None
-
-
-def calculate_fetch_multiplier(
-    ally_clan_tag: str = None,
-    enemy_clan_tag: str = None,
-    ship_filtered_count: int = None,
-    cursor_date_time: str = None,
-    date_from: str = None,
-    date_to: str = None,
-) -> int:
-    """
-    検索条件に基づいてfetch_multiplierを動的に計算
-
-    より厳しい（絞り込み率が高い）フィルタがある場合、
-    より多くのデータを取得して、limit件のマッチを確保する
-
-    Args:
-        ally_clan_tag: 味方クランタグフィルタ
-        enemy_clan_tag: 敵クランタグフィルタ
-        ship_filtered_count: 艦艇フィルタで見つかったマッチ数（Noneの場合はフィルタなし）
-        cursor_date_time: カーソル日時
-        date_from: 開始日付
-        date_to: 終了日付
-
-    Returns:
-        fetch_multiplier（5-25の範囲）
-    """
-    multiplier = 5  # 基本値
-
-    # クランフィルタ（絞り込み率が高い）
-    if ally_clan_tag or enemy_clan_tag:
-        multiplier += 5
-
-    # 艦艇フィルタ（結果数に応じて調整）
-    if ship_filtered_count is not None:
-        if ship_filtered_count < 50:
-            multiplier += 3
-        elif ship_filtered_count < 100:
-            multiplier += 5
-        else:
-            multiplier += 8
-
-    # 日付フィルタ
-    if date_from or date_to:
-        multiplier += 3
-
-    # カーソルページネーション
-    if cursor_date_time:
-        multiplier += 5
-
-    # 上限設定
-    return min(multiplier, 25)
-
-
-def filter_matches_single_pass(
-    matches: list,
-    cursor_dt: datetime = None,
-    date_from_dt: datetime = None,
-    date_to_dt: datetime = None,
-    ally_clan_tag: str = None,
-    enemy_clan_tag: str = None,
-) -> list:
-    """
-    単一パスで全フィルタを適用（複数回のリスト走査を回避）
-
-    Args:
-        matches: マッチリスト
-        cursor_dt: カーソル日時（これより前のデータのみ）
-        date_from_dt: 開始日時
-        date_to_dt: 終了日時（この日の翌日0時未満）
-        ally_clan_tag: 味方クランタグ
-        enemy_clan_tag: 敵クランタグ
-
-    Returns:
-        フィルタリングされたマッチリスト
-    """
-    result = []
-    for m in matches:
-        match_dt = parse_datetime_for_sort(m.get("dateTime", ""))
-
-        # カーソルフィルタ: カーソルより前（古い）のデータのみ
-        if cursor_dt and match_dt >= cursor_dt:
-            continue
-
-        # 日付範囲フィルタ
-        if date_from_dt and match_dt < date_from_dt:
-            continue
-        if date_to_dt and match_dt >= date_to_dt:
-            continue
-
-        # クランタグフィルタ
-        if ally_clan_tag and m.get("allyMainClanTag") != ally_clan_tag:
-            continue
-        if enemy_clan_tag and m.get("enemyMainClanTag") != enemy_clan_tag:
-            continue
-
-        result.append(m)
-
-    return result
-
-
 class DecimalEncoder(json.JSONEncoder):
     """DynamoDB Decimalオブジェクトをシリアライズするカスタムエンコーダー"""
 
@@ -218,6 +60,183 @@ class DecimalEncoder(json.JSONEncoder):
         if isinstance(obj, Decimal):
             return int(obj) if obj % 1 == 0 else float(obj)
         return super(DecimalEncoder, self).default(obj)
+
+
+def search_matches(
+    game_type: str = None,
+    map_id: str = None,
+    ship_name: str = None,
+    ship_team: str = None,
+    player_name: str = None,
+    clan_tag: str = None,
+    ally_clan_tag: str = None,
+    enemy_clan_tag: str = None,
+    limit: int = 30,
+    cursor_unix_time: int = None,
+) -> dict:
+    """
+    試合検索
+
+    Returns:
+        {
+            "items": [...],
+            "nextCursor": int or None,
+            "hasMore": bool
+        }
+    """
+    index_client = IndexTableClient()
+    results = []
+    filtered_arena_ids = None
+
+    # インデックス検索（艦艇、プレイヤー、クラン）
+    if ship_name:
+        ship_result = index_client.search_by_ship(
+            ship_name=ship_name,
+            game_type=normalize_game_type(game_type) if game_type else None,
+            limit=500,
+        )
+        filtered_arena_ids = set()
+        for item in ship_result.get("items", []):
+            parsed = parse_index_sk(item.get("SK", ""))
+            if parsed.get("arenaUniqueID"):
+                # チームフィルタ
+                if ship_team == "ally" and item.get("allyCount", 0) < 1:
+                    continue
+                if ship_team == "enemy" and item.get("enemyCount", 0) < 1:
+                    continue
+                filtered_arena_ids.add(parsed["arenaUniqueID"])
+        print(f"Ship filter: {ship_name} found {len(filtered_arena_ids)} matches")
+
+    if player_name:
+        player_result = index_client.search_by_player(
+            player_name=player_name,
+            game_type=normalize_game_type(game_type) if game_type else None,
+            limit=500,
+        )
+        player_arena_ids = set()
+        for item in player_result.get("items", []):
+            parsed = parse_index_sk(item.get("SK", ""))
+            if parsed.get("arenaUniqueID"):
+                player_arena_ids.add(parsed["arenaUniqueID"])
+        if filtered_arena_ids is not None:
+            filtered_arena_ids = filtered_arena_ids.intersection(player_arena_ids)
+        else:
+            filtered_arena_ids = player_arena_ids
+        print(f"Player filter: {player_name} found {len(player_arena_ids)} matches")
+
+    if clan_tag:
+        clan_result = index_client.search_by_clan(
+            clan_tag=clan_tag,
+            game_type=normalize_game_type(game_type) if game_type else None,
+            limit=500,
+        )
+        clan_arena_ids = set()
+        for item in clan_result.get("items", []):
+            parsed = parse_index_sk(item.get("SK", ""))
+            if parsed.get("arenaUniqueID"):
+                clan_arena_ids.add(parsed["arenaUniqueID"])
+        if filtered_arena_ids is not None:
+            filtered_arena_ids = filtered_arena_ids.intersection(clan_arena_ids)
+        else:
+            filtered_arena_ids = clan_arena_ids
+        print(f"Clan filter: {clan_tag} found {len(clan_arena_ids)} matches")
+
+    # gameType指定の場合は単一テーブルをクエリ
+    # 指定なしの場合は全テーブルをクエリしてマージ
+    game_types_to_query = []
+    if game_type:
+        game_types_to_query = [normalize_game_type(game_type)]
+    else:
+        game_types_to_query = ["clan", "ranked", "random", "other"]
+
+    all_items = []
+    for gt in game_types_to_query:
+        battle_client = BattleTableClient(gt)
+        query_result = battle_client.list_matches(
+            limit=limit * 3,  # 余裕を持って取得
+            map_id=map_id,
+        )
+
+        # GSIからフィルタリングしてarenaUniqueIDを収集
+        filtered_items = []
+        arena_ids_to_fetch = []
+
+        for item in query_result.get("items", []):
+            # インデックスフィルタ
+            if filtered_arena_ids is not None:
+                if item.get("arenaUniqueID") not in filtered_arena_ids:
+                    continue
+
+            # クランタグフィルタ
+            if ally_clan_tag and item.get("allyMainClanTag") != ally_clan_tag:
+                continue
+            if enemy_clan_tag and item.get("enemyMainClanTag") != enemy_clan_tag:
+                continue
+
+            # カーソルフィルタ（Unix時間）
+            if cursor_unix_time and item.get("unixTime", 0) >= cursor_unix_time:
+                continue
+
+            arena_id = item.get("arenaUniqueID")
+            if arena_id:
+                filtered_items.append(item)
+                arena_ids_to_fetch.append(arena_id)
+
+        # BatchGetItemで完全なMATCHレコードを一括取得
+        if arena_ids_to_fetch:
+            full_matches = battle_client.batch_get_matches(arena_ids_to_fetch)
+
+            for item in filtered_items:
+                arena_id = item.get("arenaUniqueID")
+                full_match = full_matches.get(arena_id)
+                if full_match:
+                    item = full_match
+
+                # gameTypeを追加（テーブルから判断）
+                item["gameType"] = gt
+                all_items.append(item)
+
+    # unixTime降順でソート
+    all_items.sort(key=lambda x: x.get("unixTime", 0), reverse=True)
+
+    # ページネーション
+    has_more = len(all_items) > limit
+    paginated = all_items[:limit]
+
+    # 次のカーソル
+    next_cursor = None
+    if has_more and paginated:
+        next_cursor = paginated[-1].get("unixTime")
+
+    # レスポンス形式に変換（旧形式との互換性）
+    for item in paginated:
+        # uploaders から代表リプレイ情報を設定
+        uploaders = item.get("uploaders", [])
+        if uploaders:
+            rep = uploaders[0]
+            rep_player_name = rep.get("playerName", "")
+            item["representativePlayerID"] = rep.get("playerID")
+            item["representativePlayerName"] = rep_player_name
+
+            # ownPlayer を生成（allies から shipName と clanTag を取得）
+            own_player = {"name": rep_player_name}
+            allies = item.get("allies", [])
+            for ally in allies:
+                if ally.get("name") == rep_player_name:
+                    own_player["shipName"] = ally.get("shipName", "")
+                    own_player["clanTag"] = ally.get("clanTag", "")
+                    break
+            item["ownPlayer"] = own_player
+        item["replayCount"] = len(uploaders)
+        item["hasDualReplay"] = item.get("dualRendererAvailable", False)
+        # allPlayersStatsは含まれていない（別APIで取得）
+        item["allPlayersStats"] = []
+
+    return {
+        "items": paginated,
+        "nextCursor": next_cursor,
+        "hasMore": has_more,
+    }
 
 
 def handle(event, context):
@@ -262,320 +281,34 @@ def handle(event, context):
         # 艦艇名を正規化（DynamoDBは完全一致検索のため）
         ship_name = normalize_ship_name(ship_name_raw) if ship_name_raw else None
         ship_team = params.get("shipTeam")  # "ally", "enemy", or None
-        ship_min_count = params.get("shipMinCount", 1)
         player_name = params.get("playerName")  # プレイヤー名検索
-        win_loss = params.get("winLoss")
-        date_from = params.get("dateFrom")
-        date_to = params.get("dateTo")
-        limit = params.get("limit", 50)
-        # カーソルベースのページネーション
-        # cursorDateTime: 前回の最後のマッチのdateTime（これより前のデータを取得）
-        cursor_date_time = params.get("cursorDateTime")
+        clan_tag = params.get("clanTag")  # クラン検索
+        limit = params.get("limit", 30)
+        cursor_unix_time = params.get("cursorUnixTime")
 
-        # 艦艇検索の場合、インデックステーブルを使用
-        ship_filtered_arena_ids = None
-        if ship_name:
-            ship_result = dynamodb.search_matches_by_ship_with_count(
-                ship_name=ship_name,
-                team=ship_team,
-                min_count=ship_min_count,
-                limit=500,  # 十分な数を取得
-            )
-            ship_filtered_arena_ids = set(
-                item.get("arenaUniqueID") for item in ship_result.get("items", [])
-            )
-            print(
-                f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches"
-            )
-
-        # プレイヤー名検索の場合、PlayerNameIndexを使用
-        player_filtered_arena_ids = None
-        if player_name:
-            player_result = dynamodb.search_replays_by_player_name(
-                player_name=player_name,
-                limit=500,  # 十分な数を取得
-            )
-            player_filtered_arena_ids = set(
-                item.get("arenaUniqueID") for item in player_result.get("items", [])
-            )
-            print(
-                f"Player filter: {player_name} found {len(player_filtered_arena_ids)} matches"
-            )
-
-        # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
-        # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
-        # そのため多めにデータを取得し、Python側で正しくソートし直す
-        # また、日付フィルタはDynamoDBに渡さない:
-        # - フロントエンドはYYYY-MM-DD形式で送信
-        # - DynamoDBはDD.MM.YYYY HH:MM:SS形式で保存
-        # - 形式が異なるため、DynamoDBの文字列比較が正しく動作しない
-        # - カーソル・日付によるフィルタリングはPython側で行う
-        # プレイヤー名フィルタも考慮
-        combined_filtered_count = None
-        if ship_filtered_arena_ids is not None:
-            combined_filtered_count = len(ship_filtered_arena_ids)
-        if player_filtered_arena_ids is not None:
-            if combined_filtered_count is not None:
-                combined_filtered_count = min(
-                    combined_filtered_count, len(player_filtered_arena_ids)
-                )
-            else:
-                combined_filtered_count = len(player_filtered_arena_ids)
-
-        fetch_multiplier = calculate_fetch_multiplier(
-            ally_clan_tag=ally_clan_tag,
-            enemy_clan_tag=enemy_clan_tag,
-            ship_filtered_count=combined_filtered_count,
-            cursor_date_time=cursor_date_time,
-            date_from=date_from,
-            date_to=date_to,
-        )
-
-        # カーソルをdateTimeSortable形式に変換してDynamoDBに渡す
-        # これにより、カーソルより古いデータのみをDynamoDBから取得できる
-        cursor_sortable = (
-            convert_cursor_to_sortable(cursor_date_time) if cursor_date_time else None
-        )
-
-        result = dynamodb.search_replays(
+        # 検索実行
+        result = search_matches(
             game_type=game_type,
             map_id=map_id,
-            win_loss=win_loss,
-            date_from=None,  # 日付フィルタはPython側で行う（形式が異なるため）
-            date_to=cursor_sortable,  # カーソルをDynamoDBに渡して効率化
-            limit=limit * fetch_multiplier,
-        )
-
-        # 既存レコードのownPlayerが配列の場合、単一オブジェクトに変換
-        items = result["items"]
-        for item in items:
-            if "ownPlayer" in item and isinstance(item["ownPlayer"], list):
-                item["ownPlayer"] = item["ownPlayer"][0] if item["ownPlayer"] else {}
-
-        # 艦艇フィルタを適用（インデックステーブルで取得したarenaUniqueIDでフィルタ）
-        if ship_filtered_arena_ids is not None:
-            items = [
-                item
-                for item in items
-                if item.get("arenaUniqueID") in ship_filtered_arena_ids
-            ]
-            print(f"After ship filter: {len(items)} items")
-
-        # プレイヤー名フィルタを適用（PlayerNameIndexで取得したarenaUniqueIDでフィルタ）
-        if player_filtered_arena_ids is not None:
-            items = [
-                item
-                for item in items
-                if item.get("arenaUniqueID") in player_filtered_arena_ids
-            ]
-            print(f"After player filter: {len(items)} items")
-
-        # 試合単位でグループ化（プレイヤーセットベース）
-        matches = {}
-        match_key_to_arena_ids = {}  # match_key -> 最初のarenaUniqueIDのマッピング
-
-        for item in items:
-            # マッチキーを取得（事前計算値があれば使用、なければ生成）
-            # 最適化: 新しいレコードはmatchKeyが事前計算されている
-            match_key = item.get("matchKey") or generate_match_key(item)
-
-            if match_key not in matches:
-                # 新しい試合として登録
-                # arenaUniqueIDは最初に見つかったものを使用
-                arena_id = item.get("arenaUniqueID", "")
-                match_key_to_arena_ids[match_key] = arena_id
-
-                matches[match_key] = {
-                    "arenaUniqueID": arena_id,  # 代表arenaUniqueID
-                    "matchKey": match_key,  # デバッグ用
-                    "replays": [],
-                    # 代表データ（最初のリプレイから取得）
-                    "dateTime": item.get("dateTime"),
-                    "dateTimeSortable": item.get(
-                        "dateTimeSortable"
-                    ),  # 最適化: ソート用
-                    "mapId": item.get("mapId"),
-                    "mapDisplayName": item.get("mapDisplayName"),
-                    "gameType": item.get("gameType"),
-                    "clientVersion": item.get("clientVersion"),
-                    "winLoss": item.get("winLoss"),
-                    "experienceEarned": item.get("experienceEarned"),
-                    "ownPlayer": item.get("ownPlayer"),
-                    "allies": item.get("allies"),
-                    "enemies": item.get("enemies"),
-                    # クラン情報
-                    "allyMainClanTag": item.get("allyMainClanTag"),
-                    "enemyMainClanTag": item.get("enemyMainClanTag"),
-                    # 全プレイヤー統計
-                    "allPlayersStats": item.get("allPlayersStats", []),
-                    # コメント数
-                    "commentCount": item.get("commentCount", 0),
-                }
-
-            # リプレイ提供者情報を追加（BattleStatsを含む）
-            matches[match_key]["replays"].append(
-                {
-                    "arenaUniqueID": item.get(
-                        "arenaUniqueID"
-                    ),  # 元のarenaUniqueIDも保存
-                    "playerID": item.get("playerID"),
-                    "playerName": item.get("playerName"),
-                    "uploadedBy": item.get("uploadedBy"),
-                    "uploadedAt": item.get("uploadedAt"),
-                    "s3Key": item.get("s3Key"),
-                    "fileName": item.get("fileName"),
-                    "fileSize": item.get("fileSize"),
-                    "mp4S3Key": item.get("mp4S3Key"),
-                    "mp4GeneratedAt": item.get("mp4GeneratedAt"),
-                    # Dual Render
-                    "dualMp4S3Key": item.get("dualMp4S3Key"),
-                    "dualMp4GeneratedAt": item.get("dualMp4GeneratedAt"),
-                    "hasDualReplay": item.get("hasDualReplay", False),
-                    # BattleStats - 基本統計
-                    "damage": item.get("damage"),
-                    "receivedDamage": item.get("receivedDamage"),
-                    "spottingDamage": item.get("spottingDamage"),
-                    "potentialDamage": item.get("potentialDamage"),
-                    "kills": item.get("kills"),
-                    "fires": item.get("fires"),
-                    "floods": item.get("floods"),
-                    "baseXP": item.get("baseXP"),
-                    # BattleStats - 命中数内訳
-                    "hitsAP": item.get("hitsAP"),
-                    "hitsHE": item.get("hitsHE"),
-                    "hitsSecondaries": item.get("hitsSecondaries"),
-                    # BattleStats - ダメージ内訳
-                    "damageAP": item.get("damageAP"),
-                    "damageHE": item.get("damageHE"),
-                    "damageHESecondaries": item.get("damageHESecondaries"),
-                    "damageTorps": item.get("damageTorps"),
-                    "damageDeepWaterTorps": item.get("damageDeepWaterTorps"),
-                    "damageOther": item.get("damageOther"),
-                    "damageFire": item.get("damageFire"),
-                    "damageFlooding": item.get("damageFlooding"),
-                    # Citadel
-                    "citadels": item.get("citadels"),
-                }
-            )
-
-        # 各試合の代表リプレイを選択（dualMp4生成済み > mp4生成済み > 最初にアップロードされた順）
-        for match_key, match in matches.items():
-            replays = match["replays"]
-
-            # Dual mp4が生成済みのリプレイを最優先
-            replays_with_dual = [r for r in replays if r.get("dualMp4S3Key")]
-            if replays_with_dual:
-                representative = replays_with_dual[0]
-            else:
-                # 次に通常mp4が生成済みのリプレイを優先
-                replays_with_video = [r for r in replays if r.get("mp4S3Key")]
-                if replays_with_video:
-                    representative = replays_with_video[0]
-                else:
-                    representative = replays[0]
-
-            # hasDualReplayフラグ（いずれかのリプレイがDual可能な場合）
-            has_dual_replay = any(r.get("hasDualReplay") for r in replays)
-
-            # 代表リプレイの情報をマッチに追加
-            match["representativeArenaUniqueID"] = representative.get("arenaUniqueID")
-            match["representativePlayerID"] = representative.get("playerID")
-            match["representativePlayerName"] = representative.get("playerName")
-            match["uploadedBy"] = representative.get("uploadedBy")
-            match["uploadedAt"] = representative.get("uploadedAt")
-            match["s3Key"] = representative.get("s3Key")
-            match["fileName"] = representative.get("fileName")
-            match["fileSize"] = representative.get("fileSize")
-            match["mp4S3Key"] = representative.get("mp4S3Key")
-            match["mp4GeneratedAt"] = representative.get("mp4GeneratedAt")
-            # Dual Render
-            match["dualMp4S3Key"] = representative.get("dualMp4S3Key")
-            match["dualMp4GeneratedAt"] = representative.get("dualMp4GeneratedAt")
-            match["hasDualReplay"] = has_dual_replay
-            match["replayCount"] = len(replays)
-
-            # 代表リプレイのBattleStatsをマッチレベルにも追加
-            match["damage"] = representative.get("damage")
-            match["receivedDamage"] = representative.get("receivedDamage")
-            match["spottingDamage"] = representative.get("spottingDamage")
-            match["potentialDamage"] = representative.get("potentialDamage")
-            match["kills"] = representative.get("kills")
-            match["fires"] = representative.get("fires")
-            match["floods"] = representative.get("floods")
-            match["baseXP"] = representative.get("baseXP")
-            match["hitsAP"] = representative.get("hitsAP")
-            match["hitsHE"] = representative.get("hitsHE")
-            match["hitsSecondaries"] = representative.get("hitsSecondaries")
-            match["damageAP"] = representative.get("damageAP")
-            match["damageHE"] = representative.get("damageHE")
-            match["damageHESecondaries"] = representative.get("damageHESecondaries")
-            match["damageTorps"] = representative.get("damageTorps")
-            match["damageDeepWaterTorps"] = representative.get("damageDeepWaterTorps")
-            match["damageOther"] = representative.get("damageOther")
-            match["damageFire"] = representative.get("damageFire")
-            match["damageFlooding"] = representative.get("damageFlooding")
-            match["citadels"] = representative.get("citadels")
-
-        # マッチのリストに変換（日時順にソート）
-        # 最適化: dateTimeSortable（YYYYMMDDHHMMSS形式）があれば文字列ソートで正しい順序になる
-        # フォールバック: DD.MM.YYYY形式はparse_datetime_for_sortでパースしてソート
-        def get_sort_key(match):
-            sortable = match.get("dateTimeSortable")
-            if sortable and sortable != "00000000000000":
-                return sortable
-            return parse_datetime_for_sort(match.get("dateTime", "")).strftime(
-                "%Y%m%d%H%M%S"
-            )
-
-        match_list = sorted(
-            matches.values(),
-            key=get_sort_key,
-            reverse=True,
-        )
-
-        # フィルタリング用のパラメータを準備
-        cursor_dt = (
-            parse_datetime_for_sort(cursor_date_time) if cursor_date_time else None
-        )
-        date_from_dt = parse_frontend_date(date_from) if date_from else None
-        date_to_dt = (
-            parse_frontend_date(date_to) + timedelta(days=1)
-            if date_to and parse_frontend_date(date_to)
-            else None
-        )
-
-        # 単一パスで全フィルタを適用（最適化: 複数回のリスト走査を回避）
-        match_list = filter_matches_single_pass(
-            matches=match_list,
-            cursor_dt=cursor_dt,
-            date_from_dt=date_from_dt,
-            date_to_dt=date_to_dt,
+            ship_name=ship_name,
+            ship_team=ship_team,
+            player_name=player_name,
+            clan_tag=clan_tag,
             ally_clan_tag=ally_clan_tag,
             enemy_clan_tag=enemy_clan_tag,
+            limit=limit,
+            cursor_unix_time=cursor_unix_time,
         )
 
-        # 艦艇フィルタは既にship_filtered_arena_idsで適用済み
-
-        # ページネーション: limit件を返し、次のページのカーソルを設定
-        has_more = len(match_list) > limit
-        paginated_list = match_list[:limit]
-
-        # 次のページ用カーソル（最後のマッチのdateTime）
-        next_cursor = None
-        if has_more and paginated_list:
-            last_match = paginated_list[-1]
-            next_cursor = last_match.get("dateTime")
-
-        # レスポンス
         return {
             "statusCode": 200,
             "headers": cors_headers,
             "body": json.dumps(
                 {
-                    "items": paginated_list,
-                    "cursorDateTime": next_cursor,
-                    "hasMore": has_more,
-                    "count": len(paginated_list),
+                    "items": result["items"],
+                    "cursorUnixTime": result["nextCursor"],
+                    "hasMore": result["hasMore"],
+                    "count": len(result["items"]),
                 },
                 cls=DecimalEncoder,
             ),

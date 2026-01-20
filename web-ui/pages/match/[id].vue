@@ -92,14 +92,34 @@ const matchAsRecord = computed<MatchRecord | null>(() => {
   } as MatchRecord
 })
 
-// マッチデータをロード
-const loadMatch = async () => {
+// マッチデータをロード（ポーリング時は動画チェックのみ）
+const loadMatch = async (skipStats: boolean = false) => {
   const arenaUniqueID = route.params.id as string
   if (!arenaUniqueID) return
 
   try {
     const data = await api.getMatchDetail(arenaUniqueID)
     if (data) {
+      // ポーリング時はstats取得をスキップ（既存のstatsを保持）
+      if (skipStats && match.value?.allPlayersStats) {
+        match.value = {
+          ...data,
+          allPlayersStats: match.value.allPlayersStats,
+        }
+        return
+      }
+
+      // 初回ロード時: allPlayersStatsがない場合は別途取得（新DynamoDB設計対応）
+      if (!data.allPlayersStats || data.allPlayersStats.length === 0) {
+        const statsData = await api.getMatchStats(arenaUniqueID)
+        if (statsData && statsData.allPlayersStats) {
+          match.value = {
+            ...data,
+            allPlayersStats: statsData.allPlayersStats,
+          }
+          return
+        }
+      }
       match.value = data
     }
   } catch (err: any) {
@@ -116,7 +136,8 @@ const startPolling = () => {
       stopPolling()
       return
     }
-    await loadMatch()
+    // ポーリング時はstats取得をスキップ（動画チェックのみ）
+    await loadMatch(true)
   }, POLLING_INTERVAL)
 }
 
@@ -148,7 +169,22 @@ onMounted(async () => {
   try {
     const data = await api.getMatchDetail(arenaUniqueID)
     if (data) {
-      match.value = data
+      // allPlayersStatsがない場合は別途取得してからmatch.valueをセット
+      // （MatchDetailExpansionがマウント時に再取得しないようにするため）
+      if (!data.allPlayersStats || data.allPlayersStats.length === 0) {
+        const statsData = await api.getMatchStats(arenaUniqueID)
+        if (statsData && statsData.allPlayersStats) {
+          match.value = {
+            ...data,
+            allPlayersStats: statsData.allPlayersStats,
+          }
+        } else {
+          match.value = data
+        }
+      } else {
+        match.value = data
+      }
+
       // 動画が未生成の場合はポーリング開始
       if (isVideoMissing.value) {
         startPolling()
