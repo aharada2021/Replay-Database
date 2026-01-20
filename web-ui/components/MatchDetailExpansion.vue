@@ -812,8 +812,8 @@ const getVideoUrl = (mp4S3Key: string | undefined) => {
   // Dual動画があればそちらを優先
   const keyToUse = replay?.dualMp4S3Key || mp4S3Key
   if (!keyToUse) return ''
-  // S3バケットURLは環境変数から取得
-  const s3BucketUrl = config.public.s3BucketUrl
+  // S3バケットURLは環境変数から取得（末尾スラッシュを除去）
+  const s3BucketUrl = config.public.s3BucketUrl.replace(/\/+$/, '')
   return `${s3BucketUrl}/${keyToUse}`
 }
 

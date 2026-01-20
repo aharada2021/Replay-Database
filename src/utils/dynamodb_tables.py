@@ -255,6 +255,22 @@ class BattleTableClient:
             },
         )
 
+    def update_dual_video_info(
+        self, arena_unique_id: str, dual_mp4_s3_key: str, generated_at: int
+    ):
+        """
+        Dual動画情報を更新
+        """
+        self.table.update_item(
+            Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"},
+            UpdateExpression="SET dualMp4S3Key = :key, dualMp4GeneratedAt = :at, dualRendererAvailable = :dual",
+            ExpressionAttributeValues={
+                ":key": dual_mp4_s3_key,
+                ":at": generated_at,
+                ":dual": True,
+            },
+        )
+
     def add_uploader(
         self, arena_unique_id: str, player_id: int, player_name: str, team: str
     ):

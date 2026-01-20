@@ -232,6 +232,21 @@ def search_matches(
         # allPlayersStatsは含まれていない（別APIで取得）
         item["allPlayersStats"] = []
 
+        # replays配列を生成（フロントエンドのMatchDetailExpansion用）
+        replays = []
+        mp4_s3_key = item.get("mp4S3Key")
+        dual_mp4_s3_key = item.get("dualMp4S3Key")
+        for uploader in uploaders:
+            replay = {
+                "arenaUniqueID": item.get("arenaUniqueID"),
+                "playerID": uploader.get("playerID"),
+                "playerName": uploader.get("playerName"),
+                "mp4S3Key": mp4_s3_key,
+                "dualMp4S3Key": dual_mp4_s3_key,
+            }
+            replays.append(replay)
+        item["replays"] = replays
+
     return {
         "items": paginated,
         "nextCursor": next_cursor,
