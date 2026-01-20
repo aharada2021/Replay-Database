@@ -205,9 +205,7 @@ def update_video_info(arena_unique_id: int, player_id: int, mp4_s3_key: str) -> 
 
     # 新テーブルも更新（gameTypeを旧テーブルから取得）
     try:
-        record = table.get_item(
-            Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}
-        ).get("Item")
+        record = table.get_item(Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}).get("Item")
         if record:
             game_type = normalize_game_type(record.get("gameType", "other"))
             battle_client = BattleTableClient(game_type)
@@ -680,9 +678,7 @@ def update_dual_video_info(
 
     # 新テーブルも更新（gameTypeを旧テーブルから取得）
     try:
-        record = table.get_item(
-            Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}
-        ).get("Item")
+        record = table.get_item(Key={"arenaUniqueID": str(arena_unique_id), "playerID": player_id}).get("Item")
         if record:
             game_type = normalize_game_type(record.get("gameType", "other"))
             battle_client = BattleTableClient(game_type)

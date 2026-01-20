@@ -278,9 +278,7 @@ def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
             # 既存の試合にアップローダーを追加
             # 既存のアップローダーに含まれていないか確認
             existing_uploaders = existing_match.get("uploaders", [])
-            already_uploaded = any(
-                u.get("playerID") == player_id for u in existing_uploaders
-            )
+            already_uploaded = any(u.get("playerID") == player_id for u in existing_uploaders)
 
             if not already_uploaded:
                 # このプレイヤーのチームを判定
@@ -299,21 +297,25 @@ def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
             # allies/enemies のフォーマット
             allies = []
             for player in old_record.get("allies", []):
-                allies.append({
-                    "name": player.get("name", ""),
-                    "clanTag": player.get("clanTag", ""),
-                    "shipName": player.get("shipName", ""),
-                    "shipId": player.get("shipId", 0),
-                })
+                allies.append(
+                    {
+                        "name": player.get("name", ""),
+                        "clanTag": player.get("clanTag", ""),
+                        "shipName": player.get("shipName", ""),
+                        "shipId": player.get("shipId", 0),
+                    }
+                )
 
             enemies = []
             for player in old_record.get("enemies", []):
-                enemies.append({
-                    "name": player.get("name", ""),
-                    "clanTag": player.get("clanTag", ""),
-                    "shipName": player.get("shipName", ""),
-                    "shipId": player.get("shipId", 0),
-                })
+                enemies.append(
+                    {
+                        "name": player.get("name", ""),
+                        "clanTag": player.get("clanTag", ""),
+                        "shipName": player.get("shipName", ""),
+                        "shipId": player.get("shipId", 0),
+                    }
+                )
 
             # MATCH レコードを作成
             match_record = {
@@ -336,11 +338,13 @@ def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
                 "mp4GeneratedAt": None,
                 "dualRendererAvailable": old_record.get("hasDualReplay", False),
                 "commentCount": 0,
-                "uploaders": [{
-                    "playerID": player_id,
-                    "playerName": player_name,
-                    "team": "ally",
-                }],
+                "uploaders": [
+                    {
+                        "playerID": player_id,
+                        "playerName": player_name,
+                        "team": "ally",
+                    }
+                ],
             }
             battle_client.put_match(match_record)
             print(f"Saved MATCH record to {game_type} table")
@@ -494,6 +498,7 @@ def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
     except Exception as e:
         print(f"Warning: Failed to save to new tables: {e}")
         import traceback
+
         traceback.print_exc()
 
 
