@@ -1,7 +1,7 @@
 <template>
   <div>
-    <v-card class="mb-2" density="compact">
-      <v-card-text class="py-2">
+    <v-card class="mb-1" density="compact">
+      <v-card-text class="py-1 px-2">
         <v-form @submit.prevent="handleSearch">
           <div class="search-filters">
             <!-- ゲームタイプ -->
@@ -175,9 +175,9 @@
       >
         <!-- カスタムヘッダー: 検索結果タイトルを追加 -->
         <template v-slot:top>
-          <div class="d-flex align-center px-4 py-1 bg-surface">
-            <span class="text-body-2 font-weight-medium">検索結果</span>
-            <span class="text-caption text-grey ml-2">{{ searchStore.totalCount }} 件</span>
+          <div class="d-flex align-center px-2 py-0 bg-surface">
+            <span class="text-caption font-weight-medium">検索結果</span>
+            <span class="text-caption text-grey ml-1">{{ searchStore.totalCount }} 件</span>
           </div>
         </template>
         <!-- 日時 -->
@@ -540,11 +540,21 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
   background-color: rgba(var(--v-theme-primary), 0.08);
 }
 
+/* データテーブルのヘッダーとセルのパディングを縮小 */
+.clickable-rows :deep(th) {
+  padding: 4px 8px !important;
+  font-size: 0.75rem !important;
+}
+
+.clickable-rows :deep(td) {
+  padding: 2px 8px !important;
+}
+
 /* 検索フィルターのレイアウト */
 .search-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px 6px;
   align-items: center;
 }
 
