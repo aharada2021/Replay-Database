@@ -6,13 +6,11 @@ DynamoDB テーブル操作ユーティリティ
 
 import os
 import time
-from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
 import boto3
-
 
 # gameType の正規化マッピング
 GAME_TYPE_MAP = {
@@ -23,6 +21,7 @@ GAME_TYPE_MAP = {
     "cooperative": "other",
     "event": "other",
 }
+
 
 # gameType 別テーブル名（環境変数から取得）
 def get_battle_table_name(game_type: str) -> str:
@@ -144,9 +143,7 @@ class BattleTableClient:
         """
         MATCH レコードを取得
         """
-        response = self.table.get_item(
-            Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"}
-        )
+        response = self.table.get_item(Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"})
         item = response.get("Item")
         return decimal_to_python(item) if item else None
 
@@ -154,9 +151,7 @@ class BattleTableClient:
         """
         STATS レコードを取得
         """
-        response = self.table.get_item(
-            Key={"arenaUniqueID": arena_unique_id, "recordType": "STATS"}
-        )
+        response = self.table.get_item(Key={"arenaUniqueID": arena_unique_id, "recordType": "STATS"})
         item = response.get("Item")
         return decimal_to_python(item) if item else None
 
@@ -255,9 +250,7 @@ class BattleTableClient:
             },
         )
 
-    def update_dual_video_info(
-        self, arena_unique_id: str, dual_mp4_s3_key: str, generated_at: int
-    ):
+    def update_dual_video_info(self, arena_unique_id: str, dual_mp4_s3_key: str, generated_at: int):
         """
         Dual動画情報を更新
         """
@@ -271,9 +264,7 @@ class BattleTableClient:
             },
         )
 
-    def add_uploader(
-        self, arena_unique_id: str, player_id: int, player_name: str, team: str
-    ):
+    def add_uploader(self, arena_unique_id: str, player_id: int, player_name: str, team: str):
         """
         MATCHレコードにアップローダーを追加
         """
@@ -321,14 +312,9 @@ class BattleTableClient:
         for i in range(0, len(arena_unique_ids), batch_size):
             batch_ids = arena_unique_ids[i : i + batch_size]
 
-            keys = [
-                {"arenaUniqueID": arena_id, "recordType": "MATCH"}
-                for arena_id in batch_ids
-            ]
+            keys = [{"arenaUniqueID": arena_id, "recordType": "MATCH"} for arena_id in batch_ids]
 
-            response = self.dynamodb.meta.client.batch_get_item(
-                RequestItems={self.table_name: {"Keys": keys}}
-            )
+            response = self.dynamodb.meta.client.batch_get_item(RequestItems={self.table_name: {"Keys": keys}})
 
             items = response.get("Responses", {}).get(self.table_name, [])
             for item in items:
@@ -398,15 +384,9 @@ class IndexTableClient:
         self.dynamodb = boto3.resource("dynamodb")
 
         # テーブル名を環境変数から取得
-        self.ship_table = self.dynamodb.Table(
-            os.environ.get("SHIP_INDEX_TABLE", "wows-ship-index-dev")
-        )
-        self.player_table = self.dynamodb.Table(
-            os.environ.get("PLAYER_INDEX_TABLE", "wows-player-index-dev")
-        )
-        self.clan_table = self.dynamodb.Table(
-            os.environ.get("CLAN_INDEX_TABLE", "wows-clan-index-dev")
-        )
+        self.ship_table = self.dynamodb.Table(os.environ.get("SHIP_INDEX_TABLE", "wows-ship-index-dev"))
+        self.player_table = self.dynamodb.Table(os.environ.get("PLAYER_INDEX_TABLE", "wows-player-index-dev"))
+        self.clan_table = self.dynamodb.Table(os.environ.get("CLAN_INDEX_TABLE", "wows-clan-index-dev"))
 
     def put_ship_index(
         self,

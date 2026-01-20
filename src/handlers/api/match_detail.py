@@ -76,9 +76,7 @@ def handle_match(event, context):
     """
     try:
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get(
-            "requestContext", {}
-        ).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 
@@ -213,9 +211,7 @@ def handle_stats(event, context):
     """
     try:
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get(
-            "requestContext", {}
-        ).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 

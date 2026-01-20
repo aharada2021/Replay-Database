@@ -130,6 +130,12 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **新DynamoDBテーブル構造と動画再生修正（2026-01-20）**:
+  - gameType別テーブル（clan, ranked, random, other）への移行完了
+  - 検索APIにreplays配列を追加し動画再生をサポート
+  - S3 URLのダブルスラッシュ問題を修正
+  - 動画生成時に新テーブルへの書き込みを追加
+  - 初回アップロード者列から不要な艦艇名表示を削除
 - **Dual Render機能（2026-01-10）**: 敵味方両チームのリプレイがある場合に両陣営視点動画を自動生成
   - `src/utils/dual_render.py`: チーム判定ユーティリティ
   - `src/core/replay_processor.py`: `generate_dual_minimap_video()` メソッド追加
@@ -139,6 +145,7 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
   - フロントエンド: 検索結果にDualバッジ、詳細画面で両陣営視点表示
 
 ## 今後の予定
+- **replay_unpack v15.0.0.0対応**: 公式リポジトリで対応完了済み、適用と動作確認が必要
 - リプレイ処理統合テスト実装
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)

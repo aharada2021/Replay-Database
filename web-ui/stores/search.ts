@@ -51,7 +51,7 @@ export const useSearchStore = defineStore('search', {
         dateFrom: '',
         dateTo: '',
         limit: ITEMS_PER_PAGE,
-        cursorDateTime: null,
+        cursorUnixTime: null,
       }
       this.currentPageNum = 1
       this.cursorHistory = []
@@ -67,7 +67,7 @@ export const useSearchStore = defineStore('search', {
       if (resetPagination) {
         this.currentPageNum = 1
         this.cursorHistory = []
-        this.query.cursorDateTime = null
+        this.query.cursorUnixTime = null
       }
 
       try {
@@ -76,7 +76,7 @@ export const useSearchStore = defineStore('search', {
 
         this.results = response.items
         this.totalCount = response.count
-        this.cursorFromResponse = response.cursorDateTime || null
+        this.cursorFromResponse = response.cursorUnixTime || null
         this.hasMoreFromResponse = response.hasMore || false
       } catch (err: any) {
         console.error('[Store] Search error:', err)
@@ -94,10 +94,10 @@ export const useSearchStore = defineStore('search', {
       if (!this.hasNextPage) return
 
       // 現在のカーソルを履歴に保存（戻るボタン用）
-      this.cursorHistory.push(this.query.cursorDateTime)
+      this.cursorHistory.push(this.query.cursorUnixTime)
 
       // 次のページのカーソルを設定
-      this.query.cursorDateTime = this.cursorFromResponse
+      this.query.cursorUnixTime = this.cursorFromResponse
       this.currentPageNum++
 
       await this.search(false)
@@ -110,9 +110,9 @@ export const useSearchStore = defineStore('search', {
 
       // 履歴から前のページのカーソルを取得
       if (this.cursorHistory.length > 0) {
-        this.query.cursorDateTime = this.cursorHistory.pop() || null
+        this.query.cursorUnixTime = this.cursorHistory.pop() || null
       } else {
-        this.query.cursorDateTime = null
+        this.query.cursorUnixTime = null
       }
 
       await this.search(false)
