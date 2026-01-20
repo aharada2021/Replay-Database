@@ -157,9 +157,9 @@
     <!-- 検索結果 -->
     <v-card>
       <v-data-table
-        :key="`page-${searchStore.currentPage}-${searchStore.results?.length || 0}`"
+        :key="`table-page-${searchStore.currentPage}`"
         :headers="headers"
-        :items="searchStore.results || []"
+        :items="tableItems"
         :loading="searchStore.loading || false"
         :items-per-page="-1"
         hide-default-footer
@@ -331,6 +331,14 @@ const { getMapName, getMapList } = useMapNames()
 
 // マップ一覧
 const mapList = getMapList()
+
+// v-data-tableのリアクティビティ問題を解決するため、computedで新しい配列参照を生成
+const tableItems = computed(() => {
+  // currentPageの変更を検知するために参照を含める
+  const _page = searchStore.currentPage
+  // 新しい配列を生成して返す（スプレッド演算子で新しい参照を作成）
+  return searchStore.results ? [...searchStore.results] : []
+})
 
 // 初回検索
 onMounted(async () => {
