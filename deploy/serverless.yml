@@ -78,20 +78,47 @@ provider:
             - dynamodb:Query
             - dynamodb:Scan
             - dynamodb:BatchWriteItem
+            - dynamodb:BatchGetItem
           Resource:
+            # 旧テーブル（移行完了後に削除予定）
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.replaysTable}/index/*
-            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.sessionsTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.shipMatchIndexTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.shipMatchIndexTable}/index/*
+            # 新バトルテーブル
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.clanBattlesTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.clanBattlesTable}/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.rankedBattlesTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.rankedBattlesTable}/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.randomBattlesTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.randomBattlesTable}/index/*
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.otherBattlesTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.otherBattlesTable}/index/*
+            # 新インデックステーブル
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.shipIndexTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.playerIndexTable}
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.clanIndexTable}
+            # その他テーブル
+            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.sessionsTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.commentsTable}
 
 # カスタム変数
 custom:
   bucketName: wows-replay-bot-${self:provider.stage}-temp
+  # 旧テーブル（移行完了後に削除予定）
   replaysTable: wows-replays-${self:provider.stage}
-  sessionsTable: wows-sessions-${self:provider.stage}
   shipMatchIndexTable: wows-ship-match-index-${self:provider.stage}
+  # 新バトルテーブル（gameType別）
+  clanBattlesTable: wows-clan-battles-${self:provider.stage}
+  rankedBattlesTable: wows-ranked-battles-${self:provider.stage}
+  randomBattlesTable: wows-random-battles-${self:provider.stage}
+  otherBattlesTable: wows-other-battles-${self:provider.stage}
+  # 新インデックステーブル
+  shipIndexTable: wows-ship-index-${self:provider.stage}
+  playerIndexTable: wows-player-index-${self:provider.stage}
+  clanIndexTable: wows-clan-index-${self:provider.stage}
+  # その他テーブル
+  sessionsTable: wows-sessions-${self:provider.stage}
   commentsTable: wows-comments-${self:provider.stage}
   # 開発環境でのみ艦長スキルデバッグを有効化
   debugCaptainSkills:
@@ -168,7 +195,13 @@ functions:
           method: post
     environment:
       REPLAYS_BUCKET: ${self:custom.bucketName}
+      # 旧テーブル（移行完了後に削除予定）
       REPLAYS_TABLE: ${self:custom.replaysTable}
+      # 新バトルテーブル
+      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
+      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
+      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
+      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
       NOTIFICATION_CHANNEL_ID: ${env:NOTIFICATION_CHANNEL_ID, ''}
 
   # リプレイアップロードAPI
@@ -207,8 +240,18 @@ functions:
             - suffix: .wowsreplay
           existing: true
     environment:
+      # 旧テーブル（移行完了後に削除予定）
       REPLAYS_TABLE: ${self:custom.replaysTable}
       SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
+      # 新バトルテーブル
+      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
+      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
+      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
+      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
+      # 新インデックステーブル
+      SHIP_INDEX_TABLE: ${self:custom.shipIndexTable}
+      PLAYER_INDEX_TABLE: ${self:custom.playerIndexTable}
+      CLAN_INDEX_TABLE: ${self:custom.clanIndexTable}
       STAGE: ${self:provider.stage}
       DEBUG_CAPTAIN_SKILLS: ${self:custom.debugCaptainSkills.${self:provider.stage}, 'false'}
 
@@ -226,8 +269,18 @@ functions:
           path: /api/search
           method: post
     environment:
+      # 旧テーブル（移行完了後に削除予定）
       REPLAYS_TABLE: ${self:custom.replaysTable}
       SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
+      # 新バトルテーブル
+      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
+      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
+      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
+      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
+      # 新インデックステーブル
+      SHIP_INDEX_TABLE: ${self:custom.shipIndexTable}
+      PLAYER_INDEX_TABLE: ${self:custom.playerIndexTable}
+      CLAN_INDEX_TABLE: ${self:custom.clanIndexTable}
 
   # 試合詳細API
   match-detail-api:
@@ -242,8 +295,17 @@ functions:
       - httpApi:
           path: /api/match/{arenaUniqueID}
           method: get
+      - httpApi:
+          path: /api/match/{arenaUniqueID}/stats
+          method: get
     environment:
+      # 旧テーブル（移行完了後に削除予定）
       REPLAYS_TABLE: ${self:custom.replaysTable}
+      # 新バトルテーブル
+      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
+      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
+      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
+      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
 
   # ========================================
   # 認証API
@@ -391,7 +453,13 @@ functions:
     environment:
       COMMENTS_TABLE: ${self:custom.commentsTable}
       SESSIONS_TABLE: ${self:custom.sessionsTable}
+      # 旧テーブル（移行完了後に削除予定）
       REPLAYS_TABLE: ${self:custom.replaysTable}
+      # 新バトルテーブル（コメント数更新用）
+      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
+      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
+      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
+      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
 
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
 resources:
@@ -498,6 +566,269 @@ resources:
           - AttributeName: arenaUniqueID
             KeyType: HASH
           - AttributeName: commentId
+            KeyType: RANGE
+
+    # ========================================
+    # 新バトルテーブル（gameType別）
+    # ========================================
+
+    # クラン戦テーブル
+    ClanBattlesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.clanBattlesTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: arenaUniqueID
+            AttributeType: S
+          - AttributeName: recordType
+            AttributeType: S
+          - AttributeName: listingKey
+            AttributeType: S
+          - AttributeName: unixTime
+            AttributeType: N
+          - AttributeName: mapId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: arenaUniqueID
+            KeyType: HASH
+          - AttributeName: recordType
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: ListingIndex
+            KeySchema:
+              - AttributeName: listingKey
+                KeyType: HASH
+              - AttributeName: unixTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - arenaUniqueID
+                - dateTime
+                - mapId
+                - mapDisplayName
+                - winLoss
+                - allyMainClanTag
+                - enemyMainClanTag
+                - uploaders
+                - commentCount
+                - dualRendererAvailable
+          - IndexName: MapIndex
+            KeySchema:
+              - AttributeName: mapId
+                KeyType: HASH
+              - AttributeName: unixTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: KEYS_ONLY
+
+    # ランク戦テーブル
+    RankedBattlesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.rankedBattlesTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: arenaUniqueID
+            AttributeType: S
+          - AttributeName: recordType
+            AttributeType: S
+          - AttributeName: listingKey
+            AttributeType: S
+          - AttributeName: unixTime
+            AttributeType: N
+          - AttributeName: mapId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: arenaUniqueID
+            KeyType: HASH
+          - AttributeName: recordType
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: ListingIndex
+            KeySchema:
+              - AttributeName: listingKey
+                KeyType: HASH
+              - AttributeName: unixTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - arenaUniqueID
+                - dateTime
+                - mapId
+                - mapDisplayName
+                - winLoss
+                - allyMainClanTag
+                - enemyMainClanTag
+                - uploaders
+                - commentCount
+                - dualRendererAvailable
+          - IndexName: MapIndex
+            KeySchema:
+              - AttributeName: mapId
+                KeyType: HASH
+              - AttributeName: unixTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: KEYS_ONLY
+
+    # ランダム戦テーブル
+    RandomBattlesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.randomBattlesTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: arenaUniqueID
+            AttributeType: S
+          - AttributeName: recordType
+            AttributeType: S
+          - AttributeName: listingKey
+            AttributeType: S
+          - AttributeName: unixTime
+            AttributeType: N
+          - AttributeName: mapId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: arenaUniqueID
+            KeyType: HASH
+          - AttributeName: recordType
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: ListingIndex
+            KeySchema:
+              - AttributeName: listingKey
+                KeyType: HASH
+              - AttributeName: unixTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - arenaUniqueID
+                - dateTime
+                - mapId
+                - mapDisplayName
+                - winLoss
+                - allyMainClanTag
+                - enemyMainClanTag
+                - uploaders
+                - commentCount
+                - dualRendererAvailable
+          - IndexName: MapIndex
+            KeySchema:
+              - AttributeName: mapId
+                KeyType: HASH
+              - AttributeName: unixTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: KEYS_ONLY
+
+    # その他バトルテーブル
+    OtherBattlesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.otherBattlesTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: arenaUniqueID
+            AttributeType: S
+          - AttributeName: recordType
+            AttributeType: S
+          - AttributeName: listingKey
+            AttributeType: S
+          - AttributeName: unixTime
+            AttributeType: N
+          - AttributeName: mapId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: arenaUniqueID
+            KeyType: HASH
+          - AttributeName: recordType
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: ListingIndex
+            KeySchema:
+              - AttributeName: listingKey
+                KeyType: HASH
+              - AttributeName: unixTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - arenaUniqueID
+                - dateTime
+                - mapId
+                - mapDisplayName
+                - winLoss
+                - allyMainClanTag
+                - enemyMainClanTag
+                - uploaders
+                - commentCount
+                - dualRendererAvailable
+          - IndexName: MapIndex
+            KeySchema:
+              - AttributeName: mapId
+                KeyType: HASH
+              - AttributeName: unixTime
+                KeyType: RANGE
+            Projection:
+              ProjectionType: KEYS_ONLY
+
+    # ========================================
+    # 新インデックステーブル
+    # ========================================
+
+    # 艦艇インデックステーブル
+    ShipIndexTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.shipIndexTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: shipName
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: shipName
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+
+    # プレイヤーインデックステーブル
+    PlayerIndexTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.playerIndexTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: playerName
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: playerName
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+
+    # クランインデックステーブル
+    ClanIndexTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.clanIndexTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: clanTag
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+        KeySchema:
+          - AttributeName: clanTag
+            KeyType: HASH
+          - AttributeName: SK
             KeyType: RANGE
 
 # Dockerイメージを使用するため、pluginsは不要
