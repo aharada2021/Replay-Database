@@ -38,6 +38,28 @@ def parse_datetime_for_sort(date_str: str) -> datetime:
             return datetime.min
 
 
+def convert_cursor_to_sortable(cursor_datetime: str) -> str:
+    """
+    カーソル日時をdateTimeSortable形式に変換
+
+    Args:
+        cursor_datetime: "DD.MM.YYYY HH:MM:SS" 形式の日時文字列
+
+    Returns:
+        "YYYYMMDDHHMMSS" 形式の文字列（パース失敗時はNone）
+    """
+    if not cursor_datetime:
+        return None
+
+    try:
+        # "DD.MM.YYYY HH:MM:SS" 形式をパース
+        dt = datetime.strptime(cursor_datetime, "%d.%m.%Y %H:%M:%S")
+        # "YYYYMMDDHHMMSS" 形式に変換
+        return dt.strftime("%Y%m%d%H%M%S")
+    except ValueError:
+        return None
+
+
 def normalize_ship_name(name: str) -> str:
     """
     艦艇名を検索用に正規化
@@ -218,7 +240,9 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+            "http", {}
+        ).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -257,8 +281,12 @@ def handle(event, context):
                 min_count=ship_min_count,
                 limit=500,  # 十分な数を取得
             )
-            ship_filtered_arena_ids = set(item.get("arenaUniqueID") for item in ship_result.get("items", []))
-            print(f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches")
+            ship_filtered_arena_ids = set(
+                item.get("arenaUniqueID") for item in ship_result.get("items", [])
+            )
+            print(
+                f"Ship filter: {ship_name} found {len(ship_filtered_arena_ids)} matches"
+            )
 
         # プレイヤー名検索の場合、PlayerNameIndexを使用
         player_filtered_arena_ids = None
@@ -267,8 +295,12 @@ def handle(event, context):
                 player_name=player_name,
                 limit=500,  # 十分な数を取得
             )
-            player_filtered_arena_ids = set(item.get("arenaUniqueID") for item in player_result.get("items", []))
-            print(f"Player filter: {player_name} found {len(player_filtered_arena_ids)} matches")
+            player_filtered_arena_ids = set(
+                item.get("arenaUniqueID") for item in player_result.get("items", [])
+            )
+            print(
+                f"Player filter: {player_name} found {len(player_filtered_arena_ids)} matches"
+            )
 
         # 検索実行（グループ化・フィルタ後にlimit件になるよう多めに取得）
         # Note: DynamoDBのソートキーはDD.MM.YYYY形式のため、文字列ソートでは正しい時系列順にならない
@@ -284,7 +316,9 @@ def handle(event, context):
             combined_filtered_count = len(ship_filtered_arena_ids)
         if player_filtered_arena_ids is not None:
             if combined_filtered_count is not None:
-                combined_filtered_count = min(combined_filtered_count, len(player_filtered_arena_ids))
+                combined_filtered_count = min(
+                    combined_filtered_count, len(player_filtered_arena_ids)
+                )
             else:
                 combined_filtered_count = len(player_filtered_arena_ids)
 
@@ -297,12 +331,18 @@ def handle(event, context):
             date_to=date_to,
         )
 
+        # カーソルをdateTimeSortable形式に変換してDynamoDBに渡す
+        # これにより、カーソルより古いデータのみをDynamoDBから取得できる
+        cursor_sortable = (
+            convert_cursor_to_sortable(cursor_date_time) if cursor_date_time else None
+        )
+
         result = dynamodb.search_replays(
             game_type=game_type,
             map_id=map_id,
             win_loss=win_loss,
             date_from=None,  # 日付フィルタはPython側で行う（形式が異なるため）
-            date_to=None,  # 日付フィルタはPython側で行う（形式が異なるため）
+            date_to=cursor_sortable,  # カーソルをDynamoDBに渡して効率化
             limit=limit * fetch_multiplier,
         )
 
@@ -314,12 +354,20 @@ def handle(event, context):
 
         # 艦艇フィルタを適用（インデックステーブルで取得したarenaUniqueIDでフィルタ）
         if ship_filtered_arena_ids is not None:
-            items = [item for item in items if item.get("arenaUniqueID") in ship_filtered_arena_ids]
+            items = [
+                item
+                for item in items
+                if item.get("arenaUniqueID") in ship_filtered_arena_ids
+            ]
             print(f"After ship filter: {len(items)} items")
 
         # プレイヤー名フィルタを適用（PlayerNameIndexで取得したarenaUniqueIDでフィルタ）
         if player_filtered_arena_ids is not None:
-            items = [item for item in items if item.get("arenaUniqueID") in player_filtered_arena_ids]
+            items = [
+                item
+                for item in items
+                if item.get("arenaUniqueID") in player_filtered_arena_ids
+            ]
             print(f"After player filter: {len(items)} items")
 
         # 試合単位でグループ化（プレイヤーセットベース）
@@ -343,7 +391,9 @@ def handle(event, context):
                     "replays": [],
                     # 代表データ（最初のリプレイから取得）
                     "dateTime": item.get("dateTime"),
-                    "dateTimeSortable": item.get("dateTimeSortable"),  # 最適化: ソート用
+                    "dateTimeSortable": item.get(
+                        "dateTimeSortable"
+                    ),  # 最適化: ソート用
                     "mapId": item.get("mapId"),
                     "mapDisplayName": item.get("mapDisplayName"),
                     "gameType": item.get("gameType"),
@@ -365,7 +415,9 @@ def handle(event, context):
             # リプレイ提供者情報を追加（BattleStatsを含む）
             matches[match_key]["replays"].append(
                 {
-                    "arenaUniqueID": item.get("arenaUniqueID"),  # 元のarenaUniqueIDも保存
+                    "arenaUniqueID": item.get(
+                        "arenaUniqueID"
+                    ),  # 元のarenaUniqueIDも保存
                     "playerID": item.get("playerID"),
                     "playerName": item.get("playerName"),
                     "uploadedBy": item.get("uploadedBy"),
@@ -471,7 +523,9 @@ def handle(event, context):
             sortable = match.get("dateTimeSortable")
             if sortable and sortable != "00000000000000":
                 return sortable
-            return parse_datetime_for_sort(match.get("dateTime", "")).strftime("%Y%m%d%H%M%S")
+            return parse_datetime_for_sort(match.get("dateTime", "")).strftime(
+                "%Y%m%d%H%M%S"
+            )
 
         match_list = sorted(
             matches.values(),
@@ -480,10 +534,14 @@ def handle(event, context):
         )
 
         # フィルタリング用のパラメータを準備
-        cursor_dt = parse_datetime_for_sort(cursor_date_time) if cursor_date_time else None
+        cursor_dt = (
+            parse_datetime_for_sort(cursor_date_time) if cursor_date_time else None
+        )
         date_from_dt = parse_frontend_date(date_from) if date_from else None
         date_to_dt = (
-            parse_frontend_date(date_to) + timedelta(days=1) if date_to and parse_frontend_date(date_to) else None
+            parse_frontend_date(date_to) + timedelta(days=1)
+            if date_to and parse_frontend_date(date_to)
+            else None
         )
 
         # 単一パスで全フィルタを適用（最適化: 複数回のリスト走査を回避）
