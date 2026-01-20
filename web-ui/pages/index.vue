@@ -3,6 +3,7 @@
     <v-card class="mb-1" density="compact">
       <v-card-text class="py-1 px-2">
         <v-form @submit.prevent="handleSearch">
+          <!-- 主要フィルター（常に表示） -->
           <div class="search-filters">
             <!-- ゲームタイプ -->
             <div class="filter-item filter-item--medium">
@@ -45,117 +46,231 @@
               ></v-select>
             </div>
 
-            <!-- 味方クランタグ -->
-            <div class="filter-item filter-item--clan">
-              <v-text-field
-                v-model="searchStore.query.allyClanTag"
-                label="味方クラン"
-                clearable
-                density="compact"
-                hide-details
-              ></v-text-field>
-            </div>
+            <!-- デスクトップでは詳細フィルターも表示 -->
+            <template class="d-none d-md-contents">
+              <!-- 味方クランタグ -->
+              <div class="filter-item filter-item--clan d-none d-md-block">
+                <v-text-field
+                  v-model="searchStore.query.allyClanTag"
+                  label="味方クラン"
+                  clearable
+                  density="compact"
+                  hide-details
+                ></v-text-field>
+              </div>
 
-            <!-- 敵クランタグ -->
-            <div class="filter-item filter-item--clan">
-              <v-text-field
-                v-model="searchStore.query.enemyClanTag"
-                label="敵クラン"
-                clearable
-                density="compact"
-                hide-details
-              ></v-text-field>
-            </div>
+              <!-- 敵クランタグ -->
+              <div class="filter-item filter-item--clan d-none d-md-block">
+                <v-text-field
+                  v-model="searchStore.query.enemyClanTag"
+                  label="敵クラン"
+                  clearable
+                  density="compact"
+                  hide-details
+                ></v-text-field>
+              </div>
 
-            <!-- 艦艇名 -->
-            <div class="filter-item filter-item--ship">
-              <v-text-field
-                v-model="searchStore.query.shipName"
-                label="艦艇名"
-                clearable
-                density="compact"
-                hide-details
-              ></v-text-field>
-            </div>
+              <!-- 艦艇名 -->
+              <div class="filter-item filter-item--ship d-none d-md-block">
+                <v-text-field
+                  v-model="searchStore.query.shipName"
+                  label="艦艇名"
+                  clearable
+                  density="compact"
+                  hide-details
+                ></v-text-field>
+              </div>
 
-            <!-- 艦艇チーム -->
-            <div class="filter-item filter-item--small">
-              <v-select
-                v-model="searchStore.query.shipTeam"
-                :items="shipTeamTypes"
-                label="チーム"
-                clearable
-                density="compact"
-                hide-details
-                item-title="text"
-                item-value="value"
-              ></v-select>
-            </div>
+              <!-- 艦艇チーム -->
+              <div class="filter-item filter-item--small d-none d-md-block">
+                <v-select
+                  v-model="searchStore.query.shipTeam"
+                  :items="shipTeamTypes"
+                  label="チーム"
+                  clearable
+                  density="compact"
+                  hide-details
+                  item-title="text"
+                  item-value="value"
+                ></v-select>
+              </div>
 
-            <!-- 艦艇最小数 -->
-            <div class="filter-item filter-item--count">
-              <v-select
-                v-model="searchStore.query.shipMinCount"
-                :items="shipCountOptions"
-                label="隻数"
-                density="compact"
-                hide-details
-                item-title="text"
-                item-value="value"
-              ></v-select>
-            </div>
+              <!-- 艦艇最小数 -->
+              <div class="filter-item filter-item--count d-none d-md-block">
+                <v-select
+                  v-model="searchStore.query.shipMinCount"
+                  :items="shipCountOptions"
+                  label="隻数"
+                  density="compact"
+                  hide-details
+                  item-title="text"
+                  item-value="value"
+                ></v-select>
+              </div>
 
-            <!-- プレイヤー名 -->
-            <div class="filter-item filter-item--player">
-              <v-text-field
-                v-model="searchStore.query.playerName"
-                label="プレイヤー名"
-                clearable
-                density="compact"
-                hide-details
-              ></v-text-field>
-            </div>
+              <!-- プレイヤー名 -->
+              <div class="filter-item filter-item--player d-none d-md-block">
+                <v-text-field
+                  v-model="searchStore.query.playerName"
+                  label="プレイヤー名"
+                  clearable
+                  density="compact"
+                  hide-details
+                ></v-text-field>
+              </div>
 
-            <!-- 日時範囲 From -->
-            <div class="filter-item filter-item--date">
-              <v-text-field
-                v-model="searchStore.query.dateFrom"
-                label="From"
-                clearable
-                density="compact"
-                hide-details
-                type="date"
-              ></v-text-field>
-            </div>
+              <!-- 日時範囲 From -->
+              <div class="filter-item filter-item--date d-none d-md-block">
+                <v-text-field
+                  v-model="searchStore.query.dateFrom"
+                  label="From"
+                  clearable
+                  density="compact"
+                  hide-details
+                  type="date"
+                ></v-text-field>
+              </div>
 
-            <!-- 日時範囲 To -->
-            <div class="filter-item filter-item--date">
-              <v-text-field
-                v-model="searchStore.query.dateTo"
-                label="To"
-                clearable
-                density="compact"
-                hide-details
-                type="date"
-              ></v-text-field>
-            </div>
+              <!-- 日時範囲 To -->
+              <div class="filter-item filter-item--date d-none d-md-block">
+                <v-text-field
+                  v-model="searchStore.query.dateTo"
+                  label="To"
+                  clearable
+                  density="compact"
+                  hide-details
+                  type="date"
+                ></v-text-field>
+              </div>
+            </template>
 
             <!-- ボタン -->
             <div class="filter-item filter-item--buttons">
               <v-btn color="primary" type="submit" :loading="searchStore.loading" size="small" class="mr-1">
                 <v-icon size="small">mdi-magnify</v-icon>
               </v-btn>
-              <v-btn @click="handleReset" size="small">
+              <v-btn @click="handleReset" size="small" class="mr-1">
                 <v-icon size="small">mdi-refresh</v-icon>
+              </v-btn>
+              <!-- モバイル用展開ボタン -->
+              <v-btn
+                @click="showAdvancedFilters = !showAdvancedFilters"
+                size="small"
+                class="d-md-none"
+                :color="showAdvancedFilters ? 'primary' : undefined"
+              >
+                <v-icon size="small">{{ showAdvancedFilters ? 'mdi-chevron-up' : 'mdi-filter-plus' }}</v-icon>
               </v-btn>
             </div>
           </div>
+
+          <!-- モバイル用詳細フィルター（展開時のみ表示） -->
+          <v-expand-transition>
+            <div v-show="showAdvancedFilters" class="d-md-none mt-2">
+              <div class="search-filters">
+                <!-- 味方クランタグ -->
+                <div class="filter-item filter-item--clan">
+                  <v-text-field
+                    v-model="searchStore.query.allyClanTag"
+                    label="味方クラン"
+                    clearable
+                    density="compact"
+                    hide-details
+                  ></v-text-field>
+                </div>
+
+                <!-- 敵クランタグ -->
+                <div class="filter-item filter-item--clan">
+                  <v-text-field
+                    v-model="searchStore.query.enemyClanTag"
+                    label="敵クラン"
+                    clearable
+                    density="compact"
+                    hide-details
+                  ></v-text-field>
+                </div>
+
+                <!-- 艦艇名 -->
+                <div class="filter-item filter-item--ship">
+                  <v-text-field
+                    v-model="searchStore.query.shipName"
+                    label="艦艇名"
+                    clearable
+                    density="compact"
+                    hide-details
+                  ></v-text-field>
+                </div>
+
+                <!-- 艦艇チーム -->
+                <div class="filter-item filter-item--small">
+                  <v-select
+                    v-model="searchStore.query.shipTeam"
+                    :items="shipTeamTypes"
+                    label="チーム"
+                    clearable
+                    density="compact"
+                    hide-details
+                    item-title="text"
+                    item-value="value"
+                  ></v-select>
+                </div>
+
+                <!-- 艦艇最小数 -->
+                <div class="filter-item filter-item--count">
+                  <v-select
+                    v-model="searchStore.query.shipMinCount"
+                    :items="shipCountOptions"
+                    label="隻数"
+                    density="compact"
+                    hide-details
+                    item-title="text"
+                    item-value="value"
+                  ></v-select>
+                </div>
+
+                <!-- プレイヤー名 -->
+                <div class="filter-item filter-item--player">
+                  <v-text-field
+                    v-model="searchStore.query.playerName"
+                    label="プレイヤー名"
+                    clearable
+                    density="compact"
+                    hide-details
+                  ></v-text-field>
+                </div>
+
+                <!-- 日時範囲 From -->
+                <div class="filter-item filter-item--date">
+                  <v-text-field
+                    v-model="searchStore.query.dateFrom"
+                    label="From"
+                    clearable
+                    density="compact"
+                    hide-details
+                    type="date"
+                  ></v-text-field>
+                </div>
+
+                <!-- 日時範囲 To -->
+                <div class="filter-item filter-item--date">
+                  <v-text-field
+                    v-model="searchStore.query.dateTo"
+                    label="To"
+                    clearable
+                    density="compact"
+                    hide-details
+                    type="date"
+                  ></v-text-field>
+                </div>
+              </div>
+            </div>
+          </v-expand-transition>
         </v-form>
       </v-card-text>
     </v-card>
 
     <!-- 検索結果 -->
-    <v-card>
+    <v-card class="table-card">
       <v-data-table
         :key="tableKey"
         :headers="headers"
@@ -385,6 +500,9 @@ const shipCountOptions = [
 
 // 展開状態の管理
 const expanded = ref([])
+
+// モバイル用詳細フィルターの展開状態
+const showAdvancedFilters = ref(false)
 
 const onExpandedChange = (newExpanded: any[]) => {
   expanded.value = newExpanded
@@ -647,5 +765,22 @@ const getShipList = (players: PlayerInfo[] | undefined): string[] => {
 
 .ship-list--enemy .ship-name {
   color: rgba(var(--v-theme-error), 0.9);
+}
+
+/* テーブルの水平スクロール対応 */
+.table-card {
+  overflow-x: auto;
+}
+
+.table-card :deep(.v-data-table) {
+  min-width: 900px;
+}
+
+/* モバイルでのテーブル列の最小幅 */
+@media (max-width: 960px) {
+  .table-card :deep(th),
+  .table-card :deep(td) {
+    white-space: nowrap;
+  }
 }
 </style>
