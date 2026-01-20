@@ -6,7 +6,6 @@ DynamoDB テーブル操作ユーティリティ
 
 import os
 import time
-from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -23,6 +22,7 @@ GAME_TYPE_MAP = {
     "cooperative": "other",
     "event": "other",
 }
+
 
 # gameType 別テーブル名（環境変数から取得）
 def get_battle_table_name(game_type: str) -> str:

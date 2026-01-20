@@ -283,8 +283,7 @@ def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
             )
 
             if not already_uploaded:
-                # このプレイヤーのチームを判定（既存の視点プレイヤーと比較）
-                existing_perspective_id = existing_match.get("allyPerspectivePlayerID", 0)
+                # このプレイヤーのチームを判定
                 # ownPlayerの名前が既存のalliesに含まれていればally、そうでなければenemy
                 existing_allies = [a.get("name") for a in existing_match.get("allies", [])]
                 team = "ally" if own_player.get("name") in existing_allies else "enemy"

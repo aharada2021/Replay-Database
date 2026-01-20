@@ -85,7 +85,6 @@ def search_matches(
         }
     """
     index_client = IndexTableClient()
-    results = []
     filtered_arena_ids = None
 
     # インデックス検索（艦艇、プレイヤー、クラン）
