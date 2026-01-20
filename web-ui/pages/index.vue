@@ -234,7 +234,6 @@
           <div v-if="item?.ownPlayer || item?.raw?.ownPlayer">
             <span v-if="(item?.ownPlayer || item?.raw?.ownPlayer)?.clanTag" class="text-primary">[{{ (item?.ownPlayer || item?.raw?.ownPlayer).clanTag }}]</span>
             {{ (item?.ownPlayer || item?.raw?.ownPlayer)?.name || '-' }}
-            <div class="text-caption text-grey">{{ (item?.ownPlayer || item?.raw?.ownPlayer)?.shipName || '-' }}</div>
           </div>
         </template>
 
