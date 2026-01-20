@@ -157,7 +157,7 @@
     <!-- 検索結果 -->
     <v-card>
       <v-data-table
-        :key="`table-page-${searchStore.currentPage}`"
+        :key="tableKey"
         :headers="headers"
         :items="tableItems"
         :loading="searchStore.loading || false"
@@ -322,6 +322,7 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
 import { useSearchStore } from '~/stores/search'
 import { useMapNames } from '~/composables/useMapNames'
 import type { PlayerInfo } from '~/types/replay'
@@ -329,15 +330,24 @@ import type { PlayerInfo } from '~/types/replay'
 const searchStore = useSearchStore()
 const { getMapName, getMapList } = useMapNames()
 
+// storeToRefsでリアクティビティを確保
+const { results, currentPageNum } = storeToRefs(searchStore)
+
 // マップ一覧
 const mapList = getMapList()
 
 // v-data-tableのリアクティビティ問題を解決するため、computedで新しい配列参照を生成
 const tableItems = computed(() => {
-  // currentPageの変更を検知するために参照を含める
-  const _page = searchStore.currentPage
+  // resultsの変更を検知（storeToRefsで取得したrefを使用）
+  const items = results.value
   // 新しい配列を生成して返す（スプレッド演算子で新しい参照を作成）
-  return searchStore.results ? [...searchStore.results] : []
+  return items ? [...items] : []
+})
+
+// v-data-tableを強制的に再レンダリングするためのより一意なキー
+const tableKey = computed(() => {
+  const firstItemId = results.value?.[0]?.arenaUniqueID || 'empty'
+  return `table-${currentPageNum.value}-${firstItemId}`
 })
 
 // 初回検索
