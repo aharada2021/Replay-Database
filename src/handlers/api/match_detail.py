@@ -7,12 +7,34 @@
 """
 
 import json
+from datetime import datetime
 from decimal import Decimal
 
 from utils.dynamodb_tables import (
     BattleTableClient,
     find_match_game_type,
 )
+
+
+def format_uploaded_at(unix_time):
+    """
+    Unix timestampをISO 8601形式の文字列に変換
+
+    Args:
+        unix_time: Unix timestamp (int or str) or None
+
+    Returns:
+        ISO形式の日時文字列、またはNone
+    """
+    if unix_time is None:
+        return None
+    try:
+        ts = int(unix_time) if isinstance(unix_time, (int, float, str)) else None
+        if ts:
+            return datetime.fromtimestamp(ts).isoformat()
+    except (ValueError, TypeError, OSError):
+        pass
+    return str(unix_time) if unix_time else None
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -140,7 +162,7 @@ def handle_match(event, context):
                     "playerName": upload.get("playerName"),
                     "team": upload.get("team"),
                     "uploadedBy": upload.get("uploadedBy"),
-                    "uploadedAt": upload.get("uploadedAt"),
+                    "uploadedAt": format_uploaded_at(upload.get("uploadedAt")),
                     "s3Key": upload.get("s3Key"),
                     "fileName": upload.get("fileName"),
                     "fileSize": upload.get("fileSize"),
