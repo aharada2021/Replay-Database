@@ -130,6 +130,10 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **replay_unpack v15.0.0.0対応（2026-01-21）**:
+  - replays_unpack_upstreamサブモジュールを最新版に更新（15.0.0サポート含む）
+  - ローカルの`src/replay_versions/15_0_0/`を削除し、upstreamを直接使用
+  - minimap_rendererも15.0.0対応済み
 - **新DynamoDBテーブル構造と動画再生修正（2026-01-20）**:
   - gameType別テーブル（clan, ranked, random, other）への移行完了
   - 検索APIにreplays配列を追加し動画再生をサポート
@@ -145,7 +149,6 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
   - フロントエンド: 検索結果にDualバッジ、詳細画面で両陣営視点表示
 
 ## 今後の予定
-- **replay_unpack v15.0.0.0対応**: 公式リポジトリで対応完了済み、適用と動作確認が必要
 - リプレイ処理統合テスト実装
 - クラン戦シーズン毎のデータ表示
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
