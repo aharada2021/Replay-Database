@@ -9,6 +9,13 @@
           to="/"
         ></v-list-item>
 
+        <v-list-item
+          prepend-icon="mdi-brain"
+          title="データ分析"
+          subtitle="Claude AIに質問"
+          to="/analyze"
+        ></v-list-item>
+
         <v-divider class="my-2"></v-divider>
 
         <v-list-subheader>ツール</v-list-subheader>

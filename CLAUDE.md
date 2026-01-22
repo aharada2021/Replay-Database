@@ -38,6 +38,7 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 - `wows-replays-{stage}` - リプレイデータ本体
 - `wows-ship-match-index-{stage}` - 艦艇検索インデックス
 - `wows-sessions-{stage}` - ユーザーセッション
+- `wows-analysis-usage-{stage}` - Claude AI分析API使用量管理
 
 ## デプロイ
 
@@ -116,6 +117,15 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 - 環境変数: `NOTIFICATION_CHANNEL_ID`, `DISCORD_BOT_TOKEN`
 - 通知ユーティリティ: `src/utils/discord_notify.py`
 
+### Claude AIデータ分析
+- エンドポイント: POST /api/analyze
+- 認証: Discord OAuth2セッション必須
+- レート制限: 1日5クエリ、50,000トークン上限、30秒クールダウン
+- 使用モデル: claude-sonnet-4-20250514
+- 使用量テーブル: `wows-analysis-usage-{stage}` (TTL: 7日)
+- フロントエンド: `/analyze` ページ
+- **デプロイ前に環境変数設定必須**: `ANTHROPIC_API_KEY`
+
 ## よくある問題と解決策
 
 ### 検索が動かない
@@ -130,6 +140,14 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **Claude AIデータ分析機能（2026-01-23）**:
+  - 戦闘データについてClaude AIに自然言語で質問できる機能
+  - レート制限: 1日5クエリ、50,000トークン、30秒クールダウン
+  - バックエンド: `src/utils/rate_limiter.py`, `src/utils/data_aggregator.py`, `src/utils/claude_client.py`
+  - API: `src/handlers/api/analyze.py` (POST /api/analyze)
+  - フロントエンド: `/analyze` ページ、useAnalysis composable、analysis store
+  - 環境変数: `ANTHROPIC_API_KEY`, `ANALYSIS_USAGE_TABLE`
+  - 単体テスト: `src/tests/test_data_aggregator.py`, `src/tests/test_rate_limiter.py`
 - **replay_unpack v15.0.0.0対応（2026-01-21）**:
   - replays_unpack_upstreamサブモジュールを最新版に更新（15.0.0サポート含む）
   - ローカルの`src/replay_versions/15_0_0/`を削除し、upstreamを直接使用
@@ -154,5 +172,4 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 - 過去データのクリーンナップタスクの追加(一定時間たったリプレイファイルの保管は不要。レンダラーファイルと統計データのみを残す設計で良いかは要検討)
 - 複数テナント化（マルチテナント）設計
 - 各種FAQ追加
-- dynamodbのデータの中身についてclaudeに質問する機能の追加
 - 本サービスのランディングページ追加
