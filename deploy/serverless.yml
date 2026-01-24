@@ -101,7 +101,6 @@ provider:
             # その他テーブル
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.sessionsTable}
             - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.commentsTable}
-            - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.analysisUsageTable}
 
 # カスタム変数
 custom:
@@ -121,7 +120,6 @@ custom:
   # その他テーブル
   sessionsTable: wows-sessions-${self:provider.stage}
   commentsTable: wows-comments-${self:provider.stage}
-  analysisUsageTable: wows-analysis-usage-${self:provider.stage}
   # 開発環境でのみ艦長スキルデバッグを有効化
   debugCaptainSkills:
     dev: 'true'
@@ -463,33 +461,6 @@ functions:
       RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
       OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
 
-  # ========================================
-  # 分析API（Claude AI）
-  # ========================================
-
-  # Claude AIデータ分析API
-  analyze-api:
-    image:
-      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
-      command:
-        - handlers.api.analyze.handle
-    architecture: arm64
-    timeout: 60  # Claude API応答待ち時間を考慮
-    memorySize: 512
-    events:
-      - httpApi:
-          path: /api/analyze
-          method: post
-    environment:
-      ANTHROPIC_API_KEY: ${env:ANTHROPIC_API_KEY, ''}
-      ANALYSIS_USAGE_TABLE: ${self:custom.analysisUsageTable}
-      SESSIONS_TABLE: ${self:custom.sessionsTable}
-      # バトルテーブル（データ取得用）
-      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
-      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
-      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
-      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
-
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
 resources:
   Resources:
@@ -596,26 +567,6 @@ resources:
             KeyType: HASH
           - AttributeName: commentId
             KeyType: RANGE
-
-    # DynamoDBテーブル（分析API使用量管理用）
-    AnalysisUsageTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: ${self:custom.analysisUsageTable}
-        BillingMode: PAY_PER_REQUEST
-        AttributeDefinitions:
-          - AttributeName: discordUserId
-            AttributeType: S
-          - AttributeName: date
-            AttributeType: S
-        KeySchema:
-          - AttributeName: discordUserId
-            KeyType: HASH
-          - AttributeName: date
-            KeyType: RANGE
-        TimeToLiveSpecification:
-          AttributeName: expiresAt
-          Enabled: true
 
     # ========================================
     # 新バトルテーブル（gameType別）
