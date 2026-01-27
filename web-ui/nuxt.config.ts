@@ -2,7 +2,7 @@
 import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 
 export default defineNuxtConfig({
-  compatibilityDate: '2024-11-01',
+  compatibilityDate: '2025-07-01',
   devtools: { enabled: true },
 
   modules: [
@@ -32,7 +32,7 @@ export default defineNuxtConfig({
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { hid: 'description', name: 'description', content: 'World of Warships Replay Database and Analysis Tool' }
+        { name: 'description', content: 'World of Warships Replay Database and Analysis Tool' }
       ],
     }
   },
