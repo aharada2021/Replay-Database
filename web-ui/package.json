@@ -13,14 +13,13 @@
     "deploy:prod": "./deploy.sh prod"
   },
   "dependencies": {
-    "@pinia/nuxt": "^0.5.1",
-    "nuxt": "^3.13.0",
-    "pinia": "^2.1.7",
+    "@pinia/nuxt": "^0.11.0",
+    "nuxt": "^4.0.0",
+    "pinia": "^3.0.0",
     "vue": "^3.4.0",
     "vue-router": "^4.4.0"
   },
   "devDependencies": {
-    "@nuxt/devtools": "latest",
     "@types/node": "^20.11.0",
     "typescript": "^5.3.0",
     "vuetify": "^3.5.0",
