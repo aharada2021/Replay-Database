@@ -13,7 +13,7 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 | コンポーネント | 技術 |
 |---------------|------|
 | バックエンド | Python 3.10, AWS Lambda, DynamoDB, S3 |
-| フロントエンド | Nuxt 3, Vue 3, Vuetify 3, TypeScript |
+| フロントエンド | Nuxt 4, Vue 3, Vuetify 3, Pinia 3, TypeScript |
 | インフラ | Serverless Framework, CloudFront, API Gateway |
 | CI/CD | GitHub Actions |
 

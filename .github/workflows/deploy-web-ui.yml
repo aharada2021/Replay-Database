@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: rm -f package-lock.json && npm install
 
-      - name: Build Nuxt 3 application
+      - name: Build Nuxt application
         env:
           API_BASE_URL: https://${{ secrets.CUSTOM_DOMAIN }}
           S3_BUCKET_URL: ${{ secrets.S3_BUCKET_URL }}
@@ -100,7 +100,7 @@ jobs:
       - name: Install dependencies
         run: rm -f package-lock.json && npm install
 
-      - name: Build Nuxt 3 application
+      - name: Build Nuxt application
         env:
           API_BASE_URL: https://${{ secrets.CUSTOM_DOMAIN }}
           S3_BUCKET_URL: ${{ secrets.S3_BUCKET_URL }}

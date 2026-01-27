@@ -1,6 +1,23 @@
 # WoWS Replay Web UI
 
-リプレイデータベースのフロントエンド（Nuxt 3 + Vuetify 3）
+リプレイデータベースのフロントエンド（Nuxt 4 + Vuetify 3）
+
+## ディレクトリ構成
+
+```
+web-ui/
+  app/                  # Nuxt 4 ソースディレクトリ
+    components/         # Vueコンポーネント
+    composables/        # Composition API ユーティリティ
+    middleware/         # ルートミドルウェア（認証）
+    pages/              # ページコンポーネント（ファイルベースルーティング）
+    plugins/            # Nuxtプラグイン（Vuetify）
+    stores/             # Pinia ストア
+    types/              # TypeScript型定義
+    app.vue             # ルートコンポーネント
+  public/               # 静的アセット
+  nuxt.config.ts        # Nuxt設定
+```
 
 ## 開発
 
