@@ -307,10 +307,12 @@ def handle_video_complete(event, context):
             print(f"Warning: Match not found for arenaUniqueID: {arena_unique_id}")
             return {
                 "statusCode": 202,
-                "body": json.dumps({
-                    "status": "pending",
-                    "message": "Match not found yet, video info will be updated when match is processed",
-                }),
+                "body": json.dumps(
+                    {
+                        "status": "pending",
+                        "message": "Match not found yet, video info will be updated when match is processed",
+                    }
+                ),
             }
 
         # DynamoDBを更新
@@ -332,13 +334,15 @@ def handle_video_complete(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "status": "success",
-                "message": "Gameplay video info updated",
-                "arenaUniqueID": arena_unique_id,
-                "playerID": player_id_int,
-                "videoS3Key": video_s3_key,
-            }),
+            "body": json.dumps(
+                {
+                    "status": "success",
+                    "message": "Gameplay video info updated",
+                    "arenaUniqueID": arena_unique_id,
+                    "playerID": player_id_int,
+                    "videoS3Key": video_s3_key,
+                }
+            ),
         }
 
     except Exception as e:
