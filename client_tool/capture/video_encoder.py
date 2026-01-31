@@ -81,7 +81,8 @@ class VideoEncoder:
     small temp WAV file and muxed at the end.
     """
 
-    AUDIO_SAMPLE_RATE = 48000  # Match WASAPI loopback device default
+    # Audio settings - will be updated from actual capture device
+    AUDIO_SAMPLE_RATE = 44100  # Default, will be overridden by set_audio_sample_rate()
     AUDIO_CHANNELS = 2
     AUDIO_SAMPLE_WIDTH = 2  # 16-bit
 
@@ -98,6 +99,9 @@ class VideoEncoder:
         self._ffmpeg_path = config.ffmpeg_path or find_ffmpeg()
         self._running = False
         self._lock = threading.Lock()
+
+        # Audio sample rate - can be set before start() to match capture device
+        self._audio_sample_rate = self.AUDIO_SAMPLE_RATE
 
         # Queues for buffering
         self._video_queue: Queue = Queue(maxsize=VIDEO_QUEUE_SIZE)
@@ -129,6 +133,22 @@ class VideoEncoder:
     def is_available() -> bool:
         """Check if FFmpeg is available."""
         return find_ffmpeg() is not None
+
+    def set_audio_sample_rate(self, sample_rate: int):
+        """
+        Set the audio sample rate before starting the encoder.
+
+        Should be called with the actual sample rate from the audio capture device
+        to ensure audio/video sync.
+
+        Args:
+            sample_rate: Audio sample rate in Hz (e.g., 44100, 48000)
+        """
+        if self._running:
+            logger.warning("Cannot change sample rate while encoder is running")
+            return
+        self._audio_sample_rate = sample_rate
+        logger.info(f"Audio sample rate set to {sample_rate} Hz")
 
     def start(self, width: int, height: int) -> bool:
         """
@@ -252,7 +272,8 @@ class VideoEncoder:
             self._audio_handle = wave.open(str(self._temp_audio_file), "wb")
             self._audio_handle.setnchannels(self.AUDIO_CHANNELS)
             self._audio_handle.setsampwidth(self.AUDIO_SAMPLE_WIDTH)
-            self._audio_handle.setframerate(self.AUDIO_SAMPLE_RATE)
+            self._audio_handle.setframerate(self._audio_sample_rate)
+            logger.info(f"Audio WAV file: {self.AUDIO_CHANNELS}ch @ {self._audio_sample_rate}Hz")
 
     def write_frame(self, frame: np.ndarray, timestamp: float):
         """

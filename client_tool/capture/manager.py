@@ -193,10 +193,8 @@ class GameCaptureManager:
                         f"{capture_width}x{capture_height} (scale={self.config.capture_scale})"
                     )
 
-                self._encoder = encoder_cls(self.config, self._output_path)
-                if not self._encoder.start(capture_width, capture_height):
-                    raise CaptureError("Failed to start encoder")
-
+                # Initialize audio capture first to get sample rate
+                audio_sample_rate = 44100  # Default
                 if self.config.capture_audio or self.config.capture_microphone:
                     self._audio_capture = audio_cls(
                         self.config, self._on_audio_data
@@ -204,6 +202,17 @@ class GameCaptureManager:
                     if not self._audio_capture.start():
                         logger.warning("Audio capture failed, continuing without audio")
                         self._audio_capture = None
+                    else:
+                        # Get actual sample rate from audio device
+                        audio_sample_rate = self._audio_capture.get_sample_rate()
+                        logger.info(f"Audio capture sample rate: {audio_sample_rate} Hz")
+
+                # Initialize encoder with audio sample rate
+                self._encoder = encoder_cls(self.config, self._output_path)
+                if hasattr(self._encoder, 'set_audio_sample_rate'):
+                    self._encoder.set_audio_sample_rate(audio_sample_rate)
+                if not self._encoder.start(capture_width, capture_height):
+                    raise CaptureError("Failed to start encoder")
 
                 self._running = True
                 self._start_time = time.perf_counter()

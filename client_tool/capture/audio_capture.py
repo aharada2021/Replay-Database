@@ -379,6 +379,17 @@ class AudioCapture:
             self._mic_channels = min(int(device_info.get("maxInputChannels", 1)), 2)
             self._mic_sample_rate = int(device_info.get("defaultSampleRate", self.SAMPLE_RATE))
 
+            # Warn if mic sample rate differs from loopback (can cause sync issues)
+            if hasattr(self, '_loopback_sample_rate') and self._loopback_sample_rate != self._mic_sample_rate:
+                logger.warning(
+                    f"Mic sample rate ({self._mic_sample_rate}Hz) differs from loopback "
+                    f"({self._loopback_sample_rate}Hz) - may cause audio sync issues"
+                )
+                print(
+                    f"[AUDIO] WARNING: Mic ({self._mic_sample_rate}Hz) and loopback "
+                    f"({self._loopback_sample_rate}Hz) sample rates differ!"
+                )
+
             self._mic_buffer = []
             self._mic_stream = self._pa.open(
                 format=self.FORMAT,
@@ -618,6 +629,18 @@ class AudioCapture:
         with self._lock:
             return self._running
 
+    def get_sample_rate(self) -> int:
+        """
+        Get the actual audio sample rate being used.
+
+        Returns the loopback device sample rate if available,
+        otherwise returns the default sample rate.
+        """
+        # Prefer loopback rate as it's the primary audio source
+        if hasattr(self, '_loopback_sample_rate') and self._loopback_sample_rate:
+            return self._loopback_sample_rate
+        return self.SAMPLE_RATE
+
 
 class MockAudioCapture:
     """Mock audio capture for testing without audio dependencies."""
@@ -639,6 +662,10 @@ class MockAudioCapture:
     @staticmethod
     def is_available() -> bool:
         return True
+
+    def get_sample_rate(self) -> int:
+        """Get the mock sample rate."""
+        return self.SAMPLE_RATE
 
     def list_devices(self) -> List[AudioDevice]:
         return [
