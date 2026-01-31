@@ -286,26 +286,19 @@ const handleLogout = async () => {
   router.push('/login')
 }
 
-// アップローダーのダウンロード
-const downloadUploader = async () => {
+// アップローダーのダウンロード（GitHub Releasesから）
+const UPLOADER_DOWNLOAD_URL = 'https://github.com/aharada2021/Replay-Database/releases/latest/download/wows_replay_uploader.zip'
+
+const downloadUploader = () => {
   if (isDownloading.value) return
 
   isDownloading.value = true
-  try {
-    const response = await fetch(`${config.public.apiBaseUrl}/api/download?file=uploader`)
-    if (!response.ok) {
-      throw new Error('ダウンロードURLの取得に失敗しました')
-    }
-    const data = await response.json()
-
-    // 署名付きURLでダウンロードを開始
-    window.location.href = data.url
-  } catch (error) {
-    console.error('ダウンロードエラー:', error)
-    alert('ダウンロードに失敗しました。しばらく待ってから再度お試しください。')
-  } finally {
+  // GitHub Releasesから直接ダウンロード
+  window.location.href = UPLOADER_DOWNLOAD_URL
+  // ダウンロード開始後すぐにフラグをリセット
+  setTimeout(() => {
     isDownloading.value = false
-  }
+  }, 1000)
 }
 
 // API Key表示ダイアログを開く
