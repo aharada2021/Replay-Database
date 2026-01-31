@@ -171,23 +171,23 @@ class ScreenCapture:
 
     def _start_capture(self):
         """Initialize and start the Windows capture."""
-        capture_self = self
-
-        @windows_capture.capture_window_handler
-        class Handler:
-            def on_frame_arrived(self, frame: Frame, control: CaptureControl):
-                capture_self._handle_frame(frame, control)
-
-            def on_closed(self):
-                capture_self._handle_closed()
-
         self._capture = WindowsCapture(
             cursor_capture=False,
             draw_border=False,
             window_name=self._window_info.title,
         )
 
-        self._control = self._capture.start_capture(Handler())
+        # Register frame callback using the event decorator
+        @self._capture.event
+        def on_frame_arrived(frame: Frame, capture_control: CaptureControl):
+            self._handle_frame(frame, capture_control)
+
+        @self._capture.event
+        def on_closed():
+            self._handle_closed()
+
+        # Start capture in a separate thread
+        self._capture.start_free_threaded()
 
     def _handle_frame(self, frame: "Frame", control: "CaptureControl"):
         """Handle incoming frame from capture."""
@@ -196,6 +196,9 @@ class ScreenCapture:
             if not self._running:
                 return
             start_time = self._start_time
+            # Store control for later stop
+            if self._control is None:
+                self._control = control
 
         current_time = time.perf_counter()
 
@@ -206,7 +209,8 @@ class ScreenCapture:
         self._last_frame_time = current_time
 
         try:
-            frame_data = np.array(frame.raw_frame)
+            # windows-capture 1.5.0: use frame_buffer instead of raw_frame
+            frame_data = frame.frame_buffer
 
             timestamp = current_time - start_time
 
