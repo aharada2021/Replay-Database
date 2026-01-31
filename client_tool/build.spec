@@ -6,19 +6,31 @@ from PyInstaller.utils.hooks import collect_submodules, collect_data_files, coll
 
 block_cipher = None
 
-# Collect all submodules from capture package
-capture_hiddenimports = collect_submodules('capture')
+# Local capture package submodules (must be listed explicitly)
+capture_hiddenimports = [
+    'capture',
+    'capture.config',
+    'capture.exceptions',
+    'capture.manager',
+    'capture.screen_capture',
+    'capture.audio_capture',
+    'capture.video_encoder',
+]
 
 # Collect windows-capture and pyaudiowpatch submodules if available
 try:
     windows_capture_imports = collect_submodules('windows_capture')
-except Exception:
+    print(f"[build.spec] windows_capture imports: {windows_capture_imports}")
+except Exception as e:
     windows_capture_imports = []
+    print(f"[build.spec] windows_capture collect failed: {e}")
 
 try:
     pyaudio_imports = collect_submodules('pyaudiowpatch')
-except Exception:
+    print(f"[build.spec] pyaudiowpatch imports: {pyaudio_imports}")
+except Exception as e:
     pyaudio_imports = []
+    print(f"[build.spec] pyaudiowpatch collect failed: {e}")
 
 # Collect dynamic libraries
 binaries = []
@@ -37,6 +49,7 @@ except Exception:
 
 # Find FFmpeg binary
 ffmpeg_path = shutil.which('ffmpeg')
+print(f"[build.spec] ffmpeg from PATH: {ffmpeg_path}")
 if ffmpeg_path:
     binaries.append((ffmpeg_path, '.'))
 else:
@@ -45,15 +58,26 @@ else:
         os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs', 'ffmpeg', 'bin', 'ffmpeg.exe'),
         'C:/ffmpeg/bin/ffmpeg.exe',
         'C:/Program Files/ffmpeg/bin/ffmpeg.exe',
+        'C:/ProgramData/chocolatey/lib/ffmpeg/tools/ffmpeg/bin/ffmpeg.exe',
     ]
     for path in common_paths:
         if os.path.exists(path):
+            print(f"[build.spec] ffmpeg found at: {path}")
             binaries.append((path, '.'))
             break
+    else:
+        print("[build.spec] WARNING: ffmpeg not found!")
 
-# Include local capture package as data
+print(f"[build.spec] binaries collected: {len(binaries)}")
+
+# Include local capture package as source files
+# SPECPATH is provided by PyInstaller and points to the directory containing the spec file
+capture_path = os.path.join(SPECPATH, 'capture')
+print(f"[build.spec] capture_path: {capture_path}")
+print(f"[build.spec] capture_path exists: {os.path.exists(capture_path)}")
+
 datas = [
-    ('capture', 'capture'),
+    (capture_path, 'capture'),
 ]
 
 # Collect numpy data files
