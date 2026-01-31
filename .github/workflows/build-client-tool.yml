@@ -14,6 +14,11 @@ on:
         description: 'Version number (optional, defaults to version in code)'
         required: false
         default: ''
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: 'false'
+        type: boolean
 
 permissions:
   contents: write
@@ -106,14 +111,53 @@ jobs:
           path: client_tool/wows_replay_uploader.zip
           retention-days: 30
 
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wows_replay_uploader-zip
+
+      - name: Check if release exists
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.build.outputs.version }}"
+          TAG_NAME="client-v${VERSION}"
+
+          # Check if tag already exists
+          if gh release view "$TAG_NAME" --repo ${{ github.repository }} > /dev/null 2>&1; then
+            echo "RELEASE_EXISTS=true" >> $GITHUB_OUTPUT
+            echo "Release $TAG_NAME already exists"
+          else
+            echo "RELEASE_EXISTS=false" >> $GITHUB_OUTPUT
+            echo "Release $TAG_NAME does not exist"
+          fi
+
+      - name: Delete existing release
+        if: steps.check_release.outputs.RELEASE_EXISTS == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.build.outputs.version }}"
+          TAG_NAME="client-v${VERSION}"
+          echo "Deleting existing release: $TAG_NAME"
+          gh release delete "$TAG_NAME" --repo ${{ github.repository }} --yes || true
+          # Also delete the tag
+          git push --delete origin "$TAG_NAME" || true
+
       - name: Create Release
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: client-v${{ steps.version.outputs.VERSION }}
-          name: WoWS Replay Uploader v${{ steps.version.outputs.VERSION }}
+          tag_name: client-v${{ needs.build.outputs.version }}
+          name: WoWS Replay Uploader v${{ needs.build.outputs.version }}
           body: |
-            ## WoWS Replay Auto Uploader v${{ steps.version.outputs.VERSION }}
+            ## WoWS Replay Auto Uploader v${{ needs.build.outputs.version }}
 
             ### Download
             - `wows_replay_uploader.zip` をダウンロードして展開してください
@@ -127,71 +171,13 @@ jobs:
             1. `config.yaml.template` を `config.yaml` にリネーム
             2. `config.yaml` を編集してAPI KeyとReplay Directoryを設定
             3. `wows_replay_uploader.exe` を実行
+
+            ### 機能
+            - リプレイファイルの自動アップロード
+            - ゲームプレイ動画のキャプチャ・アップロード
           files: |
-            client_tool/wows_replay_uploader.zip
+            wows_replay_uploader.zip
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  upload-dev:
-    name: Upload to S3 (Dev)
-    runs-on: ubuntu-latest
-    needs: build
-    environment: development
-
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: wows_replay_uploader-zip
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-1
-
-      - name: Upload to S3
-        env:
-          S3_BUCKET: ${{ vars.S3_BUCKET }}
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          if [ -z "$S3_BUCKET" ]; then
-            echo "::warning::S3_BUCKET is not configured for this environment. Skipping upload."
-            exit 0
-          fi
-          aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader.zip
-          aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader-${VERSION}.zip
-
-  upload-prod:
-    name: Upload to S3 (Prod)
-    runs-on: ubuntu-latest
-    needs: build
-    environment: production
-
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: wows_replay_uploader-zip
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-1
-
-      - name: Upload to S3
-        env:
-          S3_BUCKET: ${{ vars.S3_BUCKET }}
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          if [ -z "$S3_BUCKET" ]; then
-            echo "::warning::S3_BUCKET is not configured for this environment. Skipping upload."
-            exit 0
-          fi
-          aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader.zip
-          aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader-${VERSION}.zip
