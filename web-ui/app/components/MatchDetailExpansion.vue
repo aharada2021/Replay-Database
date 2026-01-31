@@ -354,11 +354,35 @@
         <!-- ゲームプレイ動画 -->
         <div v-else-if="selectedVideoType === 'gameplay'" class="video-container">
           <template v-if="gameplayVideoReplay">
+            <!-- 複数プレイヤーがいる場合のプレイヤー選択 -->
+            <div v-if="hasMultipleGameplayVideos" class="mb-2">
+              <v-btn-toggle
+                :model-value="gameplayVideoReplay.playerID"
+                @update:model-value="onGameplayPlayerChange"
+                mandatory
+                density="compact"
+                color="info"
+                variant="outlined"
+                class="gameplay-player-toggle"
+              >
+                <v-btn
+                  v-for="replay in gameplayVideoReplays"
+                  :key="replay.playerID"
+                  :value="replay.playerID"
+                  size="small"
+                >
+                  <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
+                  {{ replay.playerName }}
+                </v-btn>
+              </v-btn-toggle>
+            </div>
             <video
+              ref="gameplayVideoRef"
               controls
               class="video-player"
               :src="getGameplayVideoUrl(gameplayVideoReplay.gameplayVideoS3Key)"
               :key="'gameplay-' + gameplayVideoReplay.playerID"
+              @loadedmetadata="onGameplayVideoLoaded"
             >
               お使いのブラウザは動画タグをサポートしていません。
             </video>
@@ -494,11 +518,35 @@
         <!-- ゲームプレイ動画 -->
         <div v-else-if="selectedVideoType === 'gameplay'" class="video-container">
           <template v-if="gameplayVideoReplay">
+            <!-- 複数プレイヤーがいる場合のプレイヤー選択 -->
+            <div v-if="hasMultipleGameplayVideos" class="mb-2">
+              <v-btn-toggle
+                :model-value="gameplayVideoReplay.playerID"
+                @update:model-value="onGameplayPlayerChange"
+                mandatory
+                density="compact"
+                color="info"
+                variant="outlined"
+                class="gameplay-player-toggle"
+              >
+                <v-btn
+                  v-for="replay in gameplayVideoReplays"
+                  :key="replay.playerID"
+                  :value="replay.playerID"
+                  size="small"
+                >
+                  <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
+                  {{ replay.playerName }}
+                </v-btn>
+              </v-btn-toggle>
+            </div>
             <video
+              ref="gameplayVideoRef"
               controls
               class="video-player"
               :src="getGameplayVideoUrl(gameplayVideoReplay.gameplayVideoS3Key)"
               :key="'gameplay-alt-' + gameplayVideoReplay.playerID"
+              @loadedmetadata="onGameplayVideoLoaded"
             >
               お使いのブラウザは動画タグをサポートしていません。
             </video>
@@ -900,11 +948,51 @@ const videoReplay = computed(() => {
   return props.match.replays.find(r => r.mp4S3Key) || null
 })
 
-// ゲームプレイ動画があるリプレイを取得
-const gameplayVideoReplay = computed(() => {
-  if (!props.match.replays) return null
-  return props.match.replays.find(r => r.gameplayVideoS3Key) || null
+// ゲームプレイ動画があるリプレイをすべて取得
+const gameplayVideoReplays = computed(() => {
+  if (!props.match.replays) return []
+  return props.match.replays.filter(r => r.gameplayVideoS3Key)
 })
+
+// 選択中のゲームプレイ動画のプレイヤーID
+const selectedGameplayPlayerId = ref<number | null>(null)
+
+// ゲームプレイ動画があるリプレイを取得（選択中のプレイヤー）
+const gameplayVideoReplay = computed(() => {
+  const replays = gameplayVideoReplays.value
+  if (replays.length === 0) return null
+
+  // 選択されていない場合は最初のプレイヤーを選択
+  if (selectedGameplayPlayerId.value === null) {
+    return replays[0]
+  }
+
+  // 選択中のプレイヤーの動画を返す
+  return replays.find(r => r.playerID === selectedGameplayPlayerId.value) || replays[0]
+})
+
+// 複数のゲームプレイ動画があるか
+const hasMultipleGameplayVideos = computed(() => gameplayVideoReplays.value.length > 1)
+
+// ゲームプレイ動画プレイヤーの参照（タイムスタンプ維持用）
+const gameplayVideoRef = ref<HTMLVideoElement | null>(null)
+const savedGameplayTimestamp = ref<number>(0)
+
+// プレイヤー切り替え時のタイムスタンプ保存
+const onGameplayPlayerChange = (playerId: number) => {
+  // 現在の再生位置を保存
+  if (gameplayVideoRef.value) {
+    savedGameplayTimestamp.value = gameplayVideoRef.value.currentTime
+  }
+  selectedGameplayPlayerId.value = playerId
+}
+
+// 動画読み込み完了時にタイムスタンプを復元
+const onGameplayVideoLoaded = () => {
+  if (gameplayVideoRef.value && savedGameplayTimestamp.value > 0) {
+    gameplayVideoRef.value.currentTime = savedGameplayTimestamp.value
+  }
+}
 
 // ミニマップ動画があるかどうか
 const hasMinimapVideo = computed(() => {
@@ -1014,6 +1102,15 @@ const formatDateTime = (dateTime: string) => {
 .video-container {
   display: flex;
   flex-direction: column;
+}
+
+.gameplay-player-toggle {
+  flex-wrap: wrap;
+}
+
+.gameplay-player-toggle .v-btn {
+  text-transform: none;
+  font-size: 0.75rem;
 }
 
 .video-player {
