@@ -50,7 +50,7 @@ DEFAULT_API_BASE_URL = ""  # 例: "https://your-server.example.com"
 DEFAULT_MAX_UPLOAD_SIZE_MB = 500  # デフォルト最大アップロードサイズ(MB)
 
 # バージョン情報
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 # デフォルトのリプレイフォルダ
 DEFAULT_REPLAYS_FOLDER = os.path.expandvars('%APPDATA%\\Wargaming.net\\WorldOfWarships\\replays')
@@ -822,16 +822,26 @@ class ReplayUploader:
 
         logger.info(f"ゲームプレイ動画アップロード開始: {video_path.name} ({file_size_mb:.1f}MB)")
 
+        # デバッグ: URLの一部を表示（セキュリティのため署名部分は隠す）
+        url_parts = upload_url.split('?')
+        logger.info(f"アップロード先: {url_parts[0][:100]}...")
+
         for attempt in range(1, self.retry_count + 1):
             try:
+                # ファイルを直接読み込んでアップロード（ジェネレータの問題を回避）
                 with open(video_path, 'rb') as f:
-                    # プログレス表示付きでアップロード
-                    response = requests.put(
-                        upload_url,
-                        data=self._upload_with_progress(f, file_size),
-                        headers={'Content-Type': 'video/mp4'},
-                        timeout=600  # 10分タイムアウト（大きいファイル用）
-                    )
+                    file_data = f.read()
+
+                logger.info(f"動画データ読み込み完了: {len(file_data)} bytes")
+
+                response = requests.put(
+                    upload_url,
+                    data=file_data,
+                    headers={
+                        'Content-Type': 'video/mp4',
+                    },
+                    timeout=600  # 10分タイムアウト（大きいファイル用）
+                )
 
                 if response.status_code in (200, 204):
                     logger.info(f"動画アップロード成功: {s3_key}")

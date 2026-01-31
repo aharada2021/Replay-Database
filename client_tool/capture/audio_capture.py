@@ -536,6 +536,63 @@ class AudioCapture:
                 logger.error(traceback.format_exc())
                 time.sleep(0.01)
 
+    def _resample_audio(
+        self, audio: np.ndarray, from_rate: int, to_rate: int, channels: int = 2
+    ) -> np.ndarray:
+        """
+        Resample audio from one sample rate to another using linear interpolation.
+
+        Args:
+            audio: Input audio samples (interleaved stereo: L R L R ...)
+            from_rate: Source sample rate
+            to_rate: Target sample rate
+            channels: Number of audio channels (default 2 for stereo)
+
+        Returns:
+            Resampled audio array in same format
+        """
+        if from_rate == to_rate:
+            return audio
+
+        if len(audio) == 0:
+            return audio
+
+        # For interleaved stereo, we need to handle each channel separately
+        # Audio format: [L0, R0, L1, R1, L2, R2, ...]
+        num_frames = len(audio) // channels
+
+        if num_frames == 0:
+            return audio
+
+        # Calculate output frames
+        ratio = to_rate / from_rate
+        num_output_frames = int(num_frames * ratio)
+
+        if num_output_frames == 0:
+            return audio
+
+        # Reshape to separate channels: [[L0, L1, L2...], [R0, R1, R2...]]
+        try:
+            audio_2d = audio.reshape(num_frames, channels).T.astype(np.float32)
+        except ValueError:
+            # If reshape fails, return original
+            return audio
+
+        # Resample each channel
+        old_indices = np.arange(num_frames)
+        new_indices = np.linspace(0, num_frames - 1, num_output_frames)
+
+        resampled_channels = []
+        for ch in range(channels):
+            resampled_ch = np.interp(new_indices, old_indices, audio_2d[ch])
+            resampled_channels.append(resampled_ch)
+
+        # Interleave back: [L0, R0, L1, R1, ...]
+        resampled_2d = np.array(resampled_channels).T
+        resampled = resampled_2d.flatten().astype(audio.dtype)
+
+        return resampled
+
     def _mix_audio(
         self, loopback: Optional[np.ndarray], mic: Optional[np.ndarray]
     ) -> Optional[np.ndarray]:
@@ -548,6 +605,15 @@ class AudioCapture:
 
         if mic is None:
             return loopback
+
+        # Resample mic audio to match loopback sample rate if needed
+        if self._mic_sample_rate != self._loopback_sample_rate and mic is not None and len(mic) > 0:
+            mic = self._resample_audio(
+                mic,
+                self._mic_sample_rate,
+                self._loopback_sample_rate,
+                channels=self._mic_channels if hasattr(self, '_mic_channels') else 2
+            )
 
         # Log audio levels periodically for debugging
         if not hasattr(self, '_mix_log_count'):
