@@ -152,6 +152,10 @@ jobs:
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
+          if [ -z "$S3_BUCKET" ]; then
+            echo "::warning::S3_BUCKET is not configured for this environment. Skipping upload."
+            exit 0
+          fi
           aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader.zip
           aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader-${VERSION}.zip
 
@@ -179,5 +183,9 @@ jobs:
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
+          if [ -z "$S3_BUCKET" ]; then
+            echo "::warning::S3_BUCKET is not configured for this environment. Skipping upload."
+            exit 0
+          fi
           aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader.zip
           aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader-${VERSION}.zip
