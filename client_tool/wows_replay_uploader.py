@@ -3,6 +3,7 @@
 WoWS Replay Auto Uploader
 
 World of Warshipsのリプレイファイルを自動的にアップロードするクライアント常駐ツール
+ゲームプレイキャプチャ機能も含む
 """
 
 import os
@@ -18,13 +19,23 @@ import webbrowser
 import tempfile
 import subprocess
 import re
+import threading
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, Callable
 
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
-from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent
+from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent, FileDeletedEvent
+
+# Capture module (optional - may not be available on non-Windows systems)
+try:
+    from capture import CaptureConfig, GameCaptureManager
+    from capture.manager import load_arena_info
+
+    CAPTURE_AVAILABLE = True
+except ImportError:
+    CAPTURE_AVAILABLE = False
 
 # ========================================
 # 定数
@@ -34,8 +45,11 @@ from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent
 # デフォルトは空、セットアップ時または設定ファイルから設定される
 DEFAULT_API_BASE_URL = ""  # 例: "https://your-server.example.com"
 
+# ゲームプレイ動画アップロード設定
+DEFAULT_MAX_UPLOAD_SIZE_MB = 500  # デフォルト最大アップロードサイズ(MB)
+
 # バージョン情報
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 # デフォルトのリプレイフォルダ
 DEFAULT_REPLAYS_FOLDER = os.path.expandvars('%APPDATA%\\Wargaming.net\\WorldOfWarships\\replays')
@@ -88,6 +102,9 @@ class SetupWizard:
 
         # Discord User ID（オプション）
         self.config['discord_user_id'] = self._get_discord_user_id()
+
+        # キャプチャ設定（オプション）
+        self.config['capture'] = self._get_capture_settings()
 
         # スタートアップ登録
         self._prompt_startup_registration()
@@ -181,13 +198,89 @@ class SetupWizard:
     def _get_discord_user_id(self) -> str:
         """Discord User ID を取得（オプション）"""
         print("\n" + "-" * 40)
-        print("【ステップ 4/4】Discord連携（オプション）")
+        print("【ステップ 4/5】Discord連携（オプション）")
         print("-" * 40)
         print("\nDiscord User IDを設定すると、アップロード時にあなたのID情報が")
         print("関連付けられます。空欄でもOKです。")
 
         user_id = input("\nDiscord User ID (空欄可): ").strip()
         return user_id
+
+    def _get_capture_settings(self) -> Dict[str, Any]:
+        """キャプチャ設定を取得（オプション）"""
+        print("\n" + "-" * 40)
+        print("【ステップ 5/5】ゲームキャプチャ設定（オプション）")
+        print("-" * 40)
+
+        if not CAPTURE_AVAILABLE:
+            print("\n※ キャプチャ機能は現在利用できません。")
+            print("  必要なライブラリがインストールされていません。")
+            return {'enabled': False}
+
+        print("\n試合中のゲームプレイを自動的に録画できます。")
+        print("録画は試合開始時に自動的に開始され、終了時に停止します。")
+
+        choice = input("\nキャプチャ機能を有効にしますか? (y/N): ").strip().lower()
+
+        if choice != 'y':
+            print("キャプチャ機能を無効にしました。")
+            return {'enabled': False}
+
+        # 保存先フォルダ
+        default_folder = os.path.expandvars('%USERPROFILE%\\Videos\\WoWS Captures')
+        print(f"\n録画ファイルの保存先 (デフォルト: {default_folder})")
+        output_folder = input("保存先フォルダ (空欄でデフォルト): ").strip()
+        if not output_folder:
+            output_folder = default_folder
+
+        # 品質設定
+        print("\n録画品質を選択してください:")
+        print("  1. low    - ファイルサイズ小、CPU負荷軽い")
+        print("  2. medium - バランス型（推奨）")
+        print("  3. high   - 高品質、ファイルサイズ大")
+
+        quality_choice = input("品質 (1/2/3、デフォルト: 2): ").strip()
+        quality_map = {'1': 'low', '2': 'medium', '3': 'high'}
+        video_quality = quality_map.get(quality_choice, 'medium')
+
+        # オーディオ設定
+        capture_audio = input("\nデスクトップ音声を録音しますか? (Y/n): ").strip().lower() != 'n'
+        capture_mic = False
+        if capture_audio:
+            capture_mic = input("マイク入力も録音しますか? (y/N): ").strip().lower() == 'y'
+
+        # 動画アップロード設定
+        print("\n--- 動画アップロード設定 ---")
+        print("録画したゲームプレイ動画をサーバーにアップロードできます。")
+        print("アップロードすると、Webサイトで視聴可能になります。")
+        upload_gameplay_video = input("\nゲームプレイ動画をアップロードしますか? (Y/n): ").strip().lower() != 'n'
+
+        keep_local_copy = False
+        max_upload_size_mb = DEFAULT_MAX_UPLOAD_SIZE_MB
+        if upload_gameplay_video:
+            keep_local_copy = input("アップロード後もローカルコピーを保持しますか? (y/N): ").strip().lower() == 'y'
+            print(f"\n最大アップロードサイズ (デフォルト: {DEFAULT_MAX_UPLOAD_SIZE_MB}MB)")
+            size_input = input("最大サイズ (MB, 空欄でデフォルト): ").strip()
+            if size_input:
+                try:
+                    max_upload_size_mb = int(size_input)
+                except ValueError:
+                    print(f"無効な値です。デフォルト ({DEFAULT_MAX_UPLOAD_SIZE_MB}MB) を使用します。")
+
+        print("\n✓ キャプチャ設定が完了しました。")
+
+        return {
+            'enabled': True,
+            'output_folder': output_folder,
+            'video_quality': video_quality,
+            'capture_audio': capture_audio,
+            'capture_microphone': capture_mic,
+            'target_fps': 30,
+            'max_duration_minutes': 30,
+            'upload_gameplay_video': upload_gameplay_video,
+            'keep_local_copy': keep_local_copy,
+            'max_upload_size_mb': max_upload_size_mb,
+        }
 
     def _prompt_startup_registration(self):
         """スタートアップ登録を促す"""
@@ -238,7 +331,8 @@ class SetupWizard:
             'discord_user_id': self.config.get('discord_user_id', ''),
             'retry_count': 3,
             'retry_delay': 5,
-            'use_polling': True
+            'use_polling': True,
+            'capture': self.config.get('capture', {'enabled': False}),
         }
 
         config_path = Path(os.path.dirname(os.path.abspath(sys.argv[0]))) / CONFIG_FILE
@@ -409,6 +503,104 @@ class AutoUpdater:
 # スタートアップ管理
 # ========================================
 
+# ========================================
+# 動画トラッキング
+# ========================================
+
+class PendingVideoQueue:
+    """キャプチャした動画ファイルを対応するリプレイファイルに関連付けるクラス"""
+
+    def __init__(self):
+        self.pending: Dict[str, Path] = {}  # arena_hash -> video_path
+        self._lock = threading.Lock()
+
+    def add_video(self, arena_hash: str, video_path: Path):
+        """
+        動画ファイルをキューに追加
+
+        Args:
+            arena_hash: アリーナ識別子（tempArenaInfo.jsonから取得）
+            video_path: 動画ファイルのパス
+        """
+        with self._lock:
+            self.pending[arena_hash] = video_path
+            if logger:
+                logger.info(f"動画をキューに追加: {arena_hash} -> {video_path}")
+
+    def get_video_for_replay(self, replay_path: Path) -> Optional[Path]:
+        """
+        リプレイファイルに対応する動画ファイルを取得
+
+        Args:
+            replay_path: リプレイファイルのパス
+
+        Returns:
+            対応する動画ファイルのパス（なければNone）
+
+        Note:
+            現在の実装では、最後に追加された動画を返すシンプルな方式を採用。
+            通常の使用パターン（1試合ずつプレイ）では問題ないが、
+            複数の試合を短時間に連続でプレイした場合は動画の対応がずれる可能性がある。
+            将来的にはリプレイファイルの内容からarena情報を抽出して
+            正確にマッチングすることが望ましい。
+        """
+        with self._lock:
+            if not self.pending:
+                return None
+
+            # 最後に追加された動画を返す
+            # TODO: リプレイファイルからarenaUniqueIDを抽出して正確にマッチングする
+            arena_hash = list(self.pending.keys())[-1]
+            video_path = self.pending.pop(arena_hash, None)
+
+            if video_path and video_path.exists():
+                if logger:
+                    logger.info(f"リプレイに動画を関連付け: {replay_path.name} -> {video_path}")
+                return video_path
+
+            return None
+
+    def get_video_by_hash(self, arena_hash: str) -> Optional[Path]:
+        """
+        アリーナハッシュで動画ファイルを取得
+
+        Args:
+            arena_hash: アリーナ識別子
+
+        Returns:
+            動画ファイルのパス（なければNone）
+        """
+        with self._lock:
+            video_path = self.pending.pop(arena_hash, None)
+            if video_path and video_path.exists():
+                return video_path
+            return None
+
+    def cleanup_old_entries(self, max_age_seconds: int = 3600):
+        """
+        古いエントリをクリーンアップ
+
+        Args:
+            max_age_seconds: この秒数より古いエントリを削除
+        """
+        with self._lock:
+            current_time = time.time()
+            to_remove = []
+
+            for arena_hash, video_path in self.pending.items():
+                if video_path.exists():
+                    file_age = current_time - video_path.stat().st_mtime
+                    if file_age > max_age_seconds:
+                        to_remove.append(arena_hash)
+                else:
+                    to_remove.append(arena_hash)
+
+            for arena_hash in to_remove:
+                del self.pending[arena_hash]
+                if logger:
+                    logger.debug(f"古い動画エントリを削除: {arena_hash}")
+
+
 class StartupManager:
     """スタートアップ管理クラス"""
 
@@ -493,12 +685,31 @@ class ReplayUploader:
         self.retry_count = config.get('retry_count', 3)
         self.retry_delay = config.get('retry_delay', 5)
 
+        # ゲームプレイ動画設定
+        capture_config = config.get('capture', {})
+        self.upload_gameplay_video = capture_config.get('upload_gameplay_video', True)
+        self.keep_local_copy = capture_config.get('keep_local_copy', False)
+        self.max_upload_size_mb = capture_config.get('max_upload_size_mb', DEFAULT_MAX_UPLOAD_SIZE_MB)
+
         # アップロード履歴
         self.upload_history = []
         self.failed_uploads = []
 
-    def upload_replay(self, file_path: Path) -> Dict[str, Any]:
-        """リプレイファイルをアップロード"""
+    def upload_replay(
+        self,
+        file_path: Path,
+        video_path: Optional[Path] = None
+    ) -> Dict[str, Any]:
+        """
+        リプレイファイルをアップロード
+
+        Args:
+            file_path: リプレイファイルのパス
+            video_path: ゲームプレイ動画のパス（オプション）
+
+        Returns:
+            アップロード結果
+        """
         if not file_path.exists():
             logger.error(f"ファイルが見つかりません: {file_path}")
             return {'status': 'error', 'message': 'File not found'}
@@ -531,8 +742,20 @@ class ReplayUploader:
                         'file': file_path.name,
                         'timestamp': datetime.now().isoformat(),
                         'status': result.get('status'),
-                        'arena_id': result.get('arenaUniqueID')
+                        'arena_id': result.get('tempArenaID')
                     })
+
+                    # ゲームプレイ動画をアップロード
+                    if video_path and self.upload_gameplay_video:
+                        video_upload_url = result.get('videoUploadUrl')
+                        if video_upload_url:
+                            self._upload_gameplay_video(
+                                video_path,
+                                video_upload_url,
+                                result.get('videoS3Key'),
+                                result.get('tempArenaID'),
+                                result.get('playerID')
+                            )
 
                     return result
                 else:
@@ -560,6 +783,169 @@ class ReplayUploader:
 
         return {'status': 'error', 'message': 'Upload failed after retries'}
 
+    def _upload_gameplay_video(
+        self,
+        video_path: Path,
+        upload_url: str,
+        s3_key: str,
+        arena_unique_id: str,
+        player_id: int
+    ) -> bool:
+        """
+        ゲームプレイ動画をS3にアップロード
+
+        Args:
+            video_path: 動画ファイルのパス
+            upload_url: Presigned PUT URL
+            s3_key: S3キー
+            arena_unique_id: アリーナユニークID
+            player_id: プレイヤーID
+
+        Returns:
+            成功した場合True
+        """
+        if not video_path.exists():
+            logger.warning(f"動画ファイルが見つかりません: {video_path}")
+            return False
+
+        # ファイルサイズ
+        file_size = video_path.stat().st_size
+        file_size_mb = file_size / (1024 * 1024)
+
+        if file_size_mb > self.max_upload_size_mb:
+            logger.warning(
+                f"動画ファイルが大きすぎます: {file_size_mb:.1f}MB "
+                f"(上限: {self.max_upload_size_mb}MB)"
+            )
+            return False
+
+        logger.info(f"ゲームプレイ動画アップロード開始: {video_path.name} ({file_size_mb:.1f}MB)")
+
+        for attempt in range(1, self.retry_count + 1):
+            try:
+                with open(video_path, 'rb') as f:
+                    # プログレス表示付きでアップロード
+                    response = requests.put(
+                        upload_url,
+                        data=self._upload_with_progress(f, file_size),
+                        headers={'Content-Type': 'video/mp4'},
+                        timeout=600  # 10分タイムアウト（大きいファイル用）
+                    )
+
+                if response.status_code in (200, 204):
+                    logger.info(f"動画アップロード成功: {s3_key}")
+
+                    # サーバーに完了通知を送信
+                    self._notify_video_upload_complete(
+                        arena_unique_id, player_id, s3_key, file_size
+                    )
+
+                    # ローカルコピーを削除（設定による）
+                    if not self.keep_local_copy:
+                        try:
+                            video_path.unlink()
+                            logger.info(f"ローカル動画ファイルを削除: {video_path}")
+                        except Exception as e:
+                            logger.warning(f"ローカル動画ファイル削除エラー: {e}")
+
+                    return True
+                else:
+                    logger.error(
+                        f"動画アップロード失敗 (試行 {attempt}/{self.retry_count}): "
+                        f"HTTP {response.status_code}"
+                    )
+
+                    if attempt < self.retry_count:
+                        logger.info(f"{self.retry_delay}秒後にリトライします...")
+                        time.sleep(self.retry_delay)
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"動画アップロードネットワークエラー (試行 {attempt}/{self.retry_count}): {e}")
+                if attempt < self.retry_count:
+                    logger.info(f"{self.retry_delay}秒後にリトライします...")
+                    time.sleep(self.retry_delay)
+
+            except Exception as e:
+                logger.error(f"動画アップロード予期しないエラー: {e}")
+                break
+
+        logger.error(f"動画アップロード失敗: {video_path}")
+        return False
+
+    def _notify_video_upload_complete(
+        self,
+        arena_unique_id: str,
+        player_id: int,
+        s3_key: str,
+        file_size: int
+    ):
+        """
+        動画アップロード完了をサーバーに通知
+
+        Args:
+            arena_unique_id: アリーナユニークID
+            player_id: プレイヤーID
+            s3_key: S3キー
+            file_size: ファイルサイズ（バイト）
+        """
+        try:
+            video_complete_url = f"{self.api_base_url}/api/upload/video-complete"
+
+            response = requests.post(
+                video_complete_url,
+                headers={
+                    'X-Api-Key': self.api_key,
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'arenaUniqueID': arena_unique_id,
+                    'playerID': player_id,
+                    'videoS3Key': s3_key,
+                    'fileSize': file_size
+                },
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                logger.info("動画アップロード完了通知成功")
+            elif response.status_code == 202:
+                logger.info("動画アップロード完了通知: 試合データ処理待ち")
+            else:
+                logger.warning(f"動画アップロード完了通知失敗: HTTP {response.status_code}")
+
+        except Exception as e:
+            logger.warning(f"動画アップロード完了通知エラー: {e}")
+
+    def _upload_with_progress(self, file_obj, total_size: int):
+        """
+        プログレス表示付きでファイルを読み込むジェネレータ
+
+        Args:
+            file_obj: ファイルオブジェクト
+            total_size: 総バイト数
+
+        Yields:
+            ファイルデータのチャンク
+        """
+        chunk_size = 1024 * 1024  # 1MB chunks
+        uploaded = 0
+        last_progress = 0
+
+        while True:
+            chunk = file_obj.read(chunk_size)
+            if not chunk:
+                break
+
+            uploaded += len(chunk)
+            progress = int(uploaded / total_size * 100)
+
+            # 10%ごとにログ出力
+            if progress >= last_progress + 10:
+                logger.info(f"動画アップロード進捗: {progress}%")
+                last_progress = progress
+
+            yield chunk
+
 
 # ========================================
 # ファイル監視
@@ -568,7 +954,12 @@ class ReplayUploader:
 class ReplayFileHandler(PatternMatchingEventHandler):
     """リプレイファイル監視ハンドラー"""
 
-    def __init__(self, uploader: ReplayUploader):
+    def __init__(
+        self,
+        uploader: ReplayUploader,
+        capture_manager: Optional["GameCaptureManager"] = None,
+        pending_video_queue: Optional[PendingVideoQueue] = None,
+    ):
         super().__init__(
             patterns=["*.wowsreplay"],
             ignore_patterns=["temp.wowsreplay"],
@@ -576,6 +967,8 @@ class ReplayFileHandler(PatternMatchingEventHandler):
             case_sensitive=False
         )
         self.uploader = uploader
+        self.capture_manager = capture_manager
+        self.pending_video_queue = pending_video_queue
         self.processing_files = set()
 
     def on_created(self, event: FileCreatedEvent):
@@ -591,9 +984,28 @@ class ReplayFileHandler(PatternMatchingEventHandler):
         logger.info(f"新しいリプレイファイルを検出: {file_path.name}")
         self.processing_files.add(str(file_path))
 
+        video_path = None
+
         try:
+            # キャプチャを停止し、動画パスを取得
+            if self.capture_manager is not None:
+                if self.capture_manager.is_running():
+                    logger.info("試合終了を検出、キャプチャを停止します...")
+                    video_path = self.capture_manager.stop_capture()
+                    if video_path is not None:
+                        logger.info(f"録画ファイルを保存しました: {video_path}")
+                elif self.capture_manager.is_waiting_for_window():
+                    logger.info("ウィンドウ検索をキャンセルします...")
+                    self.capture_manager.stop_capture()
+
+            # pending_video_queueから動画を取得（キャプチャマネージャーから取れなかった場合）
+            if video_path is None and self.pending_video_queue is not None:
+                video_path = self.pending_video_queue.get_video_for_replay(file_path)
+                if video_path:
+                    logger.info(f"キューから動画を取得: {video_path}")
+
             self._wait_for_file_complete(file_path)
-            result = self.uploader.upload_replay(file_path)
+            result = self.uploader.upload_replay(file_path, video_path=video_path)
 
             if result.get('status') == 'duplicate':
                 logger.warning(f"重複: このゲームは既に {result.get('originalUploader')} さんがアップロードしています")
@@ -631,6 +1043,56 @@ class ReplayFileHandler(PatternMatchingEventHandler):
         logger.warning(f"タイムアウト: {file_path.name}")
 
 
+class GameCaptureFileHandler(PatternMatchingEventHandler):
+    """tempArenaInfo.json監視ハンドラー（キャプチャ開始用）"""
+
+    def __init__(self, capture_manager: "GameCaptureManager", replays_folder: str):
+        super().__init__(
+            patterns=["tempArenaInfo.json"],
+            ignore_directories=True,
+            case_sensitive=False
+        )
+        self.capture_manager = capture_manager
+        self.replays_folder = Path(replays_folder)
+
+    def on_created(self, event: FileCreatedEvent):
+        """tempArenaInfo.json作成を検出（試合開始）"""
+        if event.is_directory:
+            return
+
+        file_path = Path(event.src_path)
+        logger.info(f"試合開始を検出: {file_path.name}")
+
+        try:
+            time.sleep(0.5)
+
+            arena_info = None
+            try:
+                arena_info = load_arena_info(file_path)
+                if arena_info:
+                    map_name = arena_info.get('mapDisplayName', 'Unknown')
+                    game_mode = arena_info.get('gameLogic', 'Unknown')
+                    logger.info(f"マップ: {map_name}, モード: {game_mode}")
+            except Exception as e:
+                logger.warning(f"アリーナ情報の読み込みに失敗: {e}")
+
+            if not self.capture_manager.is_running():
+                logger.info("ゲームキャプチャを開始します...")
+                self.capture_manager.start_capture(arena_info=arena_info, wait_for_window=True)
+            else:
+                logger.warning("キャプチャは既に実行中です")
+
+        except Exception as e:
+            logger.error(f"キャプチャ開始エラー: {e}")
+
+    def on_deleted(self, event: FileDeletedEvent):
+        """tempArenaInfo.json削除を検出（試合終了のバックアップ検出）"""
+        if event.is_directory:
+            return
+
+        logger.debug(f"tempArenaInfo.json削除を検出")
+
+
 class ReplayMonitor:
     """リプレイフォルダ監視クラス"""
 
@@ -639,6 +1101,41 @@ class ReplayMonitor:
         self.replays_folder = config.get('replays_folder')
         self.uploader = ReplayUploader(config)
         self.observer = None
+        self.capture_manager: Optional["GameCaptureManager"] = None
+        self.pending_video_queue = PendingVideoQueue()
+
+        self._init_capture()
+
+    def _init_capture(self):
+        """キャプチャ機能を初期化"""
+        if not CAPTURE_AVAILABLE:
+            logger.info("キャプチャモジュールが利用できません")
+            return
+
+        capture_config_data = self.config.get('capture', {})
+
+        if not capture_config_data.get('enabled', False):
+            logger.info("キャプチャ機能は無効です")
+            return
+
+        try:
+            capture_config = CaptureConfig.from_dict({'capture': capture_config_data})
+
+            self.capture_manager = GameCaptureManager(capture_config)
+
+            if self.capture_manager.is_available():
+                logger.info("キャプチャ機能が有効です")
+                logger.info(f"録画保存先: {capture_config.output_folder}")
+
+                # 動画アップロード設定を表示
+                upload_video = capture_config_data.get('upload_gameplay_video', True)
+                logger.info(f"動画アップロード: {'有効' if upload_video else '無効'}")
+            else:
+                logger.warning("キャプチャ機能は利用できません（FFmpegが見つかりません）")
+                self.capture_manager = None
+        except Exception as e:
+            logger.error(f"キャプチャ初期化エラー: {e}")
+            self.capture_manager = None
 
     def start(self):
         """監視を開始"""
@@ -656,15 +1153,37 @@ class ReplayMonitor:
         else:
             self.observer = Observer()
 
-        event_handler = ReplayFileHandler(self.uploader)
-        self.observer.schedule(event_handler, self.replays_folder, recursive=False)
+        # リプレイファイル監視ハンドラー
+        replay_handler = ReplayFileHandler(
+            self.uploader,
+            self.capture_manager,
+            self.pending_video_queue
+        )
+        self.observer.schedule(replay_handler, self.replays_folder, recursive=False)
+
+        # キャプチャ開始用のtempArenaInfo.json監視ハンドラー
+        if self.capture_manager is not None:
+            capture_handler = GameCaptureFileHandler(
+                self.capture_manager, self.replays_folder
+            )
+            self.observer.schedule(capture_handler, self.replays_folder, recursive=False)
+            logger.info("ゲームキャプチャ監視を開始しました")
+
         self.observer.start()
 
         try:
             while True:
                 time.sleep(10)
+                # 古い動画エントリをクリーンアップ（1時間以上経過したもの）
+                self.pending_video_queue.cleanup_old_entries(max_age_seconds=3600)
         except KeyboardInterrupt:
             logger.info("監視を停止します...")
+
+            # キャプチャを停止
+            if self.capture_manager is not None and self.capture_manager.is_running():
+                logger.info("キャプチャを停止します...")
+                self.capture_manager.stop_capture()
+
             self.observer.stop()
 
         self.observer.join()

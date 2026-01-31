@@ -2,3 +2,8 @@ watchdog==3.0.0
 requests==2.31.0
 PyYAML==6.0.1
 pyinstaller==6.3.0
+
+# Game capture dependencies (Windows only)
+windows-capture>=1.5.0; sys_platform == 'win32'
+PyAudioWPatch>=0.2.12.6; sys_platform == 'win32'
+numpy>=1.24.0

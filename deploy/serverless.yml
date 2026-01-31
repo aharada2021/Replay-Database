@@ -222,6 +222,28 @@ functions:
       REPLAYS_TABLE: ${self:custom.replaysTable}
       UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
 
+  # ゲームプレイ動画アップロード完了通知API
+  upload-video-complete-api:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.upload.handle_video_complete
+    architecture: arm64
+    timeout: 29
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/upload/video-complete
+          method: post
+    environment:
+      REPLAYS_BUCKET: ${self:custom.bucketName}
+      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
+      # 新バトルテーブル
+      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
+      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
+      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
+      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
+
   # バトル結果抽出（S3トリガー）
   battle-result-extractor:
     image:

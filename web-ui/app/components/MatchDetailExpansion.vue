@@ -299,35 +299,81 @@
 
       <!-- 動画プレーヤー（スコアボードがある場合） -->
       <v-col cols="12" lg="4">
-        <h3 class="mb-2 text-body-2">
-          ミニマップ動画
-          <v-chip v-if="isDualVideo" color="purple" size="x-small" class="ml-1">
+        <!-- 動画タイプ切り替えボタン -->
+        <div class="d-flex align-center mb-2">
+          <v-btn-toggle
+            v-if="hasAnyVideo"
+            v-model="selectedVideoType"
+            mandatory
+            density="compact"
+            color="primary"
+            variant="outlined"
+          >
+            <v-btn value="minimap" size="small" :disabled="!hasMinimapVideo">
+              <v-icon size="small" class="mr-1">mdi-map</v-icon>
+              ミニマップ
+            </v-btn>
+            <v-btn value="gameplay" size="small" :disabled="!hasGameplayVideo">
+              <v-icon size="small" class="mr-1">mdi-gamepad-variant</v-icon>
+              ゲームプレイ
+            </v-btn>
+          </v-btn-toggle>
+          <v-chip v-if="selectedVideoType === 'minimap' && isDualVideo" color="purple" size="x-small" class="ml-2">
             <v-icon size="x-small" class="mr-1">mdi-eye-outline</v-icon>
             両陣営視点
           </v-chip>
-        </h3>
-        <div v-if="videoReplay" class="video-container">
-          <video
-            controls
-            class="video-player"
-            :src="getVideoUrl(videoReplay.mp4S3Key)"
-          >
-            お使いのブラウザは動画タグをサポートしていません。
-          </video>
-          <div class="mt-1 text-caption">
-            <v-icon size="small">mdi-account</v-icon>
-            {{ isDualVideo ? '両陣営' : videoReplay.playerName }} のリプレイ
-          </div>
         </div>
-        <v-alert v-else :type="isPolling ? 'warning' : 'info'" density="compact" class="d-flex align-center">
-          <template v-if="isPolling">
-            <v-progress-circular size="16" width="2" indeterminate class="mr-2" />
-            動画を生成中...
+
+        <!-- ミニマップ動画 -->
+        <div v-if="selectedVideoType === 'minimap'" class="video-container">
+          <template v-if="videoReplay">
+            <video
+              controls
+              class="video-player"
+              :src="getVideoUrl(videoReplay.mp4S3Key)"
+              :key="'minimap-' + videoReplay.playerID"
+            >
+              お使いのブラウザは動画タグをサポートしていません。
+            </video>
+            <div class="mt-1 text-caption">
+              <v-icon size="small">mdi-account</v-icon>
+              {{ isDualVideo ? '両陣営' : videoReplay.playerName }} のリプレイ
+            </div>
           </template>
-          <template v-else>
-            動画なし
+          <v-alert v-else :type="isPolling ? 'warning' : 'info'" density="compact" class="d-flex align-center">
+            <template v-if="isPolling">
+              <v-progress-circular size="16" width="2" indeterminate class="mr-2" />
+              動画を生成中...
+            </template>
+            <template v-else>
+              ミニマップ動画なし
+            </template>
+          </v-alert>
+        </div>
+
+        <!-- ゲームプレイ動画 -->
+        <div v-else-if="selectedVideoType === 'gameplay'" class="video-container">
+          <template v-if="gameplayVideoReplay">
+            <video
+              controls
+              class="video-player"
+              :src="getGameplayVideoUrl(gameplayVideoReplay.gameplayVideoS3Key)"
+              :key="'gameplay-' + gameplayVideoReplay.playerID"
+            >
+              お使いのブラウザは動画タグをサポートしていません。
+            </video>
+            <div class="mt-1 text-caption">
+              <v-icon size="small">mdi-account</v-icon>
+              {{ gameplayVideoReplay.playerName }} のゲームプレイ
+              <span v-if="gameplayVideoReplay.gameplayVideoSize" class="text-grey ml-1">
+                ({{ formatFileSize(gameplayVideoReplay.gameplayVideoSize) }})
+              </span>
+            </div>
           </template>
-        </v-alert>
+          <v-alert v-else type="info" density="compact">
+            ゲームプレイ動画なし
+          </v-alert>
+        </div>
       </v-col>
     </v-row>
 
@@ -393,35 +439,81 @@
 
       <!-- 動画プレーヤー（スコアボードがない場合） -->
       <v-col cols="12" md="6">
-        <h3 class="mb-2">
-          ミニマップ動画
-          <v-chip v-if="isDualVideo" color="purple" size="x-small" class="ml-1">
+        <!-- 動画タイプ切り替えボタン -->
+        <div class="d-flex align-center mb-2">
+          <v-btn-toggle
+            v-if="hasAnyVideo"
+            v-model="selectedVideoType"
+            mandatory
+            density="compact"
+            color="primary"
+            variant="outlined"
+          >
+            <v-btn value="minimap" size="small" :disabled="!hasMinimapVideo">
+              <v-icon size="small" class="mr-1">mdi-map</v-icon>
+              ミニマップ
+            </v-btn>
+            <v-btn value="gameplay" size="small" :disabled="!hasGameplayVideo">
+              <v-icon size="small" class="mr-1">mdi-gamepad-variant</v-icon>
+              ゲームプレイ
+            </v-btn>
+          </v-btn-toggle>
+          <v-chip v-if="selectedVideoType === 'minimap' && isDualVideo" color="purple" size="x-small" class="ml-2">
             <v-icon size="x-small" class="mr-1">mdi-eye-outline</v-icon>
             両陣営視点
           </v-chip>
-        </h3>
-        <div v-if="videoReplay" class="video-container">
-          <video
-            controls
-            class="video-player"
-            :src="getVideoUrl(videoReplay.mp4S3Key)"
-          >
-            お使いのブラウザは動画タグをサポートしていません。
-          </video>
-          <div class="mt-1 text-caption">
-            <v-icon size="small">mdi-account</v-icon>
-            {{ isDualVideo ? '両陣営' : videoReplay.playerName }} のリプレイ
-          </div>
         </div>
-        <v-alert v-else :type="isPolling ? 'warning' : 'info'" density="compact" class="d-flex align-center">
-          <template v-if="isPolling">
-            <v-progress-circular size="16" width="2" indeterminate class="mr-2" />
-            動画を生成中...
+
+        <!-- ミニマップ動画 -->
+        <div v-if="selectedVideoType === 'minimap'" class="video-container">
+          <template v-if="videoReplay">
+            <video
+              controls
+              class="video-player"
+              :src="getVideoUrl(videoReplay.mp4S3Key)"
+              :key="'minimap-alt-' + videoReplay.playerID"
+            >
+              お使いのブラウザは動画タグをサポートしていません。
+            </video>
+            <div class="mt-1 text-caption">
+              <v-icon size="small">mdi-account</v-icon>
+              {{ isDualVideo ? '両陣営' : videoReplay.playerName }} のリプレイ
+            </div>
           </template>
-          <template v-else>
-            この試合の動画はまだ生成されていません
+          <v-alert v-else :type="isPolling ? 'warning' : 'info'" density="compact" class="d-flex align-center">
+            <template v-if="isPolling">
+              <v-progress-circular size="16" width="2" indeterminate class="mr-2" />
+              動画を生成中...
+            </template>
+            <template v-else>
+              この試合の動画はまだ生成されていません
+            </template>
+          </v-alert>
+        </div>
+
+        <!-- ゲームプレイ動画 -->
+        <div v-else-if="selectedVideoType === 'gameplay'" class="video-container">
+          <template v-if="gameplayVideoReplay">
+            <video
+              controls
+              class="video-player"
+              :src="getGameplayVideoUrl(gameplayVideoReplay.gameplayVideoS3Key)"
+              :key="'gameplay-alt-' + gameplayVideoReplay.playerID"
+            >
+              お使いのブラウザは動画タグをサポートしていません。
+            </video>
+            <div class="mt-1 text-caption">
+              <v-icon size="small">mdi-account</v-icon>
+              {{ gameplayVideoReplay.playerName }} のゲームプレイ
+              <span v-if="gameplayVideoReplay.gameplayVideoSize" class="text-grey ml-1">
+                ({{ formatFileSize(gameplayVideoReplay.gameplayVideoSize) }})
+              </span>
+            </div>
           </template>
-        </v-alert>
+          <v-alert v-else type="info" density="compact">
+            ゲームプレイ動画なし
+          </v-alert>
+        </div>
       </v-col>
     </v-row>
 
@@ -445,6 +537,10 @@
           {{ replay.playerName }}
           <v-chip v-if="replay.mp4S3Key" size="x-small" color="success" class="ml-1">
             動画あり
+          </v-chip>
+          <v-chip v-if="replay.gameplayVideoS3Key" size="x-small" color="info" class="ml-1">
+            <v-icon size="x-small" class="mr-1">mdi-gamepad-variant</v-icon>
+            ゲームプレイ
           </v-chip>
           <span class="text-caption text-grey ml-2">
             {{ replay.ownPlayer?.shipName || '-' }} | {{ formatDateTime(replay.uploadedAt) }}
@@ -791,7 +887,10 @@ const hasPlayerDetails = (player: PlayerStats): boolean => {
   return !!(player.captainSkills?.length || player.upgrades?.length)
 }
 
-// 動画があるリプレイを取得（Dual動画を優先）
+// 動画タイプ選択（minimap/gameplay）
+const selectedVideoType = ref<'minimap' | 'gameplay'>('minimap')
+
+// ミニマップ動画があるリプレイを取得（Dual動画を優先）
 const videoReplay = computed(() => {
   if (!props.match.replays) return null
   // まずDual動画を探す
@@ -801,12 +900,33 @@ const videoReplay = computed(() => {
   return props.match.replays.find(r => r.mp4S3Key) || null
 })
 
+// ゲームプレイ動画があるリプレイを取得
+const gameplayVideoReplay = computed(() => {
+  if (!props.match.replays) return null
+  return props.match.replays.find(r => r.gameplayVideoS3Key) || null
+})
+
+// ミニマップ動画があるかどうか
+const hasMinimapVideo = computed(() => {
+  return videoReplay.value !== null
+})
+
+// ゲームプレイ動画があるかどうか
+const hasGameplayVideo = computed(() => {
+  return gameplayVideoReplay.value !== null
+})
+
+// 何らかの動画があるかどうか
+const hasAnyVideo = computed(() => {
+  return hasMinimapVideo.value || hasGameplayVideo.value
+})
+
 // Dual動画があるかどうか
 const isDualVideo = computed(() => {
   return videoReplay.value?.dualMp4S3Key ? true : false
 })
 
-// 動画URLを生成（Dual優先）
+// ミニマップ動画URLを生成（Dual優先）
 const getVideoUrl = (mp4S3Key: string | undefined) => {
   const replay = videoReplay.value
   // Dual動画があればそちらを優先
@@ -815,6 +935,23 @@ const getVideoUrl = (mp4S3Key: string | undefined) => {
   // S3バケットURLは環境変数から取得（末尾スラッシュを除去）
   const s3BucketUrl = config.public.s3BucketUrl.replace(/\/+$/, '')
   return `${s3BucketUrl}/${keyToUse}`
+}
+
+// ゲームプレイ動画URLを生成
+const getGameplayVideoUrl = (s3Key: string | undefined) => {
+  if (!s3Key) return ''
+  const s3BucketUrl = config.public.s3BucketUrl.replace(/\/+$/, '')
+  return `${s3BucketUrl}/${s3Key}`
+}
+
+// ファイルサイズをフォーマット
+const formatFileSize = (bytes: number | undefined): string => {
+  if (!bytes) return ''
+  const mb = bytes / (1024 * 1024)
+  if (mb >= 1000) {
+    return `${(mb / 1024).toFixed(1)} GB`
+  }
+  return `${mb.toFixed(1)} MB`
 }
 
 // リプレイをダウンロード

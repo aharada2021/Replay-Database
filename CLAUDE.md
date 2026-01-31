@@ -33,6 +33,8 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
   /app           - Nuxt 4 ソースディレクトリ（pages, components, composables, stores, plugins, middleware, types）
 /scripts         - 運用スクリプト
 /config          - 設定ファイル
+/client_tool     - Windows用リプレイアップローダークライアント
+  /capture       - ゲームキャプチャモジュール（screen, audio, video encoder）
 ```
 
 ## DynamoDBテーブル
@@ -131,6 +133,36 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **ゲームプレイ動画アップロード機能（2026-02-01）**:
+  - クライアントツールでキャプチャした動画をS3にアップロードする機能を追加
+  - `client_tool/wows_replay_uploader.py`:
+    - `PendingVideoQueue`クラス: 動画→リプレイのマッピング管理
+    - `ReplayUploader._upload_gameplay_video()`: S3へのPresigned URL PUT
+    - `ReplayUploader._notify_video_upload_complete()`: アップロード完了通知
+    - 設定オプション: `upload_gameplay_video`, `keep_local_copy`, `max_upload_size_mb`
+  - `src/handlers/api/upload.py`:
+    - `generate_video_upload_url()`: Presigned PUT URL生成
+    - `handle_video_complete()`: 動画アップロード完了通知API
+  - `src/utils/dynamodb_tables.py`:
+    - `update_gameplay_video_info()`: UPLOAD#レコードに動画情報更新
+    - `update_match_has_gameplay_video()`: MATCHレコードにフラグ設定
+  - `src/handlers/api/match_detail.py`: レスポンスに`gameplayVideoS3Key`等追加
+  - `web-ui/app/types/replay.ts`: `gameplayVideoS3Key`等の型追加
+  - `web-ui/app/components/MatchDetailExpansion.vue`:
+    - ミニマップ/ゲームプレイ動画切り替えボタン（v-btn-toggle）
+    - 動画タイプごとのプレーヤー表示
+  - `deploy/serverless.yml`: `/api/upload/video-complete` エンドポイント追加
+- **ゲームキャプチャ機能（2026-01-31）**:
+  - クライアントツールにゲームプレイ録画機能を追加（v1.3.0）
+  - `client_tool/capture/` モジュール新規作成
+    - `screen_capture.py`: Windows Graphics Capture API（windows-capture）でゲームウィンドウキャプチャ
+    - `audio_capture.py`: PyAudioWPatchでWASAPI loopback + マイク入力キャプチャ
+    - `video_encoder.py`: FFmpegでH.264 MP4エンコード（2パス方式：raw→WAV→FFmpeg mux）
+    - `manager.py`: GameCaptureManager - キャプチャオーケストレーション
+    - `config.py`: CaptureConfig - 設定管理（品質、FPS、保存先など）
+  - `tempArenaInfo.json` 検出で試合開始を検知、`*.wowsreplay` 作成で試合終了を検知
+  - 最大録画時間制限（デフォルト30分）、フレームドロップログ出力
+  - 新規依存: windows-capture, PyAudioWPatch, numpy, FFmpeg
 - **Nuxt 4 移行（2026-01-27）**:
   - Nuxt 3 → Nuxt 4.3.0、Pinia 2 → Pinia 3 へ移行
   - codemodによりソースファイルを `web-ui/app/` ディレクトリへ移動（Nuxt 4 デフォルト構造）
