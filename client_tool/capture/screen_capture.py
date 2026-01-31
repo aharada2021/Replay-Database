@@ -222,6 +222,18 @@ class ScreenCapture:
             # windows-capture 1.5.0: use frame_buffer instead of raw_frame
             frame_data = frame.frame_buffer
 
+            # Scale down frame if configured (reduces raw file size)
+            if self.config.capture_scale < 1.0:
+                import cv2
+                new_width = int(frame_data.shape[1] * self.config.capture_scale)
+                new_height = int(frame_data.shape[0] * self.config.capture_scale)
+                # Ensure even dimensions for libx264
+                new_width = new_width if new_width % 2 == 0 else new_width + 1
+                new_height = new_height if new_height % 2 == 0 else new_height + 1
+                frame_data = cv2.resize(
+                    frame_data, (new_width, new_height), interpolation=cv2.INTER_AREA
+                )
+
             timestamp = current_time - start_time
 
             self.frame_callback(frame_data, timestamp)

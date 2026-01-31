@@ -18,6 +18,7 @@ class CaptureConfig:
     )
     video_quality: str = "medium"  # low, medium, high
     target_fps: int = 30
+    capture_scale: float = 0.5  # Scale factor for capture resolution (0.5 = half size)
     capture_audio: bool = True
     capture_microphone: bool = False
     mic_volume: float = 0.7
@@ -42,6 +43,12 @@ class CaptureConfig:
             self.target_fps = 15
         elif self.target_fps > 60:
             self.target_fps = 60
+
+        # Validate capture scale (0.25 to 1.0)
+        if self.capture_scale < 0.25:
+            self.capture_scale = 0.25
+        elif self.capture_scale > 1.0:
+            self.capture_scale = 1.0
 
         if self.mic_volume < 0.0:
             self.mic_volume = 0.0
@@ -95,6 +102,7 @@ class CaptureConfig:
             output_folder=output_folder,
             video_quality=capture_data.get("video_quality", "medium"),
             target_fps=capture_data.get("target_fps", 30),
+            capture_scale=capture_data.get("capture_scale", 0.5),
             capture_audio=capture_data.get("capture_audio", True),
             capture_microphone=capture_data.get("capture_microphone", False),
             mic_volume=capture_data.get("mic_volume", 0.7),
@@ -114,6 +122,7 @@ class CaptureConfig:
                 "output_folder": str(self.output_folder),
                 "video_quality": self.video_quality,
                 "target_fps": self.target_fps,
+                "capture_scale": self.capture_scale,
                 "capture_audio": self.capture_audio,
                 "capture_microphone": self.capture_microphone,
                 "mic_volume": self.mic_volume,

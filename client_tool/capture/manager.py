@@ -64,6 +64,9 @@ class GameCaptureManager:
         # Max duration timer
         self._duration_timer: Optional[threading.Timer] = None
 
+        # Audio debug counter
+        self._audio_callback_count = 0
+
     def is_available(self) -> bool:
         """Check if capture is available on this system."""
         if self._use_mocks:
@@ -176,8 +179,22 @@ class GameCaptureManager:
                 if window_info is None:
                     raise WindowNotFoundError("Window info not available")
 
+                # Calculate scaled dimensions if capture_scale is applied
+                capture_width = window_info.width
+                capture_height = window_info.height
+                if self.config.capture_scale < 1.0:
+                    capture_width = int(window_info.width * self.config.capture_scale)
+                    capture_height = int(window_info.height * self.config.capture_scale)
+                    # Ensure even dimensions for libx264
+                    capture_width = capture_width if capture_width % 2 == 0 else capture_width + 1
+                    capture_height = capture_height if capture_height % 2 == 0 else capture_height + 1
+                    logger.info(
+                        f"Capture scaling: {window_info.width}x{window_info.height} -> "
+                        f"{capture_width}x{capture_height} (scale={self.config.capture_scale})"
+                    )
+
                 self._encoder = encoder_cls(self.config, self._output_path)
-                if not self._encoder.start(window_info.width, window_info.height):
+                if not self._encoder.start(capture_width, capture_height):
                     raise CaptureError("Failed to start encoder")
 
                 if self.config.capture_audio or self.config.capture_microphone:
@@ -190,6 +207,7 @@ class GameCaptureManager:
 
                 self._running = True
                 self._start_time = time.perf_counter()
+                self._audio_callback_count = 0  # Reset audio callback counter
 
                 # Start max duration timer
                 self._start_duration_timer()
@@ -228,6 +246,11 @@ class GameCaptureManager:
         """Callback for audio data."""
         if self._encoder is not None and self._running:
             self._encoder.write_audio(audio, timestamp)
+            if self._audio_callback_count == 0:
+                logger.info(f"Manager received first audio: {len(audio)} samples at {timestamp:.2f}s")
+            self._audio_callback_count += 1
+            if self._audio_callback_count % 1000 == 0:
+                logger.info(f"Manager audio callbacks: {self._audio_callback_count}")
 
     def _start_duration_timer(self):
         """Start a timer to enforce max capture duration."""
