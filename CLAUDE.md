@@ -133,6 +133,25 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **ゲームプレイ動画アップロード機能（2026-02-01）**:
+  - クライアントツールでキャプチャした動画をS3にアップロードする機能を追加
+  - `client_tool/wows_replay_uploader.py`:
+    - `PendingVideoQueue`クラス: 動画→リプレイのマッピング管理
+    - `ReplayUploader._upload_gameplay_video()`: S3へのPresigned URL PUT
+    - `ReplayUploader._notify_video_upload_complete()`: アップロード完了通知
+    - 設定オプション: `upload_gameplay_video`, `keep_local_copy`, `max_upload_size_mb`
+  - `src/handlers/api/upload.py`:
+    - `generate_video_upload_url()`: Presigned PUT URL生成
+    - `handle_video_complete()`: 動画アップロード完了通知API
+  - `src/utils/dynamodb_tables.py`:
+    - `update_gameplay_video_info()`: UPLOAD#レコードに動画情報更新
+    - `update_match_has_gameplay_video()`: MATCHレコードにフラグ設定
+  - `src/handlers/api/match_detail.py`: レスポンスに`gameplayVideoS3Key`等追加
+  - `web-ui/app/types/replay.ts`: `gameplayVideoS3Key`等の型追加
+  - `web-ui/app/components/MatchDetailExpansion.vue`:
+    - ミニマップ/ゲームプレイ動画切り替えボタン（v-btn-toggle）
+    - 動画タイプごとのプレーヤー表示
+  - `deploy/serverless.yml`: `/api/upload/video-complete` エンドポイント追加
 - **ゲームキャプチャ機能（2026-01-31）**:
   - クライアントツールにゲームプレイ録画機能を追加（v1.3.0）
   - `client_tool/capture/` モジュール新規作成

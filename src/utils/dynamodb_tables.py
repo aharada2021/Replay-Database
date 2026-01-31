@@ -292,6 +292,48 @@ class BattleTableClient:
             ExpressionAttributeValues={":available": available},
         )
 
+    def update_gameplay_video_info(
+        self,
+        arena_unique_id: str,
+        player_id: int,
+        gameplay_video_s3_key: str,
+        file_size: int,
+        uploaded_at: int,
+    ):
+        """
+        ゲームプレイ動画情報をUPLOADレコードに更新
+
+        Args:
+            arena_unique_id: アリーナユニークID
+            player_id: プレイヤーID
+            gameplay_video_s3_key: S3キー
+            file_size: ファイルサイズ(bytes)
+            uploaded_at: アップロード日時(Unix timestamp)
+        """
+        self.table.update_item(
+            Key={"arenaUniqueID": arena_unique_id, "recordType": f"UPLOAD#{player_id}"},
+            UpdateExpression="SET gameplayVideoS3Key = :key, gameplayVideoSize = :size, gameplayVideoUploadedAt = :at",
+            ExpressionAttributeValues={
+                ":key": gameplay_video_s3_key,
+                ":size": file_size,
+                ":at": uploaded_at,
+            },
+        )
+
+    def update_match_has_gameplay_video(self, arena_unique_id: str, has_video: bool = True):
+        """
+        MATCHレコードにゲームプレイ動画があることを記録
+
+        Args:
+            arena_unique_id: アリーナユニークID
+            has_video: ゲームプレイ動画があるかどうか
+        """
+        self.table.update_item(
+            Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"},
+            UpdateExpression="SET hasGameplayVideo = :has",
+            ExpressionAttributeValues={":has": has_video},
+        )
+
     def batch_get_matches(self, arena_unique_ids: list) -> dict:
         """
         複数のMATCHレコードを一括取得

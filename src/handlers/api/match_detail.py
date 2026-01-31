@@ -121,6 +121,7 @@ def handle_match(event, context):
         dual_mp4_s3_key = match_data.get("dualMp4S3Key")
         dual_mp4_generated_at = match_data.get("dualMp4GeneratedAt")
         has_dual_replay = match_data.get("dualRendererAvailable", False)
+        has_gameplay_video = match_data.get("hasGameplayVideo", False)
 
         # レスポンス構築
         match_info = {
@@ -140,6 +141,7 @@ def handle_match(event, context):
             "allyMainClanTag": match_data.get("allyMainClanTag"),
             "enemyMainClanTag": match_data.get("enemyMainClanTag"),
             "hasDualReplay": has_dual_replay,
+            "hasGameplayVideo": has_gameplay_video,
             "commentCount": match_data.get("commentCount", 0),
             # 動画情報
             "mp4S3Key": mp4_s3_key,
@@ -171,6 +173,10 @@ def handle_match(event, context):
                     "dualMp4S3Key": dual_mp4_s3_key,
                     "dualMp4GeneratedAt": dual_mp4_generated_at,
                     "hasDualReplay": has_dual_replay,
+                    # ゲームプレイ動画情報
+                    "gameplayVideoS3Key": upload.get("gameplayVideoS3Key"),
+                    "gameplayVideoSize": upload.get("gameplayVideoSize"),
+                    "gameplayVideoUploadedAt": format_uploaded_at(upload.get("gameplayVideoUploadedAt")),
                     # 戦闘統計
                     "damage": upload.get("damage"),
                     "kills": upload.get("kills"),

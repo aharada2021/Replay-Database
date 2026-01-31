@@ -103,6 +103,10 @@ export interface ReplayProvider extends BattleStats {
   dualMp4S3Key?: string
   dualMp4GeneratedAt?: string
   hasDualReplay?: boolean
+  // ゲームプレイ動画
+  gameplayVideoS3Key?: string
+  gameplayVideoSize?: number
+  gameplayVideoUploadedAt?: string
   ownPlayer?: PlayerInfo
 }
 
@@ -150,6 +154,8 @@ export interface MatchRecord extends BattleStats {
   dualMp4S3Key?: string
   dualMp4GeneratedAt?: string
   hasDualReplay?: boolean
+  // ゲームプレイ動画
+  hasGameplayVideo?: boolean
 
   // コメント数
   commentCount?: number
@@ -229,6 +235,8 @@ export interface MatchDetailResponse {
   replays: ReplayProvider[]
   // Dual Render
   hasDualReplay?: boolean
+  // ゲームプレイ動画
+  hasGameplayVideo?: boolean
 }
 
 export interface GenerateVideoRequest {
