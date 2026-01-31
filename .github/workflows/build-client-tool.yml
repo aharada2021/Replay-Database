@@ -133,8 +133,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     environment: development
-    # S3_BUCKET が設定されている場合のみ実行
-    if: vars.S3_BUCKET != ''
 
     steps:
       - name: Download artifact
@@ -154,6 +152,10 @@ jobs:
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
+          if [ -z "$S3_BUCKET" ]; then
+            echo "::warning::S3_BUCKET is not configured for this environment. Skipping upload."
+            exit 0
+          fi
           aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader.zip
           aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader-${VERSION}.zip
 
@@ -162,8 +164,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     environment: production
-    # S3_BUCKET が設定されている場合のみ実行
-    if: vars.S3_BUCKET != ''
 
     steps:
       - name: Download artifact
@@ -183,5 +183,9 @@ jobs:
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
+          if [ -z "$S3_BUCKET" ]; then
+            echo "::warning::S3_BUCKET is not configured for this environment. Skipping upload."
+            exit 0
+          fi
           aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader.zip
           aws s3 cp wows_replay_uploader.zip s3://${S3_BUCKET}/downloads/wows_replay_uploader-${VERSION}.zip
