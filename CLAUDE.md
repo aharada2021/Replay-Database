@@ -33,6 +33,8 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
   /app           - Nuxt 4 ソースディレクトリ（pages, components, composables, stores, plugins, middleware, types）
 /scripts         - 運用スクリプト
 /config          - 設定ファイル
+/client_tool     - Windows用リプレイアップローダークライアント
+  /capture       - ゲームキャプチャモジュール（screen, audio, video encoder）
 ```
 
 ## DynamoDBテーブル
@@ -131,6 +133,17 @@ python3 scripts/backfill_winloss.py  # 勝敗情報追加（全ゲームタイ�
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **ゲームキャプチャ機能（2026-01-31）**:
+  - クライアントツールにゲームプレイ録画機能を追加（v1.3.0）
+  - `client_tool/capture/` モジュール新規作成
+    - `screen_capture.py`: Windows Graphics Capture API（windows-capture）でゲームウィンドウキャプチャ
+    - `audio_capture.py`: PyAudioWPatchでWASAPI loopback + マイク入力キャプチャ
+    - `video_encoder.py`: FFmpegでH.264 MP4エンコード（2パス方式：raw→WAV→FFmpeg mux）
+    - `manager.py`: GameCaptureManager - キャプチャオーケストレーション
+    - `config.py`: CaptureConfig - 設定管理（品質、FPS、保存先など）
+  - `tempArenaInfo.json` 検出で試合開始を検知、`*.wowsreplay` 作成で試合終了を検知
+  - 最大録画時間制限（デフォルト30分）、フレームドロップログ出力
+  - 新規依存: windows-capture, PyAudioWPatch, numpy, FFmpeg
 - **Nuxt 4 移行（2026-01-27）**:
   - Nuxt 3 → Nuxt 4.3.0、Pinia 2 → Pinia 3 へ移行
   - codemodによりソースファイルを `web-ui/app/` ディレクトリへ移動（Nuxt 4 デフォルト構造）

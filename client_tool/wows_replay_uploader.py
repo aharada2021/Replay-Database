@@ -3,6 +3,7 @@
 WoWS Replay Auto Uploader
 
 World of Warshipsのリプレイファイルを自動的にアップロードするクライアント常駐ツール
+ゲームプレイキャプチャ機能も含む
 """
 
 import os
@@ -24,7 +25,16 @@ from typing import Optional, Dict, Any, Tuple
 
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
-from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent
+from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent, FileDeletedEvent
+
+# Capture module (optional - may not be available on non-Windows systems)
+try:
+    from capture import CaptureConfig, GameCaptureManager
+    from capture.manager import load_arena_info
+
+    CAPTURE_AVAILABLE = True
+except ImportError:
+    CAPTURE_AVAILABLE = False
 
 # ========================================
 # 定数
@@ -35,7 +45,7 @@ from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent
 DEFAULT_API_BASE_URL = ""  # 例: "https://your-server.example.com"
 
 # バージョン情報
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 # デフォルトのリプレイフォルダ
 DEFAULT_REPLAYS_FOLDER = os.path.expandvars('%APPDATA%\\Wargaming.net\\WorldOfWarships\\replays')
@@ -88,6 +98,9 @@ class SetupWizard:
 
         # Discord User ID（オプション）
         self.config['discord_user_id'] = self._get_discord_user_id()
+
+        # キャプチャ設定（オプション）
+        self.config['capture'] = self._get_capture_settings()
 
         # スタートアップ登録
         self._prompt_startup_registration()
@@ -181,13 +194,68 @@ class SetupWizard:
     def _get_discord_user_id(self) -> str:
         """Discord User ID を取得（オプション）"""
         print("\n" + "-" * 40)
-        print("【ステップ 4/4】Discord連携（オプション）")
+        print("【ステップ 4/5】Discord連携（オプション）")
         print("-" * 40)
         print("\nDiscord User IDを設定すると、アップロード時にあなたのID情報が")
         print("関連付けられます。空欄でもOKです。")
 
         user_id = input("\nDiscord User ID (空欄可): ").strip()
         return user_id
+
+    def _get_capture_settings(self) -> Dict[str, Any]:
+        """キャプチャ設定を取得（オプション）"""
+        print("\n" + "-" * 40)
+        print("【ステップ 5/5】ゲームキャプチャ設定（オプション）")
+        print("-" * 40)
+
+        if not CAPTURE_AVAILABLE:
+            print("\n※ キャプチャ機能は現在利用できません。")
+            print("  必要なライブラリがインストールされていません。")
+            return {'enabled': False}
+
+        print("\n試合中のゲームプレイを自動的に録画できます。")
+        print("録画は試合開始時に自動的に開始され、終了時に停止します。")
+
+        choice = input("\nキャプチャ機能を有効にしますか? (y/N): ").strip().lower()
+
+        if choice != 'y':
+            print("キャプチャ機能を無効にしました。")
+            return {'enabled': False}
+
+        # 保存先フォルダ
+        default_folder = os.path.expandvars('%USERPROFILE%\\Videos\\WoWS Captures')
+        print(f"\n録画ファイルの保存先 (デフォルト: {default_folder})")
+        output_folder = input("保存先フォルダ (空欄でデフォルト): ").strip()
+        if not output_folder:
+            output_folder = default_folder
+
+        # 品質設定
+        print("\n録画品質を選択してください:")
+        print("  1. low    - ファイルサイズ小、CPU負荷軽い")
+        print("  2. medium - バランス型（推奨）")
+        print("  3. high   - 高品質、ファイルサイズ大")
+
+        quality_choice = input("品質 (1/2/3、デフォルト: 2): ").strip()
+        quality_map = {'1': 'low', '2': 'medium', '3': 'high'}
+        video_quality = quality_map.get(quality_choice, 'medium')
+
+        # オーディオ設定
+        capture_audio = input("\nデスクトップ音声を録音しますか? (Y/n): ").strip().lower() != 'n'
+        capture_mic = False
+        if capture_audio:
+            capture_mic = input("マイク入力も録音しますか? (y/N): ").strip().lower() == 'y'
+
+        print("\n✓ キャプチャ設定が完了しました。")
+
+        return {
+            'enabled': True,
+            'output_folder': output_folder,
+            'video_quality': video_quality,
+            'capture_audio': capture_audio,
+            'capture_microphone': capture_mic,
+            'target_fps': 30,
+            'max_duration_minutes': 30,
+        }
 
     def _prompt_startup_registration(self):
         """スタートアップ登録を促す"""
@@ -238,7 +306,8 @@ class SetupWizard:
             'discord_user_id': self.config.get('discord_user_id', ''),
             'retry_count': 3,
             'retry_delay': 5,
-            'use_polling': True
+            'use_polling': True,
+            'capture': self.config.get('capture', {'enabled': False}),
         }
 
         config_path = Path(os.path.dirname(os.path.abspath(sys.argv[0]))) / CONFIG_FILE
@@ -568,7 +637,11 @@ class ReplayUploader:
 class ReplayFileHandler(PatternMatchingEventHandler):
     """リプレイファイル監視ハンドラー"""
 
-    def __init__(self, uploader: ReplayUploader):
+    def __init__(
+        self,
+        uploader: ReplayUploader,
+        capture_manager: Optional["GameCaptureManager"] = None,
+    ):
         super().__init__(
             patterns=["*.wowsreplay"],
             ignore_patterns=["temp.wowsreplay"],
@@ -576,6 +649,7 @@ class ReplayFileHandler(PatternMatchingEventHandler):
             case_sensitive=False
         )
         self.uploader = uploader
+        self.capture_manager = capture_manager
         self.processing_files = set()
 
     def on_created(self, event: FileCreatedEvent):
@@ -592,6 +666,17 @@ class ReplayFileHandler(PatternMatchingEventHandler):
         self.processing_files.add(str(file_path))
 
         try:
+            # キャプチャを停止
+            if self.capture_manager is not None:
+                if self.capture_manager.is_running():
+                    logger.info("試合終了を検出、キャプチャを停止します...")
+                    output_path = self.capture_manager.stop_capture()
+                    if output_path is not None:
+                        logger.info(f"録画ファイルを保存しました: {output_path}")
+                elif self.capture_manager.is_waiting_for_window():
+                    logger.info("ウィンドウ検索をキャンセルします...")
+                    self.capture_manager.stop_capture()
+
             self._wait_for_file_complete(file_path)
             result = self.uploader.upload_replay(file_path)
 
@@ -631,6 +716,56 @@ class ReplayFileHandler(PatternMatchingEventHandler):
         logger.warning(f"タイムアウト: {file_path.name}")
 
 
+class GameCaptureFileHandler(PatternMatchingEventHandler):
+    """tempArenaInfo.json監視ハンドラー（キャプチャ開始用）"""
+
+    def __init__(self, capture_manager: "GameCaptureManager", replays_folder: str):
+        super().__init__(
+            patterns=["tempArenaInfo.json"],
+            ignore_directories=True,
+            case_sensitive=False
+        )
+        self.capture_manager = capture_manager
+        self.replays_folder = Path(replays_folder)
+
+    def on_created(self, event: FileCreatedEvent):
+        """tempArenaInfo.json作成を検出（試合開始）"""
+        if event.is_directory:
+            return
+
+        file_path = Path(event.src_path)
+        logger.info(f"試合開始を検出: {file_path.name}")
+
+        try:
+            time.sleep(0.5)
+
+            arena_info = None
+            try:
+                arena_info = load_arena_info(file_path)
+                if arena_info:
+                    map_name = arena_info.get('mapDisplayName', 'Unknown')
+                    game_mode = arena_info.get('gameLogic', 'Unknown')
+                    logger.info(f"マップ: {map_name}, モード: {game_mode}")
+            except Exception as e:
+                logger.warning(f"アリーナ情報の読み込みに失敗: {e}")
+
+            if not self.capture_manager.is_running():
+                logger.info("ゲームキャプチャを開始します...")
+                self.capture_manager.start_capture(arena_info=arena_info, wait_for_window=True)
+            else:
+                logger.warning("キャプチャは既に実行中です")
+
+        except Exception as e:
+            logger.error(f"キャプチャ開始エラー: {e}")
+
+    def on_deleted(self, event: FileDeletedEvent):
+        """tempArenaInfo.json削除を検出（試合終了のバックアップ検出）"""
+        if event.is_directory:
+            return
+
+        logger.debug(f"tempArenaInfo.json削除を検出")
+
+
 class ReplayMonitor:
     """リプレイフォルダ監視クラス"""
 
@@ -639,6 +774,36 @@ class ReplayMonitor:
         self.replays_folder = config.get('replays_folder')
         self.uploader = ReplayUploader(config)
         self.observer = None
+        self.capture_manager: Optional["GameCaptureManager"] = None
+
+        self._init_capture()
+
+    def _init_capture(self):
+        """キャプチャ機能を初期化"""
+        if not CAPTURE_AVAILABLE:
+            logger.info("キャプチャモジュールが利用できません")
+            return
+
+        capture_config_data = self.config.get('capture', {})
+
+        if not capture_config_data.get('enabled', False):
+            logger.info("キャプチャ機能は無効です")
+            return
+
+        try:
+            capture_config = CaptureConfig.from_dict({'capture': capture_config_data})
+
+            self.capture_manager = GameCaptureManager(capture_config)
+
+            if self.capture_manager.is_available():
+                logger.info("キャプチャ機能が有効です")
+                logger.info(f"録画保存先: {capture_config.output_folder}")
+            else:
+                logger.warning("キャプチャ機能は利用できません（FFmpegが見つかりません）")
+                self.capture_manager = None
+        except Exception as e:
+            logger.error(f"キャプチャ初期化エラー: {e}")
+            self.capture_manager = None
 
     def start(self):
         """監視を開始"""
@@ -656,8 +821,18 @@ class ReplayMonitor:
         else:
             self.observer = Observer()
 
-        event_handler = ReplayFileHandler(self.uploader)
-        self.observer.schedule(event_handler, self.replays_folder, recursive=False)
+        # リプレイファイル監視ハンドラー
+        replay_handler = ReplayFileHandler(self.uploader, self.capture_manager)
+        self.observer.schedule(replay_handler, self.replays_folder, recursive=False)
+
+        # キャプチャ開始用のtempArenaInfo.json監視ハンドラー
+        if self.capture_manager is not None:
+            capture_handler = GameCaptureFileHandler(
+                self.capture_manager, self.replays_folder
+            )
+            self.observer.schedule(capture_handler, self.replays_folder, recursive=False)
+            logger.info("ゲームキャプチャ監視を開始しました")
+
         self.observer.start()
 
         try:
@@ -665,6 +840,12 @@ class ReplayMonitor:
                 time.sleep(10)
         except KeyboardInterrupt:
             logger.info("監視を停止します...")
+
+            # キャプチャを停止
+            if self.capture_manager is not None and self.capture_manager.is_running():
+                logger.info("キャプチャを停止します...")
+                self.capture_manager.stop_capture()
+
             self.observer.stop()
 
         self.observer.join()

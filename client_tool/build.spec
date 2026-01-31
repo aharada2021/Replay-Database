@@ -1,12 +1,30 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+import shutil
 
 block_cipher = None
 
+# Find FFmpeg binary
+ffmpeg_path = shutil.which('ffmpeg')
+ffmpeg_binaries = []
+if ffmpeg_path:
+    ffmpeg_binaries.append((ffmpeg_path, '.'))
+else:
+    # Check common locations
+    common_paths = [
+        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs', 'ffmpeg', 'bin', 'ffmpeg.exe'),
+        'C:/ffmpeg/bin/ffmpeg.exe',
+        'C:/Program Files/ffmpeg/bin/ffmpeg.exe',
+    ]
+    for path in common_paths:
+        if os.path.exists(path):
+            ffmpeg_binaries.append((path, '.'))
+            break
 
 a = Analysis(
     ['wows_replay_uploader.py'],
     pathex=[],
-    binaries=[],
+    binaries=ffmpeg_binaries,
     datas=[],
     hiddenimports=[
         'watchdog.observers',
@@ -15,6 +33,22 @@ a = Analysis(
         'watchdog.observers.read_directory_changes',
         'watchdog.events',
         'multiprocessing',
+        # Capture module dependencies
+        'capture',
+        'capture.config',
+        'capture.manager',
+        'capture.screen_capture',
+        'capture.audio_capture',
+        'capture.video_encoder',
+        'capture.exceptions',
+        'numpy',
+        'numpy.core._methods',
+        'numpy.lib.format',
+        # Windows capture (optional)
+        'windows_capture',
+        # PyAudio (optional)
+        'pyaudiowpatch',
+        'pyaudio',
     ],
     hookspath=[],
     hooksconfig={},

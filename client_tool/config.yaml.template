@@ -1,6 +1,9 @@
 # WoWS Replay Auto Uploader 設定ファイル
 # ※このファイルはセットアップウィザードで自動生成されます
 
+# サーバーURL（必須）
+api_base_url: ''
+
 # API Key（必須）
 api_key: ''
 
@@ -16,3 +19,14 @@ retry_delay: 5        # リトライまでの待機時間（秒）
 
 # 監視方法設定
 use_polling: true     # PollingObserverを使用（安定性が高い、推奨）
+
+# ゲームキャプチャ設定
+capture:
+  enabled: false                              # キャプチャ機能の有効/無効
+  output_folder: '%USERPROFILE%\Videos\WoWS Captures'  # 録画ファイルの保存先
+  video_quality: medium                       # 録画品質 (low, medium, high)
+  target_fps: 30                              # 録画フレームレート
+  capture_audio: true                         # デスクトップ音声を録音
+  capture_microphone: false                   # マイク入力を録音
+  mic_volume: 0.7                             # マイク音量 (0.0-1.0)
+  max_duration_minutes: 30                    # 最大録画時間（分）
