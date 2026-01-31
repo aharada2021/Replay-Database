@@ -21,7 +21,7 @@ class CaptureConfig:
     capture_scale: float = 0.5  # Scale factor for capture resolution (0.5 = half size)
     capture_audio: bool = True
     capture_microphone: bool = False
-    mic_volume: float = 0.7
+    mic_volume: float = 3.0  # Mic boost factor (1.0 = no boost, 3.0 = 3x amplification)
     max_duration_minutes: int = 30
 
     # Window detection settings
@@ -50,10 +50,11 @@ class CaptureConfig:
         elif self.capture_scale > 1.0:
             self.capture_scale = 1.0
 
+        # Mic volume can be boosted up to 10x to balance against desktop audio
         if self.mic_volume < 0.0:
             self.mic_volume = 0.0
-        elif self.mic_volume > 1.0:
-            self.mic_volume = 1.0
+        elif self.mic_volume > 10.0:
+            self.mic_volume = 10.0
 
         if self.max_duration_minutes < 1:
             self.max_duration_minutes = 1
@@ -105,7 +106,7 @@ class CaptureConfig:
             capture_scale=capture_data.get("capture_scale", 0.5),
             capture_audio=capture_data.get("capture_audio", True),
             capture_microphone=capture_data.get("capture_microphone", False),
-            mic_volume=capture_data.get("mic_volume", 0.7),
+            mic_volume=capture_data.get("mic_volume", 3.0),
             max_duration_minutes=capture_data.get("max_duration_minutes", 30),
             window_title_pattern=capture_data.get(
                 "window_title_pattern", "World of Warships"

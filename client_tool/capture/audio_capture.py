@@ -406,7 +406,8 @@ class AudioCapture:
 
     def _mic_reader_loop(self):
         """Dedicated thread for reading microphone audio."""
-        logger.info("Mic reader thread started")
+        logger.info(f"Mic reader thread started (boost={self.config.mic_volume}x)")
+        print(f"[AUDIO] Mic reader thread started (boost={self.config.mic_volume}x)")
         read_count = 0
 
         try:
@@ -422,16 +423,20 @@ class AudioCapture:
 
                     if raw_data:
                         audio_data = np.frombuffer(raw_data, dtype=np.int16)
+                        raw_max_amp = np.max(np.abs(audio_data)) if len(audio_data) > 0 else 0
 
-                        # Apply mic volume
+                        # Apply mic volume/boost
                         if self.config.mic_volume != 1.0:
-                            audio_data = (audio_data.astype(np.float32) * self.config.mic_volume).astype(np.int16)
+                            # Use float32 for processing to avoid overflow, then clip
+                            boosted = audio_data.astype(np.float32) * self.config.mic_volume
+                            boosted = np.clip(boosted, -32768, 32767)
+                            audio_data = boosted.astype(np.int16)
 
                         read_count += 1
                         if read_count == 1:
-                            max_amp = np.max(np.abs(audio_data)) if len(audio_data) > 0 else 0
-                            logger.info(f"Mic first read: {len(audio_data)} samples, max_amp={max_amp}")
-                            print(f"[AUDIO] First mic read: {len(audio_data)} samples, max_amp={max_amp}")
+                            boosted_max_amp = np.max(np.abs(audio_data)) if len(audio_data) > 0 else 0
+                            logger.info(f"Mic first read: {len(audio_data)} samples, raw_max={raw_max_amp}, boosted_max={boosted_max_amp} (boost={self.config.mic_volume}x)")
+                            print(f"[AUDIO] First mic read: {len(audio_data)} samples, raw_max={raw_max_amp}, boosted_max={boosted_max_amp} (boost={self.config.mic_volume}x)")
 
                         with self._lock:
                             self._mic_buffer.append(audio_data.copy())
@@ -532,6 +537,20 @@ class AudioCapture:
 
         if mic is None:
             return loopback
+
+        # Log audio levels periodically for debugging
+        if not hasattr(self, '_mix_log_count'):
+            self._mix_log_count = 0
+        self._mix_log_count += 1
+
+        loopback_max = np.max(np.abs(loopback)) if len(loopback) > 0 else 0
+        mic_max = np.max(np.abs(mic)) if len(mic) > 0 else 0
+
+        if self._mix_log_count == 1:
+            logger.info(f"Audio mix first chunk: loopback_max={loopback_max}, mic_max={mic_max}")
+            print(f"[AUDIO] Mix first chunk: loopback_max={loopback_max}, mic_max={mic_max}")
+        elif self._mix_log_count % 5000 == 0:
+            logger.debug(f"Audio mix levels: loopback_max={loopback_max}, mic_max={mic_max}")
 
         if len(loopback) == len(mic):
             mixed = loopback.astype(np.float32) + mic.astype(np.float32)
