@@ -133,6 +133,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     environment: development
+    # S3_BUCKET が設定されている場合のみ実行
+    if: vars.S3_BUCKET != ''
 
     steps:
       - name: Download artifact
@@ -160,6 +162,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     environment: production
+    # S3_BUCKET が設定されている場合のみ実行
+    if: vars.S3_BUCKET != ''
 
     steps:
       - name: Download artifact
