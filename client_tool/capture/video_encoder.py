@@ -30,8 +30,9 @@ from .exceptions import EncoderError
 logger = logging.getLogger(__name__)
 
 # Queue size limits
-VIDEO_QUEUE_SIZE = 30
-AUDIO_QUEUE_SIZE = 60
+# Increased queue sizes for better buffering during I/O spikes
+VIDEO_QUEUE_SIZE = 90  # 3 seconds at 30fps
+AUDIO_QUEUE_SIZE = 180  # 3 seconds of audio chunks
 
 # Dropped frame logging interval
 DROPPED_FRAME_LOG_INTERVAL = 100
@@ -148,8 +149,15 @@ class VideoEncoder:
                 logger.warning("Encoder already running")
                 return True
 
-            self._width = width
-            self._height = height
+            # Round dimensions to even numbers (required by libx264)
+            self._width = width if width % 2 == 0 else width + 1
+            self._height = height if height % 2 == 0 else height + 1
+
+            if self._width != width or self._height != height:
+                logger.info(
+                    f"Adjusted dimensions from {width}x{height} to "
+                    f"{self._width}x{self._height} (libx264 requires even dimensions)"
+                )
             self._start_time = time.perf_counter()
             self._frame_count = 0
             self._dropped_frames = 0

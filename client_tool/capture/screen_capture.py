@@ -85,6 +85,8 @@ class ScreenCapture:
         """
         Find the World of Warships game window.
 
+        Excludes replay viewer windows ("World of Warships Replays").
+
         Returns:
             WindowInfo if found, None otherwise
         """
@@ -92,20 +94,29 @@ class ScreenCapture:
             return None
 
         pattern = self.config.window_title_pattern.lower()
-        found_hwnd = None
-        found_title = None
+        # Patterns to exclude (replay viewer, etc.)
+        exclude_patterns = ["replays", "launcher"]
+
+        candidates = []
 
         def enum_callback(hwnd, _):
-            nonlocal found_hwnd, found_title
             if user32.IsWindowVisible(hwnd):
                 length = user32.GetWindowTextLengthW(hwnd) + 1
                 buffer = ctypes.create_unicode_buffer(length)
                 user32.GetWindowTextW(hwnd, buffer, length)
                 title = buffer.value
-                if pattern in title.lower():
-                    found_hwnd = hwnd
-                    found_title = title
-                    return False  # Stop enumeration
+                title_lower = title.lower()
+
+                if pattern in title_lower:
+                    # Check if it matches any exclude pattern
+                    is_excluded = any(exc in title_lower for exc in exclude_patterns)
+                    if not is_excluded:
+                        # Get window size to prioritize larger windows (game vs tools)
+                        rect = wintypes.RECT()
+                        user32.GetClientRect(hwnd, ctypes.byref(rect))
+                        width = rect.right - rect.left
+                        height = rect.bottom - rect.top
+                        candidates.append((hwnd, title, width, height, width * height))
             return True
 
         WNDENUMPROC = ctypes.WINFUNCTYPE(
@@ -113,19 +124,18 @@ class ScreenCapture:
         )
         user32.EnumWindows(WNDENUMPROC(enum_callback), 0)
 
-        if found_hwnd is None:
+        if not candidates:
             return None
 
-        rect = wintypes.RECT()
-        user32.GetClientRect(found_hwnd, ctypes.byref(rect))
-        width = rect.right - rect.left
-        height = rect.bottom - rect.top
+        # Sort by window area (largest first) to prefer main game window
+        candidates.sort(key=lambda x: x[4], reverse=True)
+        best = candidates[0]
 
         return WindowInfo(
-            hwnd=found_hwnd,
-            title=found_title,
-            width=width,
-            height=height,
+            hwnd=best[0],
+            title=best[1],
+            width=best[2],
+            height=best[3],
         )
 
     def start(self) -> bool:
