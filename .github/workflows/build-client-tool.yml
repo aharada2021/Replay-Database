@@ -36,6 +36,12 @@ jobs:
           cache: 'pip'
           cache-dependency-path: client_tool/requirements.txt
 
+      - name: Install FFmpeg
+        run: |
+          choco install ffmpeg -y
+          # Add FFmpeg to PATH for this session
+          echo "C:\ProgramData\chocolatey\lib\ffmpeg\tools\ffmpeg\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
       - name: Install dependencies
         working-directory: client_tool
         run: |

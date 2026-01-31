@@ -1,16 +1,46 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
 import shutil
+import sys
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
 
 block_cipher = None
 
+# Collect all submodules from capture package
+capture_hiddenimports = collect_submodules('capture')
+
+# Collect windows-capture and pyaudiowpatch submodules if available
+try:
+    windows_capture_imports = collect_submodules('windows_capture')
+except Exception:
+    windows_capture_imports = []
+
+try:
+    pyaudio_imports = collect_submodules('pyaudiowpatch')
+except Exception:
+    pyaudio_imports = []
+
+# Collect dynamic libraries
+binaries = []
+
+# Try to collect windows-capture DLLs
+try:
+    binaries.extend(collect_dynamic_libs('windows_capture'))
+except Exception:
+    pass
+
+# Try to collect pyaudiowpatch DLLs
+try:
+    binaries.extend(collect_dynamic_libs('pyaudiowpatch'))
+except Exception:
+    pass
+
 # Find FFmpeg binary
 ffmpeg_path = shutil.which('ffmpeg')
-ffmpeg_binaries = []
 if ffmpeg_path:
-    ffmpeg_binaries.append((ffmpeg_path, '.'))
+    binaries.append((ffmpeg_path, '.'))
 else:
-    # Check common locations
+    # Check common locations on Windows
     common_paths = [
         os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs', 'ffmpeg', 'bin', 'ffmpeg.exe'),
         'C:/ffmpeg/bin/ffmpeg.exe',
@@ -18,36 +48,43 @@ else:
     ]
     for path in common_paths:
         if os.path.exists(path):
-            ffmpeg_binaries.append((path, '.'))
+            binaries.append((path, '.'))
             break
+
+# Include local capture package as data
+datas = [
+    ('capture', 'capture'),
+]
+
+# Collect numpy data files
+try:
+    datas.extend(collect_data_files('numpy'))
+except Exception:
+    pass
 
 a = Analysis(
     ['wows_replay_uploader.py'],
-    pathex=[],
-    binaries=ffmpeg_binaries,
-    datas=[],
+    pathex=['.'],
+    binaries=binaries,
+    datas=datas,
     hiddenimports=[
+        # Watchdog
         'watchdog.observers',
         'watchdog.observers.polling',
         'watchdog.observers.winapi',
         'watchdog.observers.read_directory_changes',
         'watchdog.events',
         'multiprocessing',
-        # Capture module dependencies
-        'capture',
-        'capture.config',
-        'capture.manager',
-        'capture.screen_capture',
-        'capture.audio_capture',
-        'capture.video_encoder',
-        'capture.exceptions',
+        # Numpy
         'numpy',
         'numpy.core._methods',
         'numpy.lib.format',
+        # Capture module (local package)
+        *capture_hiddenimports,
         # Windows capture (optional)
-        'windows_capture',
+        *windows_capture_imports,
         # PyAudio (optional)
-        'pyaudiowpatch',
+        *pyaudio_imports,
         'pyaudio',
     ],
     hookspath=[],
@@ -76,11 +113,11 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,  # コンソールウィンドウを表示
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # アイコンファイルがあれば指定
+    icon=None,
 )
