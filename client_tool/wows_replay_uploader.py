@@ -34,8 +34,9 @@ try:
     from capture.manager import load_arena_info
 
     CAPTURE_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     CAPTURE_AVAILABLE = False
+    print(f"[WARNING] キャプチャモジュールのインポートに失敗: {e}")
 
 # ========================================
 # 定数
