@@ -281,6 +281,8 @@ functions:
     environment:
       REPLAYS_BUCKET: ${self:custom.bucketName}
       UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
+      # 旧テーブル（一時ID→正式ID検索用）
+      REPLAYS_TABLE: ${self:custom.replaysTable}
       # 新バトルテーブル
       CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
       RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
