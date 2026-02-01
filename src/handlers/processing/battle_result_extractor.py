@@ -502,6 +502,92 @@ def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
         traceback.print_exc()
 
 
+def migrate_gameplay_video(
+    temp_arena_id: str,
+    arena_unique_id: str,
+    player_id: int,
+    game_type: str,
+) -> bool:
+    """
+    ゲームプレイ動画のS3キーを一時IDから正式IDに移行
+
+    クライアントはリプレイアップロード時に返されるtempArenaIDを使って
+    動画をアップロードするが、正式なarenaUniqueIDはリプレイ解析後に判明する。
+    この関数は動画を正しいパスに移動し、DynamoDBを更新する。
+
+    Args:
+        temp_arena_id: 一時的なアリーナID（MD5ハッシュ）
+        arena_unique_id: 正式なアリーナユニークID
+        player_id: プレイヤーID
+        game_type: ゲームタイプ（clan, ranked, random, other）
+
+    Returns:
+        移行が成功した場合True
+    """
+    bucket = os.environ.get("REPLAYS_BUCKET", "wows-replay-bot-dev-temp")
+
+    # 元の動画S3キー（一時ID）
+    old_s3_key = f"gameplay-videos/{temp_arena_id}/{player_id}/capture.mp4"
+    # 新しい動画S3キー（正式ID）
+    new_s3_key = f"gameplay-videos/{arena_unique_id}/{player_id}/capture.mp4"
+
+    try:
+        # 元の動画が存在するか確認
+        try:
+            s3_client.head_object(Bucket=bucket, Key=old_s3_key)
+        except s3_client.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                # 動画がない場合は何もしない（正常）
+                print(f"No gameplay video found at {old_s3_key}")
+                return False
+            raise
+
+        print(f"Found gameplay video at {old_s3_key}, migrating to {new_s3_key}")
+
+        # S3オブジェクトをコピー
+        s3_client.copy_object(
+            Bucket=bucket,
+            CopySource={"Bucket": bucket, "Key": old_s3_key},
+            Key=new_s3_key,
+            ContentType="video/mp4",
+        )
+
+        # ファイルサイズを取得
+        head_response = s3_client.head_object(Bucket=bucket, Key=new_s3_key)
+        file_size = head_response.get("ContentLength", 0)
+
+        # 元のオブジェクトを削除
+        s3_client.delete_object(Bucket=bucket, Key=old_s3_key)
+
+        print(f"Gameplay video migrated: {old_s3_key} -> {new_s3_key}")
+
+        # DynamoDBを更新
+        import time
+
+        battle_client = BattleTableClient(game_type)
+        uploaded_at = int(time.time())
+
+        battle_client.update_gameplay_video_info(
+            arena_unique_id=arena_unique_id,
+            player_id=player_id,
+            gameplay_video_s3_key=new_s3_key,
+            file_size=file_size,
+            uploaded_at=uploaded_at,
+        )
+
+        battle_client.update_match_has_gameplay_video(arena_unique_id, True)
+        print(f"Gameplay video info updated in DynamoDB: {arena_unique_id}/{player_id}")
+
+        return True
+
+    except Exception as e:
+        print(f"Warning: Failed to migrate gameplay video: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return False
+
+
 def handle(event, context):
     """
     S3イベントハンドラー
@@ -738,6 +824,14 @@ def handle(event, context):
                 # 新テーブル構造にも保存（移行期間中は両方に保存）
                 all_players_stats = old_record.get("allPlayersStats", [])
                 save_to_new_tables(old_record, all_players_stats)
+
+                # ゲームプレイ動画のS3キーを移行（temp_arena_id → arena_unique_id）
+                migrate_gameplay_video(
+                    temp_arena_id=temp_arena_id,
+                    arena_unique_id=str(arena_unique_id),
+                    player_id=player_id,
+                    game_type=normalize_game_type(old_record.get("gameType", "other")),
+                )
 
                 # 動画生成チェック: 同じ試合の既存リプレイで動画があるかチェック
                 check_and_trigger_video_generation(arena_unique_id, player_id)
