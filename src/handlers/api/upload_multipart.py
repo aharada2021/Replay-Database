@@ -41,24 +41,16 @@ s3_client = boto3.client("s3")
 
 # ArenaUniqueIDの有効パターン（英数字、ハイフン、アンダースコアのみ許可）
 ARENA_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
-
-
 def _verify_api_key(headers: dict) -> bool:
     """API Keyを検証"""
     api_key = headers.get("x-api-key") or headers.get("X-Api-Key")
     return api_key and api_key == UPLOAD_API_KEY
-
-
 def _unauthorized_response():
     """認証エラーレスポンス"""
     return {"statusCode": 401, "body": json.dumps({"error": "Unauthorized"})}
-
-
 def _error_response(status_code: int, message: str):
     """エラーレスポンス"""
     return {"statusCode": status_code, "body": json.dumps({"error": message})}
-
-
 def _validate_arena_unique_id(arena_unique_id: str) -> bool:
     """
     ArenaUniqueIDの形式を検証
@@ -75,8 +67,6 @@ def _validate_arena_unique_id(arena_unique_id: str) -> bool:
     if not arena_unique_id:
         return False
     return bool(ARENA_ID_PATTERN.match(arena_unique_id))
-
-
 def handle_init_multipart(event, context):
     """
     マルチパートアップロード開始
@@ -170,25 +160,21 @@ def handle_init_multipart(event, context):
                 },
                 ExpiresIn=MULTIPART_URL_EXPIRY,
             )
-            part_urls.append(
-                {
-                    "partNumber": part_number,
-                    "url": presigned_url,
-                }
-            )
+            part_urls.append({
+                "partNumber": part_number,
+                "url": presigned_url,
+            })
 
         logger.info(f"Multipart upload initiated: {s3_key} ({num_parts} parts)")
 
         return {
             "statusCode": 200,
-            "body": json.dumps(
-                {
-                    "uploadId": upload_id,
-                    "s3Key": s3_key,
-                    "partUrls": part_urls,
-                    "partSize": PART_SIZE,
-                }
-            ),
+            "body": json.dumps({
+                "uploadId": upload_id,
+                "s3Key": s3_key,
+                "partUrls": part_urls,
+                "partSize": PART_SIZE,
+            }),
         }
 
     except Exception as e:
@@ -196,8 +182,6 @@ def handle_init_multipart(event, context):
         import traceback
         traceback.print_exc()
         return _error_response(500, "Internal server error")
-
-
 def handle_complete_multipart(event, context):
     """
     マルチパートアップロード完了
@@ -266,12 +250,10 @@ def handle_complete_multipart(event, context):
             part_number = part.get("PartNumber") or part.get("partNumber")
             etag = part.get("ETag") or part.get("etag")
             if part_number and etag:
-                normalized_parts.append(
-                    {
-                        "PartNumber": int(part_number),
-                        "ETag": etag,
-                    }
-                )
+                normalized_parts.append({
+                    "PartNumber": int(part_number),
+                    "ETag": etag,
+                })
 
         # パート番号でソート
         normalized_parts.sort(key=lambda x: x["PartNumber"])
@@ -311,14 +293,12 @@ def handle_complete_multipart(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps(
-                {
-                    "status": "success",
-                    "s3Key": s3_key,
-                    "location": response.get("Location", ""),
-                    "fileSize": file_size,
-                }
-            ),
+            "body": json.dumps({
+                "status": "success",
+                "s3Key": s3_key,
+                "location": response.get("Location", ""),
+                "fileSize": file_size,
+            }),
         }
 
     except s3_client.exceptions.NoSuchUpload:
@@ -328,8 +308,6 @@ def handle_complete_multipart(event, context):
         import traceback
         traceback.print_exc()
         return _error_response(500, "Internal server error")
-
-
 def handle_abort_multipart(event, context):
     """
     マルチパートアップロード中止
