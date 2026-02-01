@@ -1031,10 +1031,11 @@ class ReplayUploader:
         """
         for attempt in range(1, self.retry_count + 1):
             try:
+                # Presigned URLを使用する場合、署名に含まれていないヘッダーを
+                # 送信すると403エラーになるため、Content-Typeは送信しない
                 response = requests.put(
                     url,
                     data=data,
-                    headers={'Content-Type': 'application/octet-stream'},
                     timeout=300  # 5分タイムアウト
                 )
 
