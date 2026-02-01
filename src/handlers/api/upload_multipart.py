@@ -41,16 +41,24 @@ s3_client = boto3.client("s3")
 
 # ArenaUniqueIDの有効パターン（英数字、ハイフン、アンダースコアのみ許可）
 ARENA_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
 def _verify_api_key(headers: dict) -> bool:
     """API Keyを検証"""
     api_key = headers.get("x-api-key") or headers.get("X-Api-Key")
     return api_key and api_key == UPLOAD_API_KEY
+
+
 def _unauthorized_response():
     """認証エラーレスポンス"""
     return {"statusCode": 401, "body": json.dumps({"error": "Unauthorized"})}
+
+
 def _error_response(status_code: int, message: str):
     """エラーレスポンス"""
     return {"statusCode": status_code, "body": json.dumps({"error": message})}
+
+
 def _validate_arena_unique_id(arena_unique_id: str) -> bool:
     """
     ArenaUniqueIDの形式を検証
@@ -67,6 +75,8 @@ def _validate_arena_unique_id(arena_unique_id: str) -> bool:
     if not arena_unique_id:
         return False
     return bool(ARENA_ID_PATTERN.match(arena_unique_id))
+
+
 def handle_init_multipart(event, context):
     """
     マルチパートアップロード開始
@@ -182,6 +192,8 @@ def handle_init_multipart(event, context):
         import traceback
         traceback.print_exc()
         return _error_response(500, "Internal server error")
+
+
 def handle_complete_multipart(event, context):
     """
     マルチパートアップロード完了
@@ -308,6 +320,8 @@ def handle_complete_multipart(event, context):
         import traceback
         traceback.print_exc()
         return _error_response(500, "Internal server error")
+
+
 def handle_abort_multipart(event, context):
     """
     マルチパートアップロード中止
