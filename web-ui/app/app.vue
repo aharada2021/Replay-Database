@@ -123,7 +123,7 @@
     </v-dialog>
 
     <!-- セットアップガイドダイアログ -->
-    <v-dialog v-model="setupGuideDialog" max-width="600">
+    <v-dialog v-model="setupGuideDialog" max-width="700" scrollable>
       <v-card>
         <v-card-title class="text-h6">
           <v-icon start>mdi-help-circle-outline</v-icon>
@@ -134,19 +134,29 @@
             <v-stepper-header>
               <v-stepper-item title="ダウンロード" value="1" complete></v-stepper-item>
               <v-divider></v-divider>
-              <v-stepper-item title="設定情報取得" value="2"></v-stepper-item>
+              <v-stepper-item title="設定情報" value="2"></v-stepper-item>
               <v-divider></v-divider>
               <v-stepper-item title="初回起動" value="3"></v-stepper-item>
+              <v-divider></v-divider>
+              <v-stepper-item title="録画機能" value="4"></v-stepper-item>
             </v-stepper-header>
           </v-stepper>
 
           <div class="mt-4">
-            <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 1: ダウンロード</h4>
+            <h4 class="text-subtitle-1 font-weight-bold mb-2">
+              <v-icon size="small" class="mr-1">mdi-numeric-1-circle</v-icon>
+              ダウンロード
+            </h4>
             <p class="text-body-2 mb-3">
               このメニューの「自動アップローダー」をクリックしてダウンロードしてください。
             </p>
 
-            <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 2: 設定情報取得</h4>
+            <v-divider class="my-3"></v-divider>
+
+            <h4 class="text-subtitle-1 font-weight-bold mb-2">
+              <v-icon size="small" class="mr-1">mdi-numeric-2-circle</v-icon>
+              設定情報取得
+            </h4>
             <p class="text-body-2 mb-3">
               Discordでログイン後、このメニューの「API Key」をクリックして以下の情報をメモしてください:
             </p>
@@ -156,7 +166,12 @@
               <li><strong>Discord User ID</strong> - オプション（アップロード者を識別）</li>
             </ul>
 
-            <h4 class="text-subtitle-1 font-weight-bold mb-2">ステップ 3: 初回起動</h4>
+            <v-divider class="my-3"></v-divider>
+
+            <h4 class="text-subtitle-1 font-weight-bold mb-2">
+              <v-icon size="small" class="mr-1">mdi-numeric-3-circle</v-icon>
+              初回起動
+            </h4>
             <ol class="text-body-2 mb-3">
               <li>ダウンロードしたzipファイルを展開</li>
               <li><code>wows_replay_uploader.exe</code> をダブルクリックして起動</li>
@@ -164,16 +179,49 @@
               <li><strong>API Key</strong>を入力</li>
               <li>リプレイフォルダは自動検出されるのでそのままEnter</li>
               <li>Discord User IDを入力（オプション）</li>
+              <li>ゲームキャプチャ設定（次のステップで説明）</li>
               <li>スタートアップ登録で「Y」を選択するとPC起動時に自動起動</li>
             </ol>
 
+            <v-divider class="my-3"></v-divider>
+
+            <h4 class="text-subtitle-1 font-weight-bold mb-2">
+              <v-icon size="small" class="mr-1">mdi-numeric-4-circle</v-icon>
+              ゲームプレイ録画機能（オプション）
+            </h4>
+            <p class="text-body-2 mb-2">
+              試合中のゲームプレイを自動録画し、Webサイトで視聴できる機能です。
+            </p>
+
+            <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
+              <strong>FFmpegが必要です:</strong>
+              録画機能を使うには
+              <a href="https://ffmpeg.org/download.html" target="_blank" class="text-primary">FFmpeg</a>
+              をインストールし、PATHに追加するか、exeと同じフォルダに配置してください。
+            </v-alert>
+
+            <p class="text-body-2 mb-2"><strong>録画設定項目:</strong></p>
+            <ul class="text-body-2 mb-3">
+              <li><strong>録画品質</strong> - low / medium / high（PCスペックに応じて選択）</li>
+              <li><strong>デスクトップ音声</strong> - ゲーム音声を録音</li>
+              <li><strong>マイク入力</strong> - ボイスチャット等を録音</li>
+              <li><strong>動画アップロード</strong> - 録画後に自動でサーバーにアップロード</li>
+              <li><strong>ローカル保存</strong> - アップロード後もPCにファイルを保持</li>
+            </ul>
+
+            <v-divider class="my-3"></v-divider>
+
             <v-alert type="success" variant="tonal" density="compact" class="mb-3">
-              <strong>完了!</strong> これでWorld of Warshipsで試合が終わるたびに、リプレイが自動でアップロードされます。
+              <strong>完了!</strong> これでWorld of Warshipsで試合が終わるたびに、リプレイ（と録画）が自動でアップロードされます。
             </v-alert>
 
             <v-alert type="info" variant="tonal" density="compact">
               <strong>困ったときは:</strong>
-              問題が発生した場合は、Discordサーバーでお問い合わせください。
+              詳細は
+              <a href="https://github.com/aharada2021/Replay-Database/blob/main/client_tool/README.md" target="_blank" class="text-primary">
+                README
+              </a>
+              を参照するか、Discordサーバーでお問い合わせください。
             </v-alert>
           </div>
         </v-card-text>
