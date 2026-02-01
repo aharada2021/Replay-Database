@@ -18,7 +18,12 @@ import time
 
 import boto3
 
-from utils.dynamodb_tables import BattleTableClient, find_match_game_type
+from utils.dynamodb_tables import (
+    BattleTableClient,
+    find_arena_unique_id_by_temp_id,
+    find_match_game_type,
+    is_temp_arena_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +138,9 @@ def handle_init_multipart(event, context):
         # ファイルサイズ上限チェック
         if file_size > MAX_FILE_SIZE:
             max_mb = MAX_FILE_SIZE // (1024 * 1024)
-            return _error_response(400, f"File size exceeds maximum allowed ({max_mb}MB)")
+            return _error_response(
+                400, f"File size exceeds maximum allowed ({max_mb}MB)"
+            )
 
         try:
             player_id_int = int(player_id)
@@ -156,7 +163,9 @@ def handle_init_multipart(event, context):
 
         # パート数上限チェック（S3の制限）
         if num_parts > MAX_PARTS:
-            return _error_response(400, f"File too large: exceeds {MAX_PARTS} parts limit")
+            return _error_response(
+                400, f"File too large: exceeds {MAX_PARTS} parts limit"
+            )
 
         # 各パートのPresigned URLを生成
         part_urls = []
@@ -293,22 +302,59 @@ def handle_complete_multipart(event, context):
         head_response = s3_client.head_object(Bucket=REPLAYS_BUCKET, Key=s3_key)
         file_size = head_response.get("ContentLength", 0)
 
-        # DynamoDBを更新
+        # 一時IDか正式IDかを判定し、適切なarenaUniqueIDとgameTypeを取得
+        actual_arena_id = arena_unique_id
+        actual_s3_key = s3_key
         game_type = find_match_game_type(arena_unique_id)
+
+        if not game_type and is_temp_arena_id(arena_unique_id):
+            # 一時IDの場合、正式arenaUniqueIDを検索
+            logger.info(
+                f"Detected temp arena ID: {arena_unique_id}, searching for actual ID..."
+            )
+            match_info = find_arena_unique_id_by_temp_id(arena_unique_id, player_id_int)
+
+            if match_info:
+                actual_arena_id = match_info["arenaUniqueID"]
+                game_type = match_info["gameType"]
+                logger.info(
+                    f"Found actual arena ID: {actual_arena_id}, gameType: {game_type}"
+                )
+
+                # S3の動画を正式パスに移動
+                actual_s3_key = (
+                    f"gameplay-videos/{actual_arena_id}/{player_id_int}/capture.mp4"
+                )
+
+                if s3_key != actual_s3_key:
+                    logger.info(f"Migrating video: {s3_key} -> {actual_s3_key}")
+                    s3_client.copy_object(
+                        Bucket=REPLAYS_BUCKET,
+                        CopySource={"Bucket": REPLAYS_BUCKET, "Key": s3_key},
+                        Key=actual_s3_key,
+                        ContentType="video/mp4",
+                    )
+                    # 元のオブジェクトを削除
+                    s3_client.delete_object(Bucket=REPLAYS_BUCKET, Key=s3_key)
+                    logger.info(f"Video migrated successfully")
+
+        # DynamoDBを更新
         if game_type:
             battle_client = BattleTableClient(game_type)
             uploaded_at = int(time.time())
 
             battle_client.update_gameplay_video_info(
-                arena_unique_id=arena_unique_id,
+                arena_unique_id=actual_arena_id,
                 player_id=player_id_int,
-                gameplay_video_s3_key=s3_key,
+                gameplay_video_s3_key=actual_s3_key,
                 file_size=file_size,
                 uploaded_at=uploaded_at,
             )
 
-            battle_client.update_match_has_gameplay_video(arena_unique_id, True)
-            logger.info(f"Gameplay video info updated: {arena_unique_id}/{player_id_int}")
+            battle_client.update_match_has_gameplay_video(actual_arena_id, True)
+            logger.info(
+                f"Gameplay video info updated: {actual_arena_id}/{player_id_int}"
+            )
         else:
             logger.warning(f"Match not found for arenaUniqueID: {arena_unique_id}")
 
@@ -317,7 +363,8 @@ def handle_complete_multipart(event, context):
             "body": json.dumps(
                 {
                     "status": "success",
-                    "s3Key": s3_key,
+                    "s3Key": actual_s3_key,
+                    "arenaUniqueID": actual_arena_id,
                     "location": response.get("Location", ""),
                     "fileSize": file_size,
                 }
