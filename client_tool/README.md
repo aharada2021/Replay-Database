@@ -49,9 +49,7 @@ World of Warshipsのリプレイファイルを自動的にアップロードす
 
 ### 必要条件
 
-- **FFmpeg**: 動画エンコードに必要です
-  - [FFmpeg公式サイト](https://ffmpeg.org/download.html)からダウンロード
-  - PATHに追加するか、exeと同じフォルダに配置
+- **FFmpeg**: 動画エンコードに必要（**exeにバンドル済み**のため、通常はインストール不要）
 
 ### 動作の流れ
 
@@ -177,9 +175,9 @@ capture:
 
 ### 録画機能が動作しない
 
-1. **FFmpegを確認**: コマンドプロンプトで `ffmpeg -version` を実行
-2. **パスを確認**: FFmpegがPATHに追加されているか、exeと同じフォルダにあるか確認
-3. **ログを確認**: `wows_replay_uploader.log` でエラー内容を確認
+1. **ログを確認**: `wows_replay_uploader.log` でエラー内容を確認
+2. **ゲームウィンドウを確認**: World of Warshipsがウィンドウモードまたはボーダーレスで起動しているか確認
+3. **Pythonから実行時のみ**: FFmpegがインストールされているか確認（exeにはバンドル済み）
 
 ### 録画品質が悪い / ファイルサイズが大きい
 
@@ -219,7 +217,7 @@ capture:
 ### 必要な環境
 - Python 3.10以上
 - Windows環境（winregを使用）
-- FFmpeg（キャプチャ機能使用時）
+- FFmpeg（キャプチャ機能使用時、PATHに追加が必要）
 
 ### セットアップ手順
 

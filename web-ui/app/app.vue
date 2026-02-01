@@ -193,11 +193,9 @@
               試合中のゲームプレイを自動録画し、Webサイトで視聴できる機能です。
             </p>
 
-            <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
-              <strong>FFmpegが必要です:</strong>
-              録画機能を使うには
-              <a href="https://ffmpeg.org/download.html" target="_blank" class="text-primary">FFmpeg</a>
-              をインストールし、PATHに追加するか、exeと同じフォルダに配置してください。
+            <v-alert type="info" variant="tonal" density="compact" class="mb-3">
+              <strong>FFmpegはバンドル済み:</strong>
+              録画に必要なFFmpegはexeに含まれているため、追加のインストールは不要です。
             </v-alert>
 
             <p class="text-body-2 mb-2"><strong>録画設定項目:</strong></p>
