@@ -143,7 +143,9 @@ class BattleTableClient:
         """
         MATCH レコードを取得
         """
-        response = self.table.get_item(Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"})
+        response = self.table.get_item(
+            Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"}
+        )
         item = response.get("Item")
         return decimal_to_python(item) if item else None
 
@@ -151,7 +153,9 @@ class BattleTableClient:
         """
         STATS レコードを取得
         """
-        response = self.table.get_item(Key={"arenaUniqueID": arena_unique_id, "recordType": "STATS"})
+        response = self.table.get_item(
+            Key={"arenaUniqueID": arena_unique_id, "recordType": "STATS"}
+        )
         item = response.get("Item")
         return decimal_to_python(item) if item else None
 
@@ -237,7 +241,9 @@ class BattleTableClient:
             ExpressionAttributeValues={":zero": 0, ":delta": delta},
         )
 
-    def update_video_info(self, arena_unique_id: str, mp4_s3_key: str, generated_at: int):
+    def update_video_info(
+        self, arena_unique_id: str, mp4_s3_key: str, generated_at: int
+    ):
         """
         動画情報を更新
         """
@@ -250,7 +256,9 @@ class BattleTableClient:
             },
         )
 
-    def update_dual_video_info(self, arena_unique_id: str, dual_mp4_s3_key: str, generated_at: int):
+    def update_dual_video_info(
+        self, arena_unique_id: str, dual_mp4_s3_key: str, generated_at: int
+    ):
         """
         Dual動画情報を更新
         """
@@ -264,7 +272,9 @@ class BattleTableClient:
             },
         )
 
-    def add_uploader(self, arena_unique_id: str, player_id: int, player_name: str, team: str):
+    def add_uploader(
+        self, arena_unique_id: str, player_id: int, player_name: str, team: str
+    ):
         """
         MATCHレコードにアップローダーを追加
         """
@@ -320,7 +330,9 @@ class BattleTableClient:
             },
         )
 
-    def update_match_has_gameplay_video(self, arena_unique_id: str, has_video: bool = True):
+    def update_match_has_gameplay_video(
+        self, arena_unique_id: str, has_video: bool = True
+    ):
         """
         MATCHレコードにゲームプレイ動画があることを記録
 
@@ -354,9 +366,14 @@ class BattleTableClient:
         for i in range(0, len(arena_unique_ids), batch_size):
             batch_ids = arena_unique_ids[i : i + batch_size]
 
-            keys = [{"arenaUniqueID": arena_id, "recordType": "MATCH"} for arena_id in batch_ids]
+            keys = [
+                {"arenaUniqueID": arena_id, "recordType": "MATCH"}
+                for arena_id in batch_ids
+            ]
 
-            response = self.dynamodb.meta.client.batch_get_item(RequestItems={self.table_name: {"Keys": keys}})
+            response = self.dynamodb.meta.client.batch_get_item(
+                RequestItems={self.table_name: {"Keys": keys}}
+            )
 
             items = response.get("Responses", {}).get(self.table_name, [])
             for item in items:
@@ -368,7 +385,9 @@ class BattleTableClient:
             unprocessed = response.get("UnprocessedKeys", {})
             if unprocessed.get(self.table_name):
                 # 本番環境では指数バックオフで再試行すべき
-                print(f"Warning: {len(unprocessed[self.table_name]['Keys'])} unprocessed keys")
+                print(
+                    f"Warning: {len(unprocessed[self.table_name]['Keys'])} unprocessed keys"
+                )
 
         return results
 
@@ -426,9 +445,15 @@ class IndexTableClient:
         self.dynamodb = boto3.resource("dynamodb")
 
         # テーブル名を環境変数から取得
-        self.ship_table = self.dynamodb.Table(os.environ.get("SHIP_INDEX_TABLE", "wows-ship-index-dev"))
-        self.player_table = self.dynamodb.Table(os.environ.get("PLAYER_INDEX_TABLE", "wows-player-index-dev"))
-        self.clan_table = self.dynamodb.Table(os.environ.get("CLAN_INDEX_TABLE", "wows-clan-index-dev"))
+        self.ship_table = self.dynamodb.Table(
+            os.environ.get("SHIP_INDEX_TABLE", "wows-ship-index-dev")
+        )
+        self.player_table = self.dynamodb.Table(
+            os.environ.get("PLAYER_INDEX_TABLE", "wows-player-index-dev")
+        )
+        self.clan_table = self.dynamodb.Table(
+            os.environ.get("CLAN_INDEX_TABLE", "wows-clan-index-dev")
+        )
 
     def put_ship_index(
         self,
@@ -616,5 +641,91 @@ def find_match_game_type(arena_unique_id: str) -> Optional[str]:
                 return game_type
         except Exception:
             continue
+
+    return None
+
+
+def is_temp_arena_id(arena_id: str) -> bool:
+    """
+    一時arenaID（MD5ハッシュの先頭16文字）かどうかを判定
+
+    一時IDは16文字の16進数文字列（例: c0f82a2f5e75fcdd）
+    正式IDは数字のみの長い文字列（例: 3975651132373224）
+
+    Args:
+        arena_id: 判定対象のID
+
+    Returns:
+        一時IDの場合True
+    """
+    import re
+
+    if not arena_id or len(arena_id) != 16:
+        return False
+    # 16文字の16進数（小文字）かつ数字のみではない
+    return (
+        bool(re.match(r"^[0-9a-f]{16}$", arena_id.lower())) and not arena_id.isdigit()
+    )
+
+
+def find_arena_unique_id_by_temp_id(
+    temp_arena_id: str, player_id: int
+) -> Optional[dict]:
+    """
+    一時arenaIDからアップロードレコードを検索し、正式arenaUniqueIDを取得
+
+    wows-replays-{stage}テーブルのs3Keyに一時IDが含まれるレコードを検索
+
+    Args:
+        temp_arena_id: 一時arenaID
+        player_id: プレイヤーID
+
+    Returns:
+        {
+            "arenaUniqueID": 正式arenaUniqueID,
+            "gameType": ゲームタイプ
+        }
+        見つからない場合はNone
+    """
+    dynamodb = boto3.resource("dynamodb")
+
+    # wows-replays-{stage}テーブルを検索
+    replays_table_name = os.environ.get("REPLAYS_TABLE", "wows-replays-dev")
+    replays_table = dynamodb.Table(replays_table_name)
+
+    # s3Keyに一時IDが含まれるレコードを検索
+    # s3Key形式: replays/{temp_arena_id}/{player_id}/...
+    expected_s3_key_prefix = f"replays/{temp_arena_id}/{player_id}/"
+
+    try:
+        # GSIを使わずにscanでs3Keyをフィルタ
+        # 効率は悪いが、一時IDでの検索は限定的なので許容
+        response = replays_table.scan(
+            FilterExpression="begins_with(s3Key, :prefix)",
+            ExpressionAttributeValues={":prefix": expected_s3_key_prefix},
+            ProjectionExpression="arenaUniqueID, gameType, s3Key",
+            Limit=10,
+        )
+
+        items = response.get("Items", [])
+        if items:
+            item = items[0]
+            arena_unique_id = item.get("arenaUniqueID")
+
+            # gameTypeが直接取得できない場合は検索
+            game_type = item.get("gameType")
+            if not game_type and arena_unique_id:
+                game_type = find_match_game_type(arena_unique_id)
+
+            if arena_unique_id:
+                return {
+                    "arenaUniqueID": arena_unique_id,
+                    "gameType": (
+                        normalize_game_type(game_type) if game_type else "other"
+                    ),
+                }
+
+    except Exception as e:
+        print(f"Error finding arena_unique_id by temp_id: {e}")
 
     return None
