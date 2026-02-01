@@ -96,10 +96,11 @@ def get_stream_info(video_path: Path) -> dict:
         return {}
 
 
-def run_capture_test(duration: int, capture_audio: bool, output_folder: Path) -> Path:
+def run_capture_test(duration: int, capture_audio: bool, capture_mic: bool, output_folder: Path) -> Path:
     """Run a capture test for the specified duration."""
     logger.info(f"Starting {duration}-second capture test...")
     logger.info(f"Audio capture: {'enabled' if capture_audio else 'disabled'}")
+    logger.info(f"Microphone capture: {'enabled' if capture_mic else 'disabled'}")
 
     # Create capture config
     config = CaptureConfig(
@@ -107,7 +108,7 @@ def run_capture_test(duration: int, capture_audio: bool, output_folder: Path) ->
         video_quality="medium",
         target_fps=30,
         capture_audio=capture_audio,
-        capture_microphone=False,  # Disable mic for testing
+        capture_microphone=capture_mic,
         max_duration_minutes=10,
     )
 
@@ -253,6 +254,11 @@ def main():
         help="Disable audio capture",
     )
     parser.add_argument(
+        "--with-mic",
+        action="store_true",
+        help="Enable microphone capture",
+    )
+    parser.add_argument(
         "--output-folder",
         type=str,
         default=None,
@@ -285,6 +291,7 @@ def main():
     video_path = run_capture_test(
         duration=args.duration,
         capture_audio=not args.no_audio,
+        capture_mic=args.with_mic,
         output_folder=output_folder,
     )
 
