@@ -30,3 +30,6 @@ capture:
   capture_microphone: false                   # マイク入力を録音
   mic_volume: 0.7                             # マイク音量 (0.0-1.0)
   max_duration_minutes: 30                    # 最大録画時間（分）
+  upload_gameplay_video: true                 # 動画を自動アップロード
+  keep_local_copy: false                      # アップロード後もローカルに保持
+  max_upload_size_mb: 500                     # アップロード上限（MB）
