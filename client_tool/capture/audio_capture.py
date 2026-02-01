@@ -377,28 +377,30 @@ class AudioCapture:
         try:
             device_info = self._pa.get_device_info_by_index(mic_device)
             self._mic_channels = min(int(device_info.get("maxInputChannels", 1)), 2)
-            self._mic_sample_rate = int(device_info.get("defaultSampleRate", self.SAMPLE_RATE))
-
-            # Warn if mic sample rate differs from loopback (can cause sync issues)
-            if hasattr(self, '_loopback_sample_rate') and self._loopback_sample_rate != self._mic_sample_rate:
-                logger.warning(
-                    f"Mic sample rate ({self._mic_sample_rate}Hz) differs from loopback "
-                    f"({self._loopback_sample_rate}Hz) - may cause audio sync issues"
-                )
-                print(
-                    f"[AUDIO] WARNING: Mic ({self._mic_sample_rate}Hz) and loopback "
-                    f"({self._loopback_sample_rate}Hz) sample rates differ!"
-                )
+            default_mic_rate = int(device_info.get("defaultSampleRate", self.SAMPLE_RATE))
 
             self._mic_buffer = []
             self._mic_stream = self._pa.open(
                 format=self.FORMAT,
                 channels=self._mic_channels,
-                rate=self._mic_sample_rate,
+                rate=default_mic_rate,
                 input=True,
                 input_device_index=mic_device,
                 frames_per_buffer=self.CHUNK_SIZE,
             )
+            self._mic_sample_rate = default_mic_rate
+            logger.info(f"Mic opened at default rate: {default_mic_rate}Hz")
+
+            # Warn about sample rate mismatch (mic audio will be discarded if rates differ)
+            if hasattr(self, '_loopback_sample_rate') and self._loopback_sample_rate != self._mic_sample_rate:
+                logger.warning(
+                    f"Mic sample rate ({self._mic_sample_rate}Hz) differs from loopback "
+                    f"({self._loopback_sample_rate}Hz) - mic audio will be discarded"
+                )
+                print(
+                    f"[AUDIO] WARNING: Mic ({self._mic_sample_rate}Hz) and loopback "
+                    f"({self._loopback_sample_rate}Hz) sample rates differ - mic audio discarded"
+                )
 
             # Start dedicated reader thread for mic
             self._mic_reader_thread = threading.Thread(
@@ -536,63 +538,6 @@ class AudioCapture:
                 logger.error(traceback.format_exc())
                 time.sleep(0.01)
 
-    def _resample_audio(
-        self, audio: np.ndarray, from_rate: int, to_rate: int, channels: int = 2
-    ) -> np.ndarray:
-        """
-        Resample audio from one sample rate to another using linear interpolation.
-
-        Args:
-            audio: Input audio samples (interleaved stereo: L R L R ...)
-            from_rate: Source sample rate
-            to_rate: Target sample rate
-            channels: Number of audio channels (default 2 for stereo)
-
-        Returns:
-            Resampled audio array in same format
-        """
-        if from_rate == to_rate:
-            return audio
-
-        if len(audio) == 0:
-            return audio
-
-        # For interleaved stereo, we need to handle each channel separately
-        # Audio format: [L0, R0, L1, R1, L2, R2, ...]
-        num_frames = len(audio) // channels
-
-        if num_frames == 0:
-            return audio
-
-        # Calculate output frames
-        ratio = to_rate / from_rate
-        num_output_frames = int(num_frames * ratio)
-
-        if num_output_frames == 0:
-            return audio
-
-        # Reshape to separate channels: [[L0, L1, L2...], [R0, R1, R2...]]
-        try:
-            audio_2d = audio.reshape(num_frames, channels).T.astype(np.float32)
-        except ValueError:
-            # If reshape fails, return original
-            return audio
-
-        # Resample each channel
-        old_indices = np.arange(num_frames)
-        new_indices = np.linspace(0, num_frames - 1, num_output_frames)
-
-        resampled_channels = []
-        for ch in range(channels):
-            resampled_ch = np.interp(new_indices, old_indices, audio_2d[ch])
-            resampled_channels.append(resampled_ch)
-
-        # Interleave back: [L0, R0, L1, R1, ...]
-        resampled_2d = np.array(resampled_channels).T
-        resampled = resampled_2d.flatten().astype(audio.dtype)
-
-        return resampled
-
     def _mix_audio(
         self, loopback: Optional[np.ndarray], mic: Optional[np.ndarray]
     ) -> Optional[np.ndarray]:
@@ -606,14 +551,9 @@ class AudioCapture:
         if mic is None:
             return loopback
 
-        # Resample mic audio to match loopback sample rate if needed
-        if self._mic_sample_rate != self._loopback_sample_rate and mic is not None and len(mic) > 0:
-            mic = self._resample_audio(
-                mic,
-                self._mic_sample_rate,
-                self._loopback_sample_rate,
-                channels=self._mic_channels if hasattr(self, '_mic_channels') else 2
-            )
+        # Discard mic audio if sample rates differ (resampling causes audio noise)
+        if self._mic_sample_rate != self._loopback_sample_rate:
+            return loopback
 
         # Log audio levels periodically for debugging
         if not hasattr(self, '_mix_log_count'):

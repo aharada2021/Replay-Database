@@ -40,12 +40,16 @@ provider:
   iam:
     role:
       statements:
-        # S3アクセス（一時ファイル保存用）
+        # S3アクセス（一時ファイル保存用 + マルチパートアップロード）
         - Effect: Allow
           Action:
             - s3:PutObject
             - s3:GetObject
             - s3:DeleteObject
+            - s3:CreateMultipartUpload
+            - s3:AbortMultipartUpload
+            - s3:CompleteMultipartUpload
+            - s3:ListMultipartUploadParts
           Resource:
             - arn:aws:s3:::${self:custom.bucketName}/*
 
@@ -243,6 +247,62 @@ functions:
       RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
       RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
       OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
+
+  # マルチパートアップロード開始API（大容量動画ファイル用）
+  upload-multipart-init-api:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.upload_multipart.handle_init_multipart
+    architecture: arm64
+    timeout: 29
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/upload/multipart/init
+          method: post
+    environment:
+      REPLAYS_BUCKET: ${self:custom.bucketName}
+      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
+
+  # マルチパートアップロード完了API
+  upload-multipart-complete-api:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.upload_multipart.handle_complete_multipart
+    architecture: arm64
+    timeout: 60
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/upload/multipart/complete
+          method: post
+    environment:
+      REPLAYS_BUCKET: ${self:custom.bucketName}
+      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
+      # 新バトルテーブル
+      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
+      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
+      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
+      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
+
+  # マルチパートアップロード中止API
+  upload-multipart-abort-api:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.upload_multipart.handle_abort_multipart
+    architecture: arm64
+    timeout: 29
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/upload/multipart/abort
+          method: post
+    environment:
+      REPLAYS_BUCKET: ${self:custom.bucketName}
+      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
 
   # バトル結果抽出（S3トリガー）
   battle-result-extractor:

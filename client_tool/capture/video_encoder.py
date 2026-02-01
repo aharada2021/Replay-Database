@@ -238,6 +238,10 @@ class VideoEncoder:
             "-video_size", video_size,
             "-framerate", str(self.config.target_fps),
             "-i", "pipe:0",  # Read from stdin
+            # Frame interpolation: duplicate frames to maintain constant framerate
+            # This fixes the issue where dropped frames cause video time compression
+            "-vf", f"fps=fps={self.config.target_fps}:round=near",
+            "-vsync", "cfr",  # Constant frame rate output
             "-c:v", "libx264",
             "-preset", realtime_preset,
             "-crf", str(quality["crf"]),
@@ -504,7 +508,7 @@ class VideoEncoder:
                 logger.error(traceback.format_exc())
                 return None
 
-        # Mux video and audio
+        # Mux video and audio with sync correction
         logger.info("Muxing video and audio...")
         cmd = [
             self._ffmpeg_path,
@@ -514,6 +518,9 @@ class VideoEncoder:
             "-c:v", "copy",  # Copy video stream (already encoded)
             "-c:a", "aac",
             "-b:a", "192k",
+            # Audio sync options to fix drift between audio and video
+            "-async", "1",  # Allow audio sync correction
+            "-af", "aresample=async=1000",  # Async resampling to correct drift
             "-shortest",  # End when shortest stream ends
             "-movflags", "+faststart",
             str(self.output_path),
