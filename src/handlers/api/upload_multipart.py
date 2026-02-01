@@ -40,7 +40,7 @@ MAX_PARTS = 10000
 s3_client = boto3.client("s3")
 
 # ArenaUniqueIDの有効パターン（英数字、ハイフン、アンダースコアのみ許可）
-ARENA_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+ARENA_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 def _verify_api_key(headers: dict) -> bool:
@@ -110,6 +110,7 @@ def handle_init_multipart(event, context):
         body = event.get("body", "")
         if event.get("isBase64Encoded", False):
             import base64
+
             body = base64.b64decode(body).decode("utf-8")
 
         data = json.loads(body) if isinstance(body, str) else body
@@ -170,26 +171,31 @@ def handle_init_multipart(event, context):
                 },
                 ExpiresIn=MULTIPART_URL_EXPIRY,
             )
-            part_urls.append({
-                "partNumber": part_number,
-                "url": presigned_url,
-            })
+            part_urls.append(
+                {
+                    "partNumber": part_number,
+                    "url": presigned_url,
+                }
+            )
 
         logger.info(f"Multipart upload initiated: {s3_key} ({num_parts} parts)")
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "uploadId": upload_id,
-                "s3Key": s3_key,
-                "partUrls": part_urls,
-                "partSize": PART_SIZE,
-            }),
+            "body": json.dumps(
+                {
+                    "uploadId": upload_id,
+                    "s3Key": s3_key,
+                    "partUrls": part_urls,
+                    "partSize": PART_SIZE,
+                }
+            ),
         }
 
     except Exception as e:
         print(f"Error in handle_init_multipart: {e}")
         import traceback
+
         traceback.print_exc()
         return _error_response(500, "Internal server error")
 
@@ -226,6 +232,7 @@ def handle_complete_multipart(event, context):
         body = event.get("body", "")
         if event.get("isBase64Encoded", False):
             import base64
+
             body = base64.b64decode(body).decode("utf-8")
 
         data = json.loads(body) if isinstance(body, str) else body
@@ -262,10 +269,12 @@ def handle_complete_multipart(event, context):
             part_number = part.get("PartNumber") or part.get("partNumber")
             etag = part.get("ETag") or part.get("etag")
             if part_number and etag:
-                normalized_parts.append({
-                    "PartNumber": int(part_number),
-                    "ETag": etag,
-                })
+                normalized_parts.append(
+                    {
+                        "PartNumber": int(part_number),
+                        "ETag": etag,
+                    }
+                )
 
         # パート番号でソート
         normalized_parts.sort(key=lambda x: x["PartNumber"])
@@ -305,12 +314,14 @@ def handle_complete_multipart(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
-                "status": "success",
-                "s3Key": s3_key,
-                "location": response.get("Location", ""),
-                "fileSize": file_size,
-            }),
+            "body": json.dumps(
+                {
+                    "status": "success",
+                    "s3Key": s3_key,
+                    "location": response.get("Location", ""),
+                    "fileSize": file_size,
+                }
+            ),
         }
 
     except s3_client.exceptions.NoSuchUpload:
@@ -318,6 +329,7 @@ def handle_complete_multipart(event, context):
     except Exception as e:
         print(f"Error in handle_complete_multipart: {e}")
         import traceback
+
         traceback.print_exc()
         return _error_response(500, "Internal server error")
 
@@ -347,6 +359,7 @@ def handle_abort_multipart(event, context):
         body = event.get("body", "")
         if event.get("isBase64Encoded", False):
             import base64
+
             body = base64.b64decode(body).decode("utf-8")
 
         data = json.loads(body) if isinstance(body, str) else body
@@ -396,5 +409,6 @@ def handle_abort_multipart(event, context):
     except Exception as e:
         print(f"Error in handle_abort_multipart: {e}")
         import traceback
+
         traceback.print_exc()
         return _error_response(500, "Internal server error")
