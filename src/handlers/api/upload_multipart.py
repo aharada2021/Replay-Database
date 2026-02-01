@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import time
+
 import boto3
 
 from utils.dynamodb_tables import BattleTableClient, find_match_game_type
