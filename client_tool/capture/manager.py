@@ -67,6 +67,10 @@ class GameCaptureManager:
         # Audio debug counter
         self._audio_callback_count = 0
 
+        # Separate mic audio thread (for different sample rates)
+        self._mic_thread: Optional[threading.Thread] = None
+        self._mic_running = False
+
     def is_available(self) -> bool:
         """Check if capture is available on this system."""
         if self._use_mocks:
@@ -195,6 +199,7 @@ class GameCaptureManager:
 
                 # Initialize audio capture first to get sample rate
                 audio_sample_rate = 44100  # Default
+                mic_sample_rate = None
                 if self.config.capture_audio or self.config.capture_microphone:
                     self._audio_capture = audio_cls(
                         self.config, self._on_audio_data
@@ -207,16 +212,33 @@ class GameCaptureManager:
                         audio_sample_rate = self._audio_capture.get_sample_rate()
                         logger.info(f"Audio capture sample rate: {audio_sample_rate} Hz")
 
+                        # Check if mic needs separate handling
+                        if hasattr(self._audio_capture, 'has_separate_mic'):
+                            if self._audio_capture.has_separate_mic():
+                                mic_sample_rate = self._audio_capture.get_mic_sample_rate()
+                                logger.info(f"Mic sample rate: {mic_sample_rate} Hz (separate)")
+
                 # Initialize encoder with audio sample rate
                 self._encoder = encoder_cls(self.config, self._output_path)
                 if hasattr(self._encoder, 'set_audio_sample_rate'):
                     self._encoder.set_audio_sample_rate(audio_sample_rate)
+                if mic_sample_rate and hasattr(self._encoder, 'set_mic_sample_rate'):
+                    self._encoder.set_mic_sample_rate(mic_sample_rate)
+                    # Also set mic channels
+                    if hasattr(self._audio_capture, 'get_mic_channels'):
+                        mic_channels = self._audio_capture.get_mic_channels()
+                        if hasattr(self._encoder, 'set_mic_channels'):
+                            self._encoder.set_mic_channels(mic_channels)
                 if not self._encoder.start(capture_width, capture_height):
                     raise CaptureError("Failed to start encoder")
 
                 self._running = True
                 self._start_time = time.perf_counter()
                 self._audio_callback_count = 0  # Reset audio callback counter
+
+                # Start separate mic thread if needed
+                if mic_sample_rate and self._audio_capture:
+                    self._start_mic_thread()
 
                 # Start max duration timer
                 self._start_duration_timer()
@@ -260,6 +282,49 @@ class GameCaptureManager:
             self._audio_callback_count += 1
             if self._audio_callback_count % 1000 == 0:
                 logger.info(f"Manager audio callbacks: {self._audio_callback_count}")
+
+    def _start_mic_thread(self):
+        """Start a separate thread to handle mic audio with different sample rate."""
+        self._mic_running = True
+        self._mic_thread = threading.Thread(
+            target=self._mic_loop,
+            daemon=True,
+            name="MicAudioProcessor"
+        )
+        self._mic_thread.start()
+        logger.info("Started separate mic audio thread")
+
+    def _mic_loop(self):
+        """Process mic audio separately (for different sample rates)."""
+        mic_callback_count = 0
+        while self._mic_running and self._running:
+            if self._audio_capture is None or self._encoder is None:
+                time.sleep(0.01)
+                continue
+
+            # Get mic audio from audio capture
+            if hasattr(self._audio_capture, 'get_mic_audio'):
+                mic_audio = self._audio_capture.get_mic_audio()
+                if mic_audio is not None and len(mic_audio) > 0:
+                    timestamp = time.perf_counter() - (self._start_time or 0)
+                    if hasattr(self._encoder, 'write_mic_audio'):
+                        self._encoder.write_mic_audio(mic_audio, timestamp)
+                        mic_callback_count += 1
+                        if mic_callback_count == 1:
+                            logger.info(f"First mic audio sent: {len(mic_audio)} samples")
+                        elif mic_callback_count % 1000 == 0:
+                            logger.info(f"Mic audio callbacks: {mic_callback_count}")
+
+            time.sleep(0.02)  # ~50 times per second
+
+        logger.info(f"Mic audio thread stopped after {mic_callback_count} callbacks")
+
+    def _stop_mic_thread(self):
+        """Stop the mic audio thread."""
+        self._mic_running = False
+        if self._mic_thread is not None:
+            self._mic_thread.join(timeout=2.0)
+            self._mic_thread = None
 
     def _start_duration_timer(self):
         """Start a timer to enforce max capture duration."""
@@ -319,6 +384,9 @@ class GameCaptureManager:
         if self._start_time is not None:
             duration = time.perf_counter() - self._start_time
 
+        # Stop mic thread first (before audio capture)
+        self._stop_mic_thread()
+
         if self._screen_capture is not None:
             self._screen_capture.stop()
             self._screen_capture = None
@@ -343,6 +411,8 @@ class GameCaptureManager:
 
     def _cleanup(self):
         """Clean up all resources."""
+        self._stop_mic_thread()
+
         if self._screen_capture is not None:
             try:
                 self._screen_capture.stop()

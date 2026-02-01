@@ -50,7 +50,7 @@ DEFAULT_API_BASE_URL = ""  # 例: "https://your-server.example.com"
 DEFAULT_MAX_UPLOAD_SIZE_MB = 500  # デフォルト最大アップロードサイズ(MB)
 
 # バージョン情報
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 # デフォルトのリプレイフォルダ
 DEFAULT_REPLAYS_FOLDER = os.path.expandvars('%APPDATA%\\Wargaming.net\\WorldOfWarships\\replays')
@@ -822,16 +822,35 @@ class ReplayUploader:
 
         logger.info(f"ゲームプレイ動画アップロード開始: {video_path.name} ({file_size_mb:.1f}MB)")
 
+        # 10MB以上のファイルはマルチパートアップロードを使用
+        multipart_threshold = 10 * 1024 * 1024  # 10MB
+        if file_size > multipart_threshold:
+            logger.info("ファイルサイズが大きいためマルチパートアップロードを使用")
+            return self._upload_gameplay_video_multipart(
+                video_path, arena_unique_id, player_id
+            )
+
+        # 小さいファイルは従来の単一PUTアップロード
+        # デバッグ: URLの一部を表示（セキュリティのため署名部分は隠す）
+        url_parts = upload_url.split('?')
+        logger.info(f"アップロード先: {url_parts[0][:100]}...")
+
         for attempt in range(1, self.retry_count + 1):
             try:
+                # ファイルを直接読み込んでアップロード（ジェネレータの問題を回避）
                 with open(video_path, 'rb') as f:
-                    # プログレス表示付きでアップロード
-                    response = requests.put(
-                        upload_url,
-                        data=self._upload_with_progress(f, file_size),
-                        headers={'Content-Type': 'video/mp4'},
-                        timeout=600  # 10分タイムアウト（大きいファイル用）
-                    )
+                    file_data = f.read()
+
+                logger.info(f"動画データ読み込み完了: {len(file_data)} bytes")
+
+                response = requests.put(
+                    upload_url,
+                    data=file_data,
+                    headers={
+                        'Content-Type': 'video/mp4',
+                    },
+                    timeout=600  # 10分タイムアウト（大きいファイル用）
+                )
 
                 if response.status_code in (200, 204):
                     logger.info(f"動画アップロード成功: {s3_key}")
@@ -872,6 +891,237 @@ class ReplayUploader:
 
         logger.error(f"動画アップロード失敗: {video_path}")
         return False
+
+    def _upload_gameplay_video_multipart(
+        self,
+        video_path: Path,
+        arena_unique_id: str,
+        player_id: int
+    ) -> bool:
+        """
+        マルチパートアップロードでゲームプレイ動画をS3にアップロード
+
+        大容量ファイル（10MB以上）の安定したアップロードに使用
+
+        Args:
+            video_path: 動画ファイルのパス
+            arena_unique_id: アリーナユニークID
+            player_id: プレイヤーID
+
+        Returns:
+            成功した場合True
+        """
+        file_size = video_path.stat().st_size
+        file_size_mb = file_size / (1024 * 1024)
+        upload_id = None
+
+        try:
+            # 1. マルチパートアップロード開始
+            init_response = self._init_multipart_upload(
+                arena_unique_id, player_id, file_size
+            )
+
+            if not init_response:
+                logger.error("マルチパートアップロード開始に失敗")
+                return False
+
+            upload_id = init_response['uploadId']
+            part_urls = init_response['partUrls']
+            part_size = init_response.get('partSize', 10 * 1024 * 1024)
+            s3_key = init_response['s3Key']
+
+            logger.info(f"マルチパートアップロード開始: {len(part_urls)} パート")
+
+            # 2. 各パートをアップロード
+            parts = []
+            with open(video_path, 'rb') as f:
+                for part_info in part_urls:
+                    part_number = part_info['partNumber']
+                    url = part_info['url']
+
+                    # パートデータを読み込み
+                    data = f.read(part_size)
+                    if not data:
+                        break
+
+                    part_size_mb = len(data) / (1024 * 1024)
+                    logger.info(f"パート {part_number}/{len(part_urls)} アップロード中 ({part_size_mb:.1f}MB)...")
+
+                    # パートをアップロード（リトライ付き）
+                    etag = self._upload_part(url, data)
+                    if not etag:
+                        raise Exception(f"パート {part_number} のアップロードに失敗")
+
+                    parts.append({
+                        'PartNumber': part_number,
+                        'ETag': etag
+                    })
+
+            # 3. マルチパートアップロード完了
+            success = self._complete_multipart_upload(
+                arena_unique_id, player_id, upload_id, parts
+            )
+
+            if success:
+                logger.info(f"マルチパートアップロード完了: {s3_key} ({file_size_mb:.1f}MB)")
+
+                # ローカルコピーを削除（設定による）
+                if not self.keep_local_copy:
+                    try:
+                        video_path.unlink()
+                        logger.info(f"ローカル動画ファイルを削除: {video_path}")
+                    except Exception as e:
+                        logger.warning(f"ローカル動画ファイル削除エラー: {e}")
+
+                return True
+            else:
+                logger.error("マルチパートアップロード完了通知に失敗")
+                return False
+
+        except Exception as e:
+            logger.error(f"マルチパートアップロードエラー: {e}")
+
+            # アップロードを中止
+            if upload_id:
+                self._abort_multipart_upload(arena_unique_id, player_id, upload_id)
+
+            return False
+
+    def _init_multipart_upload(
+        self,
+        arena_unique_id: str,
+        player_id: int,
+        file_size: int
+    ) -> Optional[Dict[str, Any]]:
+        """マルチパートアップロード開始API呼び出し"""
+        try:
+            url = f"{self.api_base_url}/api/upload/multipart/init"
+            response = requests.post(
+                url,
+                headers={
+                    'X-Api-Key': self.api_key,
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'arenaUniqueID': arena_unique_id,
+                    'playerID': player_id,
+                    'fileSize': file_size,
+                    'contentType': 'video/mp4'
+                },
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"マルチパートアップロード開始失敗: HTTP {response.status_code}")
+                logger.error(f"レスポンス: {response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"マルチパートアップロード開始エラー: {e}")
+            return None
+
+    def _upload_part(self, url: str, data: bytes) -> Optional[str]:
+        """
+        単一パートをアップロード
+
+        Returns:
+            成功時はETag、失敗時はNone
+        """
+        for attempt in range(1, self.retry_count + 1):
+            try:
+                response = requests.put(
+                    url,
+                    data=data,
+                    headers={'Content-Type': 'application/octet-stream'},
+                    timeout=300  # 5分タイムアウト
+                )
+
+                if response.status_code in (200, 204):
+                    etag = response.headers.get('ETag')
+                    return etag
+                else:
+                    logger.warning(
+                        f"パートアップロード失敗 (試行 {attempt}/{self.retry_count}): "
+                        f"HTTP {response.status_code}"
+                    )
+
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"パートアップロードエラー (試行 {attempt}/{self.retry_count}): {e}")
+
+            if attempt < self.retry_count:
+                time.sleep(self.retry_delay)
+
+        return None
+
+    def _complete_multipart_upload(
+        self,
+        arena_unique_id: str,
+        player_id: int,
+        upload_id: str,
+        parts: list
+    ) -> bool:
+        """マルチパートアップロード完了API呼び出し"""
+        try:
+            url = f"{self.api_base_url}/api/upload/multipart/complete"
+            response = requests.post(
+                url,
+                headers={
+                    'X-Api-Key': self.api_key,
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'arenaUniqueID': arena_unique_id,
+                    'playerID': player_id,
+                    'uploadId': upload_id,
+                    'parts': parts
+                },
+                timeout=60
+            )
+
+            if response.status_code == 200:
+                logger.info("マルチパートアップロード完了通知成功")
+                return True
+            else:
+                logger.error(f"マルチパートアップロード完了通知失敗: HTTP {response.status_code}")
+                logger.error(f"レスポンス: {response.text}")
+                return False
+
+        except Exception as e:
+            logger.error(f"マルチパートアップロード完了通知エラー: {e}")
+            return False
+
+    def _abort_multipart_upload(
+        self,
+        arena_unique_id: str,
+        player_id: int,
+        upload_id: str
+    ):
+        """マルチパートアップロード中止API呼び出し"""
+        try:
+            url = f"{self.api_base_url}/api/upload/multipart/abort"
+            response = requests.post(
+                url,
+                headers={
+                    'X-Api-Key': self.api_key,
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    'arenaUniqueID': arena_unique_id,
+                    'playerID': player_id,
+                    'uploadId': upload_id
+                },
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                logger.info("マルチパートアップロード中止成功")
+            else:
+                logger.warning(f"マルチパートアップロード中止失敗: HTTP {response.status_code}")
+
+        except Exception as e:
+            logger.warning(f"マルチパートアップロード中止エラー: {e}")
 
     def _notify_video_upload_complete(
         self,

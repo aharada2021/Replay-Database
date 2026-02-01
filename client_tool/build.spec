@@ -17,6 +17,14 @@ capture_hiddenimports = [
     'capture.video_encoder',
 ]
 
+# Collect numpy submodules (internal structure varies by version)
+try:
+    numpy_imports = collect_submodules('numpy')
+    print(f"[build.spec] numpy imports: {len(numpy_imports)} modules")
+except Exception as e:
+    numpy_imports = ['numpy']
+    print(f"[build.spec] numpy collect failed: {e}")
+
 # Collect windows-capture and pyaudiowpatch submodules if available
 try:
     windows_capture_imports = collect_submodules('windows_capture')
@@ -100,9 +108,7 @@ a = Analysis(
         'watchdog.events',
         'multiprocessing',
         # Numpy
-        'numpy',
-        'numpy.core._methods',
-        'numpy.lib.format',
+        *numpy_imports,
         # Capture module (local package)
         *capture_hiddenimports,
         # Windows capture (optional)

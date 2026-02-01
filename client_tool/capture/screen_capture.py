@@ -177,27 +177,56 @@ class ScreenCapture:
                 return True
             except Exception as e:
                 logger.error(f"Failed to start screen capture: {e}")
+                logger.error(
+                    "Hint: Try running the game in 'Borderless Windowed' mode instead of Fullscreen. "
+                    "Also ensure the uploader has the same admin privileges as the game."
+                )
                 return False
 
     def _start_capture(self):
         """Initialize and start the Windows capture."""
-        self._capture = WindowsCapture(
-            cursor_capture=False,
-            draw_border=False,
-            window_name=self._window_info.title,
-        )
+        # Try multiple capture methods in order of preference
+        capture_methods = [
+            ("window_name", {"window_name": self._window_info.title}),
+            ("monitor", {"monitor_index": 0}),  # Primary monitor as fallback
+        ]
 
-        # Register frame callback using the event decorator
-        @self._capture.event
-        def on_frame_arrived(frame: Frame, capture_control: CaptureControl):
-            self._handle_frame(frame, capture_control)
+        last_error = None
+        for method_name, params in capture_methods:
+            try:
+                logger.info(f"Trying capture method: {method_name} with params: {params}")
+                capture = WindowsCapture(
+                    cursor_capture=False,
+                    draw_border=False,
+                    **params,
+                )
+                logger.info(f"WindowsCapture created with {method_name}")
 
-        @self._capture.event
-        def on_closed():
-            self._handle_closed()
+                # Register frame callback using the event decorator
+                @capture.event
+                def on_frame_arrived(frame: Frame, capture_control: CaptureControl):
+                    self._handle_frame(frame, capture_control)
 
-        # Start capture in a separate thread
-        self._capture.start_free_threaded()
+                @capture.event
+                def on_closed():
+                    self._handle_closed()
+
+                # Try to start capture - this is where the error usually occurs
+                logger.info(f"Starting capture with {method_name}...")
+                capture.start_free_threaded()
+
+                # If we get here, capture started successfully
+                self._capture = capture
+                logger.info(f"Capture started successfully with {method_name}")
+                return
+
+            except Exception as e:
+                logger.warning(f"Capture method {method_name} failed: {e}")
+                last_error = e
+                continue
+
+        # All methods failed
+        raise last_error or Exception("All capture methods failed")
 
     def _handle_frame(self, frame: "Frame", control: "CaptureControl"):
         """Handle incoming frame from capture."""

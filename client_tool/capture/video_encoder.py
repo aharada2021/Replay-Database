@@ -102,14 +102,18 @@ class VideoEncoder:
 
         # Audio sample rate - can be set before start() to match capture device
         self._audio_sample_rate = self.AUDIO_SAMPLE_RATE
+        self._mic_sample_rate: Optional[int] = None  # Set if mic has different rate
+        self._mic_channels: int = 1  # Mic channel count (default mono)
 
         # Queues for buffering
         self._video_queue: Queue = Queue(maxsize=VIDEO_QUEUE_SIZE)
         self._audio_queue: Queue = Queue(maxsize=AUDIO_QUEUE_SIZE)
+        self._mic_queue: Queue = Queue(maxsize=AUDIO_QUEUE_SIZE)
 
         # Writer threads
         self._video_writer_thread: Optional[threading.Thread] = None
         self._audio_writer_thread: Optional[threading.Thread] = None
+        self._mic_writer_thread: Optional[threading.Thread] = None
 
         # FFmpeg process for real-time video encoding
         self._ffmpeg_process: Optional[subprocess.Popen] = None
@@ -117,8 +121,10 @@ class VideoEncoder:
         # Temp files
         self._temp_dir: Optional[Path] = None
         self._temp_video_file: Optional[Path] = None  # Encoded video (no audio)
-        self._temp_audio_file: Optional[Path] = None  # WAV audio
+        self._temp_audio_file: Optional[Path] = None  # WAV audio (loopback)
+        self._temp_mic_file: Optional[Path] = None    # WAV audio (mic, separate)
         self._audio_handle = None
+        self._mic_handle = None
 
         # Stats
         self._width: Optional[int] = None
@@ -128,6 +134,8 @@ class VideoEncoder:
         self._dropped_frames = 0
         self._audio_chunks = 0
         self._dropped_audio = 0
+        self._mic_chunks = 0
+        self._dropped_mic = 0
 
     @staticmethod
     def is_available() -> bool:
@@ -149,6 +157,35 @@ class VideoEncoder:
             return
         self._audio_sample_rate = sample_rate
         logger.info(f"Audio sample rate set to {sample_rate} Hz")
+
+    def set_mic_sample_rate(self, sample_rate: int):
+        """
+        Set the microphone sample rate (if different from main audio).
+
+        When mic sample rate differs from loopback, mic audio is saved
+        to a separate file and resampled by FFmpeg during final mux.
+
+        Args:
+            sample_rate: Mic sample rate in Hz
+        """
+        if self._running:
+            logger.warning("Cannot change mic sample rate while encoder is running")
+            return
+        self._mic_sample_rate = sample_rate
+        logger.info(f"Mic sample rate set to {sample_rate} Hz (will be resampled)")
+
+    def set_mic_channels(self, channels: int):
+        """
+        Set the microphone channel count.
+
+        Args:
+            channels: Number of channels (1 for mono, 2 for stereo)
+        """
+        if self._running:
+            logger.warning("Cannot change mic channels while encoder is running")
+            return
+        self._mic_channels = channels
+        logger.info(f"Mic channels set to {channels}")
 
     def start(self, width: int, height: int) -> bool:
         """
@@ -203,6 +240,13 @@ class VideoEncoder:
                     )
                     self._audio_writer_thread.start()
 
+                # Start mic writer thread if mic has separate sample rate
+                if self._mic_handle is not None:
+                    self._mic_writer_thread = threading.Thread(
+                        target=self._mic_writer_loop, daemon=True, name="MicWriter"
+                    )
+                    self._mic_writer_thread.start()
+
                 logger.info(
                     f"Video encoder started (real-time): {self._width}x{self._height} "
                     f"@ {self.config.target_fps}fps, audio={self.config.capture_audio}"
@@ -233,11 +277,17 @@ class VideoEncoder:
         cmd = [
             self._ffmpeg_path,
             "-y",  # Overwrite output
+            # Use wall clock timestamps to preserve real-time duration
+            # This fixes video time compression when frames arrive slower than target fps
+            "-use_wallclock_as_timestamps", "1",
             "-f", "rawvideo",
             "-pixel_format", "bgra",
             "-video_size", video_size,
             "-framerate", str(self.config.target_fps),
             "-i", "pipe:0",  # Read from stdin
+            # Frame interpolation: duplicate frames to maintain constant framerate
+            "-vf", f"fps=fps={self.config.target_fps}:round=near",
+            "-vsync", "cfr",  # Constant frame rate output
             "-c:v", "libx264",
             "-preset", realtime_preset,
             "-crf", str(quality["crf"]),
@@ -266,7 +316,7 @@ class VideoEncoder:
             creationflags=creationflags,
         )
 
-        # Set up audio temp file
+        # Set up audio temp file (loopback)
         if self.config.capture_audio:
             self._temp_audio_file = self._temp_dir / "audio.wav"
             self._audio_handle = wave.open(str(self._temp_audio_file), "wb")
@@ -274,6 +324,16 @@ class VideoEncoder:
             self._audio_handle.setsampwidth(self.AUDIO_SAMPLE_WIDTH)
             self._audio_handle.setframerate(self._audio_sample_rate)
             logger.info(f"Audio WAV file: {self.AUDIO_CHANNELS}ch @ {self._audio_sample_rate}Hz")
+
+        # Set up mic temp file (separate, if different sample rate)
+        if self.config.capture_microphone and self._mic_sample_rate is not None:
+            self._temp_mic_file = self._temp_dir / "mic.wav"
+            self._mic_handle = wave.open(str(self._temp_mic_file), "wb")
+            # Use the actual mic channel count from audio capture
+            self._mic_handle.setnchannels(self._mic_channels)
+            self._mic_handle.setsampwidth(self.AUDIO_SAMPLE_WIDTH)
+            self._mic_handle.setframerate(self._mic_sample_rate)
+            logger.info(f"Mic WAV file: {self._mic_channels}ch @ {self._mic_sample_rate}Hz (separate)")
 
     def write_frame(self, frame: np.ndarray, timestamp: float):
         """
@@ -317,6 +377,32 @@ class VideoEncoder:
             self._dropped_audio += 1
             if self._dropped_audio % DROPPED_FRAME_LOG_INTERVAL == 1:
                 logger.debug(f"Dropped {self._dropped_audio} audio chunks")
+
+    def write_mic_audio(self, audio: np.ndarray, timestamp: float):
+        """
+        Write microphone audio data (separate from main audio).
+
+        Used when mic has different sample rate from loopback.
+
+        Args:
+            audio: Audio data as numpy array (int16)
+            timestamp: Audio timestamp in seconds
+        """
+        with self._lock:
+            if not self._running:
+                return
+            if self._mic_handle is None:
+                return
+
+        try:
+            audio_bytes = audio.tobytes()
+            self._mic_queue.put_nowait((audio_bytes, timestamp))
+            if self._mic_chunks == 0 and self._mic_queue.qsize() == 1:
+                logger.debug(f"First mic chunk queued: {len(audio_bytes)} bytes")
+        except Exception:
+            self._dropped_mic += 1
+            if self._dropped_mic % DROPPED_FRAME_LOG_INTERVAL == 1:
+                logger.debug(f"Dropped {self._dropped_mic} mic chunks")
 
     def _video_writer_loop(self):
         """Write video frames directly to FFmpeg stdin for real-time encoding."""
@@ -392,6 +478,35 @@ class VideoEncoder:
 
         logger.info(f"Audio writer finished: {self._audio_chunks} chunks written")
 
+    def _mic_writer_loop(self):
+        """Write mic audio chunks to separate temp WAV file."""
+        logger.info("Mic writer thread started")
+
+        while True:
+            with self._lock:
+                running = self._running
+                queue_empty = self._mic_queue.empty()
+
+            if not running and queue_empty:
+                break
+
+            try:
+                audio_data, _ = self._mic_queue.get(timeout=0.1)
+                if self._mic_handle:
+                    self._mic_handle.writeframes(audio_data)
+                    self._mic_chunks += 1
+                    if self._mic_chunks == 1:
+                        logger.info(f"First mic chunk written to WAV: {len(audio_data)} bytes")
+                    elif self._mic_chunks % 1000 == 0:
+                        logger.info(f"Mic chunks written: {self._mic_chunks}")
+            except Empty:
+                continue
+            except Exception as e:
+                logger.error(f"Error writing mic chunk: {e}")
+                break
+
+        logger.info(f"Mic writer finished: {self._mic_chunks} chunks written")
+
     def stop(self) -> Optional[Path]:
         """
         Stop the encoder and finalize the video file.
@@ -415,13 +530,24 @@ class VideoEncoder:
             self._audio_writer_thread.join(timeout=10.0)
             logger.debug("Audio writer thread joined")
 
-        # Close audio file handle
+        if self._mic_writer_thread is not None:
+            self._mic_writer_thread.join(timeout=10.0)
+            logger.debug("Mic writer thread joined")
+
+        # Close audio file handles
         if self._audio_handle is not None:
             try:
                 self._audio_handle.close()
             except Exception:
                 pass
             self._audio_handle = None
+
+        if self._mic_handle is not None:
+            try:
+                self._mic_handle.close()
+            except Exception:
+                pass
+            self._mic_handle = None
 
         # Wait for FFmpeg to finish encoding
         if self._ffmpeg_process is not None:
@@ -476,6 +602,12 @@ class VideoEncoder:
             audio_size = self._temp_audio_file.stat().st_size
             logger.debug(f"Temp audio size: {audio_size} bytes")
 
+        # Check if we have separate mic audio
+        mic_size = 0
+        if self._temp_mic_file and self._temp_mic_file.exists():
+            mic_size = self._temp_mic_file.stat().st_size
+            logger.debug(f"Temp mic size: {mic_size} bytes")
+
         has_audio = (
             self.config.capture_audio
             and self._temp_audio_file is not None
@@ -483,10 +615,16 @@ class VideoEncoder:
             and audio_size > 44  # WAV header size
         )
 
+        has_mic = (
+            self._temp_mic_file is not None
+            and self._temp_mic_file.exists()
+            and mic_size > 44  # WAV header size
+        )
+
         # Ensure output directory exists
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if not has_audio:
+        if not has_audio and not has_mic:
             # No audio - just copy the video file (use copy instead of move for reliability)
             logger.info("No audio to mux, using video-only output")
             try:
@@ -504,20 +642,65 @@ class VideoEncoder:
                 logger.error(traceback.format_exc())
                 return None
 
-        # Mux video and audio
-        logger.info("Muxing video and audio...")
-        cmd = [
-            self._ffmpeg_path,
-            "-y",
-            "-i", str(self._temp_video_file),
-            "-i", str(self._temp_audio_file),
-            "-c:v", "copy",  # Copy video stream (already encoded)
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-shortest",  # End when shortest stream ends
-            "-movflags", "+faststart",
-            str(self.output_path),
-        ]
+        # Build FFmpeg mux command
+        if has_audio and has_mic:
+            # Mux video + loopback audio + mic audio (with resampling)
+            logger.info("Muxing video, loopback audio, and mic audio...")
+
+            # Build filter based on mic channels
+            # 1. Resample both to same rate
+            # 2. Convert mic to stereo if mono (duplicate to both channels)
+            # 3. Mix using amix (more robust than amerge)
+            if self._mic_channels == 1:
+                # Mono mic: duplicate to stereo before mixing
+                filter_complex = (
+                    f"[1:a]aresample={self._audio_sample_rate}[loopback];"
+                    f"[2:a]aresample={self._audio_sample_rate},pan=stereo|c0=c0|c1=c0[mic];"
+                    f"[loopback][mic]amix=inputs=2:duration=shortest:normalize=0[aout]"
+                )
+            else:
+                # Stereo mic: just resample and mix
+                filter_complex = (
+                    f"[1:a]aresample={self._audio_sample_rate}[loopback];"
+                    f"[2:a]aresample={self._audio_sample_rate}[mic];"
+                    f"[loopback][mic]amix=inputs=2:duration=shortest:normalize=0[aout]"
+                )
+
+            cmd = [
+                self._ffmpeg_path,
+                "-y",
+                "-i", str(self._temp_video_file),
+                "-i", str(self._temp_audio_file),
+                "-i", str(self._temp_mic_file),
+                "-filter_complex", filter_complex,
+                "-map", "0:v",
+                "-map", "[aout]",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-shortest",
+                "-movflags", "+faststart",
+                str(self.output_path),
+            ]
+        else:
+            # Mux video and single audio source
+            logger.info("Muxing video and audio...")
+            audio_file = self._temp_audio_file if has_audio else self._temp_mic_file
+            cmd = [
+                self._ffmpeg_path,
+                "-y",
+                "-i", str(self._temp_video_file),
+                "-i", str(audio_file),
+                "-c:v", "copy",  # Copy video stream (already encoded)
+                "-c:a", "aac",
+                "-b:a", "192k",
+                # Audio sync options to fix drift between audio and video
+                "-async", "1",  # Allow audio sync correction
+                "-af", "aresample=async=1000",  # Async resampling to correct drift
+                "-shortest",  # End when shortest stream ends
+                "-movflags", "+faststart",
+                str(self.output_path),
+            ]
 
         logger.debug(f"FFmpeg mux command: {' '.join(cmd)}")
 
@@ -579,6 +762,13 @@ class VideoEncoder:
                 pass
             self._audio_handle = None
 
+        if self._mic_handle is not None:
+            try:
+                self._mic_handle.close()
+            except Exception:
+                pass
+            self._mic_handle = None
+
         if self._temp_dir is not None and self._temp_dir.exists():
             try:
                 shutil.rmtree(self._temp_dir)
@@ -589,6 +779,7 @@ class VideoEncoder:
 
         self._temp_video_file = None
         self._temp_audio_file = None
+        self._temp_mic_file = None
 
     def is_running(self) -> bool:
         """Check if encoder is running."""

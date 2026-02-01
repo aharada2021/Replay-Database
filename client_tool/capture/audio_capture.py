@@ -377,28 +377,27 @@ class AudioCapture:
         try:
             device_info = self._pa.get_device_info_by_index(mic_device)
             self._mic_channels = min(int(device_info.get("maxInputChannels", 1)), 2)
-            self._mic_sample_rate = int(device_info.get("defaultSampleRate", self.SAMPLE_RATE))
-
-            # Warn if mic sample rate differs from loopback (can cause sync issues)
-            if hasattr(self, '_loopback_sample_rate') and self._loopback_sample_rate != self._mic_sample_rate:
-                logger.warning(
-                    f"Mic sample rate ({self._mic_sample_rate}Hz) differs from loopback "
-                    f"({self._loopback_sample_rate}Hz) - may cause audio sync issues"
-                )
-                print(
-                    f"[AUDIO] WARNING: Mic ({self._mic_sample_rate}Hz) and loopback "
-                    f"({self._loopback_sample_rate}Hz) sample rates differ!"
-                )
+            default_mic_rate = int(device_info.get("defaultSampleRate", self.SAMPLE_RATE))
 
             self._mic_buffer = []
             self._mic_stream = self._pa.open(
                 format=self.FORMAT,
                 channels=self._mic_channels,
-                rate=self._mic_sample_rate,
+                rate=default_mic_rate,
                 input=True,
                 input_device_index=mic_device,
                 frames_per_buffer=self.CHUNK_SIZE,
             )
+            self._mic_sample_rate = default_mic_rate
+            logger.info(f"Mic opened at native rate: {default_mic_rate}Hz")
+
+            # Note: If sample rates differ, mic audio will be saved separately
+            # and resampled by FFmpeg during final mux
+            if hasattr(self, '_loopback_sample_rate') and self._loopback_sample_rate != self._mic_sample_rate:
+                logger.info(
+                    f"Mic sample rate ({self._mic_sample_rate}Hz) differs from loopback "
+                    f"({self._loopback_sample_rate}Hz) - will be resampled by FFmpeg"
+                )
 
             # Start dedicated reader thread for mic
             self._mic_reader_thread = threading.Thread(
@@ -495,11 +494,10 @@ class AudioCapture:
                         loopback_data = np.concatenate(self._loopback_buffer)
                         self._loopback_buffer.clear()
 
-                # Get mic data from buffer
-                with self._lock:
-                    if hasattr(self, '_mic_buffer') and self._mic_buffer:
-                        mic_data = np.concatenate(self._mic_buffer)
-                        self._mic_buffer.clear()
+                # Mic audio is always handled separately by manager (via get_mic_audio)
+                # because FFmpeg handles resampling and channel conversion more robustly.
+                # We do NOT consume mic_buffer here - it's consumed by manager's mic thread.
+                mic_data = None  # Not used for mixing here
 
                 if loopback_data is not None and len(loopback_data) > 0:
                     if chunk_count == 0:
@@ -539,7 +537,11 @@ class AudioCapture:
     def _mix_audio(
         self, loopback: Optional[np.ndarray], mic: Optional[np.ndarray]
     ) -> Optional[np.ndarray]:
-        """Mix loopback and microphone audio."""
+        """Mix loopback and microphone audio.
+
+        Note: If sample rates differ, mic audio is NOT mixed here.
+        Instead, mic audio should be handled separately by the encoder.
+        """
         if loopback is None and mic is None:
             return None
 
@@ -547,6 +549,10 @@ class AudioCapture:
             return mic
 
         if mic is None:
+            return loopback
+
+        # Don't mix if sample rates differ - mic will be handled separately
+        if self._mic_sample_rate != self._loopback_sample_rate:
             return loopback
 
         # Log audio levels periodically for debugging
@@ -575,6 +581,41 @@ class AudioCapture:
 
         mixed = np.clip(mixed, -32768, 32767).astype(np.int16)
         return mixed
+
+    def get_mic_sample_rate(self) -> Optional[int]:
+        """Get the microphone sample rate if available."""
+        if hasattr(self, '_mic_sample_rate') and self._mic_stream is not None:
+            return self._mic_sample_rate
+        return None
+
+    def get_mic_channels(self) -> int:
+        """Get the microphone channel count."""
+        if hasattr(self, '_mic_channels') and self._mic_stream is not None:
+            return self._mic_channels
+        return 1  # Default to mono
+
+    def has_separate_mic(self) -> bool:
+        """Check if mic audio needs to be handled separately.
+
+        Mic is always handled separately when enabled because:
+        1. Sample rates may differ (e.g., 48kHz loopback, 44.1kHz mic)
+        2. Channel counts differ (stereo loopback, mono mic)
+
+        FFmpeg handles resampling and channel conversion more robustly.
+        """
+        if not hasattr(self, '_mic_stream') or self._mic_stream is None:
+            return False
+        # Always handle mic separately when enabled
+        return True
+
+    def get_mic_audio(self) -> Optional[np.ndarray]:
+        """Get mic audio data separately (for when sample rates differ)."""
+        with self._lock:
+            if not hasattr(self, '_mic_buffer') or not self._mic_buffer:
+                return None
+            mic_data = np.concatenate(self._mic_buffer)
+            self._mic_buffer.clear()
+            return mic_data
 
     def stop(self):
         """Stop audio capture."""
