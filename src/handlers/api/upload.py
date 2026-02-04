@@ -25,9 +25,7 @@ UPLOAD_API_KEY = os.environ.get("UPLOAD_API_KEY", "")
 s3_client = boto3.client("s3")
 
 # 動画S3キーの検証パターン（pending-videos/{hex16}/capture.mp4）
-PENDING_VIDEO_KEY_PATTERN = re.compile(
-    r"^pending-videos/[a-f0-9]{16}/capture\.mp4$"
-)
+PENDING_VIDEO_KEY_PATTERN = re.compile(r"^pending-videos/[a-f0-9]{16}/capture\.mp4$")
 
 
 def handle(event, context):
@@ -197,5 +195,3 @@ def handle(event, context):
 
         # 内部エラーの詳細は隠蔽
         return {"statusCode": 500, "body": json.dumps({"error": "Internal server error"})}
-
-

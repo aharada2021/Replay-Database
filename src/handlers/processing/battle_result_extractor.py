@@ -535,8 +535,7 @@ def migrate_gameplay_video(
         except s3_client.exceptions.ClientError as e:
             if e.response["Error"]["Code"] == "404":
                 print(
-                    f"Warning: Pending video not found at {pending_video_s3_key}. "
-                    "Video may have failed to upload."
+                    f"Warning: Pending video not found at {pending_video_s3_key}. " "Video may have failed to upload."
                 )
                 return False
             raise

@@ -104,9 +104,7 @@ def handle_presign(event, context):
 
         if file_size > MAX_FILE_SIZE:
             max_mb = MAX_FILE_SIZE // (1024 * 1024)
-            return _error_response(
-                400, f"File size exceeds maximum allowed ({max_mb}MB)"
-            )
+            return _error_response(400, f"File size exceeds maximum allowed ({max_mb}MB)")
 
         # 一意なS3キーを生成（UUIDベース）
         upload_uuid = uuid.uuid4().hex[:16]
@@ -149,9 +147,7 @@ def handle_presign(event, context):
             num_parts = (file_size + PART_SIZE - 1) // PART_SIZE
 
             if num_parts > MAX_PARTS:
-                return _error_response(
-                    400, f"File too large: exceeds {MAX_PARTS} parts limit"
-                )
+                return _error_response(400, f"File too large: exceeds {MAX_PARTS} parts limit")
 
             # 各パートのPresigned URLを生成
             part_urls = []
@@ -173,9 +169,7 @@ def handle_presign(event, context):
                     }
                 )
 
-            logger.info(
-                f"Multipart upload initiated: {s3_key} ({num_parts} parts)"
-            )
+            logger.info(f"Multipart upload initiated: {s3_key} ({num_parts} parts)")
 
             return {
                 "statusCode": 200,
@@ -199,9 +193,7 @@ def handle_presign(event, context):
 
 
 # S3キーの検証パターン（pending-videos/{hex16}/capture.mp4）
-PENDING_VIDEO_KEY_PATTERN = re.compile(
-    r"^pending-videos/[a-f0-9]{16}/capture\.mp4$"
-)
+PENDING_VIDEO_KEY_PATTERN = re.compile(r"^pending-videos/[a-f0-9]{16}/capture\.mp4$")
 
 
 def handle_complete_multipart(event, context):
