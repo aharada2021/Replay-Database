@@ -336,7 +336,7 @@ def handle_complete_multipart(event, context):
                     )
                     # 元のオブジェクトを削除
                     s3_client.delete_object(Bucket=REPLAYS_BUCKET, Key=s3_key)
-                    logger.info(f"Video migrated successfully")
+                    logger.info("Video migrated successfully")
 
         # DynamoDBを更新
         if game_type:
