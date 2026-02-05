@@ -503,20 +503,19 @@ def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
 
 
 def migrate_gameplay_video(
-    temp_arena_id: str,
+    pending_video_s3_key: str,
     arena_unique_id: str,
     player_id: int,
     game_type: str,
 ) -> bool:
     """
-    ゲームプレイ動画のS3キーを一時IDから正式IDに移行
+    ゲームプレイ動画をpendingパスから正式パスに移行
 
-    クライアントはリプレイアップロード時に返されるtempArenaIDを使って
-    動画をアップロードするが、正式なarenaUniqueIDはリプレイ解析後に判明する。
-    この関数は動画を正しいパスに移動し、DynamoDBを更新する。
+    クライアントはリプレイアップロード前に動画をpending-videos/にアップロードする。
+    正式なarenaUniqueIDはリプレイ解析後に判明するため、この関数で正しいパスに移動する。
 
     Args:
-        temp_arena_id: 一時的なアリーナID（MD5ハッシュ）
+        pending_video_s3_key: 一時パスのS3キー（pending-videos/{uuid}/capture.mp4）
         arena_unique_id: 正式なアリーナユニークID
         player_id: プレイヤーID
         game_type: ゲームタイプ（clan, ranked, random, other）
@@ -526,28 +525,27 @@ def migrate_gameplay_video(
     """
     bucket = os.environ.get("REPLAYS_BUCKET", "wows-replay-bot-dev-temp")
 
-    # 元の動画S3キー（一時ID）
-    old_s3_key = f"gameplay-videos/{temp_arena_id}/{player_id}/capture.mp4"
     # 新しい動画S3キー（正式ID）
     new_s3_key = f"gameplay-videos/{arena_unique_id}/{player_id}/capture.mp4"
 
     try:
         # 元の動画が存在するか確認
         try:
-            s3_client.head_object(Bucket=bucket, Key=old_s3_key)
+            s3_client.head_object(Bucket=bucket, Key=pending_video_s3_key)
         except s3_client.exceptions.ClientError as e:
             if e.response["Error"]["Code"] == "404":
-                # 動画がない場合は何もしない（正常）
-                print(f"No gameplay video found at {old_s3_key}")
+                print(
+                    f"Warning: Pending video not found at {pending_video_s3_key}. " "Video may have failed to upload."
+                )
                 return False
             raise
 
-        print(f"Found gameplay video at {old_s3_key}, migrating to {new_s3_key}")
+        print(f"Found gameplay video at {pending_video_s3_key}, migrating to {new_s3_key}")
 
         # S3オブジェクトをコピー
         s3_client.copy_object(
             Bucket=bucket,
-            CopySource={"Bucket": bucket, "Key": old_s3_key},
+            CopySource={"Bucket": bucket, "Key": pending_video_s3_key},
             Key=new_s3_key,
             ContentType="video/mp4",
         )
@@ -557,9 +555,9 @@ def migrate_gameplay_video(
         file_size = head_response.get("ContentLength", 0)
 
         # 元のオブジェクトを削除
-        s3_client.delete_object(Bucket=bucket, Key=old_s3_key)
+        s3_client.delete_object(Bucket=bucket, Key=pending_video_s3_key)
 
-        print(f"Gameplay video migrated: {old_s3_key} -> {new_s3_key}")
+        print(f"Gameplay video migrated: {pending_video_s3_key} -> {new_s3_key}")
 
         # DynamoDBを更新
         import time
@@ -825,13 +823,15 @@ def handle(event, context):
                 all_players_stats = old_record.get("allPlayersStats", [])
                 save_to_new_tables(old_record, all_players_stats)
 
-                # ゲームプレイ動画のS3キーを移行（temp_arena_id → arena_unique_id）
-                migrate_gameplay_video(
-                    temp_arena_id=temp_arena_id,
-                    arena_unique_id=str(arena_unique_id),
-                    player_id=player_id,
-                    game_type=normalize_game_type(old_record.get("gameType", "other")),
-                )
+                # ゲームプレイ動画のS3キーを移行（pending-videos/ → gameplay-videos/）
+                pending_video_s3_key = old_record.get("pendingVideoS3Key")
+                if pending_video_s3_key:
+                    migrate_gameplay_video(
+                        pending_video_s3_key=pending_video_s3_key,
+                        arena_unique_id=str(arena_unique_id),
+                        player_id=player_id,
+                        game_type=normalize_game_type(old_record.get("gameType", "other")),
+                    )
 
                 # 動画生成チェック: 同じ試合の既存リプレイで動画があるかチェック
                 check_and_trigger_video_generation(arena_unique_id, player_id)

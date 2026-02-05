@@ -69,6 +69,7 @@ def put_replay_record(
     file_name: str,
     file_size: int,
     game_type: Optional[str] = None,
+    pending_video_s3_key: Optional[str] = None,
 ) -> None:
     """
     リプレイレコードをDynamoDBに保存
@@ -142,6 +143,10 @@ def put_replay_record(
         "mp4GeneratedAt": None,
         "mp4S3Key": None,
     }
+
+    # 事前にアップロードされた動画のS3キー（battle_result_extractorが正式パスに移行する）
+    if pending_video_s3_key:
+        item["pendingVideoS3Key"] = pending_video_s3_key
 
     table.put_item(Item=item)
 
