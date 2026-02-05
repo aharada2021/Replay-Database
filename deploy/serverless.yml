@@ -18,6 +18,7 @@ provider:
         - Content-Type
         - X-Api-Key
         - X-User-Id
+        - X-Video-S3-Key
         - Cookie
       allowedMethods:
         - GET
@@ -226,81 +227,52 @@ functions:
       REPLAYS_TABLE: ${self:custom.replaysTable}
       UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
 
-  # ゲームプレイ動画アップロード完了通知API
+  # ゲームプレイ動画アップロード用Presigned URL生成API
+  upload-video-presign-api:
+    image:
+      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
+      command:
+        - handlers.api.upload_video.handle_presign
+    architecture: arm64
+    timeout: 29
+    memorySize: 256
+    events:
+      - httpApi:
+          path: /api/upload/video/presign
+          method: post
+    environment:
+      REPLAYS_BUCKET: ${self:custom.bucketName}
+      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
+
+  # ゲームプレイ動画マルチパートアップロード完了API
   upload-video-complete-api:
     image:
       uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
       command:
-        - handlers.api.upload.handle_video_complete
-    architecture: arm64
-    timeout: 29
-    memorySize: 256
-    events:
-      - httpApi:
-          path: /api/upload/video-complete
-          method: post
-    environment:
-      REPLAYS_BUCKET: ${self:custom.bucketName}
-      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
-      # 新バトルテーブル
-      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
-      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
-      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
-      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
-
-  # マルチパートアップロード開始API（大容量動画ファイル用）
-  upload-multipart-init-api:
-    image:
-      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
-      command:
-        - handlers.api.upload_multipart.handle_init_multipart
-    architecture: arm64
-    timeout: 29
-    memorySize: 256
-    events:
-      - httpApi:
-          path: /api/upload/multipart/init
-          method: post
-    environment:
-      REPLAYS_BUCKET: ${self:custom.bucketName}
-      UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
-
-  # マルチパートアップロード完了API
-  upload-multipart-complete-api:
-    image:
-      uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
-      command:
-        - handlers.api.upload_multipart.handle_complete_multipart
+        - handlers.api.upload_video.handle_complete_multipart
     architecture: arm64
     timeout: 60
     memorySize: 256
     events:
       - httpApi:
-          path: /api/upload/multipart/complete
+          path: /api/upload/video/complete
           method: post
     environment:
       REPLAYS_BUCKET: ${self:custom.bucketName}
       UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
-      # 旧テーブル（一時ID→正式ID検索用）
-      REPLAYS_TABLE: ${self:custom.replaysTable}
-      # 新バトルテーブル
-      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
-      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
-      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
-      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
 
-  # マルチパートアップロード中止API
-  upload-multipart-abort-api:
+  # ゲームプレイ動画マルチパートアップロード中止API
+  upload-video-abort-api:
     image:
       uri: ${env:ECR_EXTRACTOR_IMAGE_URI}
       command:
-        - handlers.api.upload_multipart.handle_abort_multipart
+        - handlers.api.upload_video.handle_abort_multipart
     architecture: arm64
     timeout: 29
     memorySize: 256
     events:
       - httpApi:
-          path: /api/upload/multipart/abort
+          path: /api/upload/video/abort
           method: post
     environment:
       REPLAYS_BUCKET: ${self:custom.bucketName}
@@ -324,6 +296,7 @@ functions:
             - suffix: .wowsreplay
           existing: true
     environment:
+      REPLAYS_BUCKET: ${self:custom.bucketName}
       # 旧テーブル（移行完了後に削除予定）
       REPLAYS_TABLE: ${self:custom.replaysTable}
       SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
