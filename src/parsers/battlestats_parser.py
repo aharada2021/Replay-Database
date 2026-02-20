@@ -11,12 +11,14 @@ class BattleStatsParser:
     """
     BattleStatsパケットのplayersPublicInfo配列をパースするクラス
 
-    バージョン: 14.11.0で検証済み（2026-01-08更新）
+    バージョン: 15.1.0で検証済み（2026-02-20更新）
+    14.11.0以前との後方互換性あり（配列長で自動判別）
     """
 
-    # インデックスマッピング（14.11.0基準、実際のリプレイデータから検証済み）
+    # インデックスマッピング（15.1.0基準、実際のリプレイデータから検証済み）
+    # 15.1.0で配列長が460→503に変更、インデックスがシフト
     INDICES = {
-        # 基本情報
+        # 基本情報（シフトなし）
         "account_db_id": 0,
         "player_name": 1,
         "clan_id": 2,
@@ -29,55 +31,114 @@ class BattleStatsParser:
         "max_health": 15,
         "life_time_sec": 22,  # 生存時間（秒）
         "distance": 23,  # 移動距離
-        # 戦闘成績（リボン）
-        "kills": 454,  # RIBBON_FRAG
-        # 命中数内訳
+        # 命中数内訳（シフトなし）
         "hits_ap": 66,  # hits_main_ap
         "hits_sap": 67,  # hits_main_sap（イタリア巡洋艦等のSAP弾）
         "hits_he": 68,  # hits_main_he
-        "hits_secondaries_sap": 70,  # hits_atba_sap（副砲SAP、Napoli等）※実データで検証済み
+        "hits_secondaries_sap": 70,  # hits_atba_sap（副砲SAP、Napoli等）
         "hits_secondaries": 71,  # hits_atba_he（副砲HE）
         "hits": 68,  # 互換性のため維持（実際はHE弾のみ）
-        # 与えた火災・浸水（リボン）
-        "fires": 455,  # RIBBON_BURN
-        "floods": 456,  # RIBBON_FLOOD
-        # 与えたダメージ内訳
-        "damage_ap": 157,  # damage_main_ap
-        "damage_sap": 158,  # damage_main_sap（イタリア巡洋艦等のSAP弾）
-        "damage_he": 159,  # damage_main_he
-        "damage_sap_secondaries": 161,  # damage_atba_sap（副砲SAP、Napoli等）※実データで検証済み
-        "damage_he_secondaries": 162,  # damage_atba_he（副砲HE）
-        "damage_torps": 166,  # damage_tpd_normal
-        "damage_deep_water_torps": 167,  # damage_tpd_deep
-        "damage_other": 178,  # その他ダメージ
-        "damage_fire": 179,  # damage_fire
-        "damage_flooding": 180,  # damage_flood
-        # 総ダメージ
-        "damage": 429,  # 総与ダメージ
-        # 被ダメージ内訳
-        "received_damage_ap": 202,  # received_damage_main_ap
-        "received_damage_sap": 203,  # received_damage_main_sap（SAP被ダメージ）
-        "received_damage_he": 204,  # received_damage_main_he
-        "received_damage_torps": 205,  # received_damage_tpd_normal
-        "received_damage_deep_water_torps": 206,  # received_damage_tpd_deep（深度魚雷被ダメージ）
-        "received_damage_sap_secondaries": 218,  # received_damage_atba_sap（副砲SAP被ダメージ）※実データで検証済み
-        "received_damage_he_secondaries": 219,  # received_damage_atba_he
-        "received_damage_fire": 223,  # received_damage_fire
-        "received_damage_flood": 224,  # received_damage_flood
-        # 潜在ダメージ内訳
-        "potential_damage_art": 419,  # agro_art（砲撃による潜在）
-        "potential_damage_tpd": 420,  # agro_tpd（魚雷による潜在）
-        # 偵察・経験値
-        "spotting_damage": 415,  # scouting_damage
-        "base_xp": 406,  # exp（表示用経験値）
-        "raw_xp": 405,  # raw_exp
-        # Citadel・クリティカル（リボン）
-        "citadels": 457,  # RIBBON_CITADEL
-        "crits": 453,  # RIBBON_CRIT
+        # 与えたダメージ内訳（-2シフト）
+        "damage_ap": 155,  # damage_main_ap
+        "damage_sap": 156,  # damage_main_sap（イタリア巡洋艦等のSAP弾）
+        "damage_he": 157,  # damage_main_he
+        "damage_sap_secondaries": 159,  # damage_atba_sap（副砲SAP、Napoli等）
+        "damage_he_secondaries": 160,  # damage_atba_he（副砲HE）
+        "damage_torps": 164,  # damage_tpd_normal
+        "damage_deep_water_torps": 165,  # damage_tpd_deep
+        "damage_other": 175,  # その他ダメージ（-3シフト）
+        "damage_fire": 176,  # damage_fire（-3シフト）
+        "damage_flooding": 177,  # damage_flood（-3シフト）
+        # 総ダメージ（-3シフト）
+        "damage": 426,  # 総与ダメージ
+        # 被ダメージ内訳（-3シフト）
+        "received_damage_ap": 199,  # received_damage_main_ap
+        "received_damage_sap": 200,  # received_damage_main_sap（SAP被ダメージ）
+        "received_damage_he": 201,  # received_damage_main_he
+        "received_damage_torps": 202,  # received_damage_tpd_normal
+        "received_damage_deep_water_torps": 203,  # received_damage_tpd_deep（深度魚雷被ダメージ）
+        "received_damage_sap_secondaries": 215,  # received_damage_atba_sap（副砲SAP被ダメージ）
+        "received_damage_he_secondaries": 216,  # received_damage_atba_he
+        "received_damage_fire": 220,  # received_damage_fire
+        "received_damage_flood": 221,  # received_damage_flood
+        # 潜在ダメージ内訳（-3シフト）
+        "potential_damage_art": 416,  # agro_art（砲撃による潜在）
+        "potential_damage_tpd": 417,  # agro_tpd（魚雷による潜在）
+        # 偵察・経験値（-2シフト）
+        "spotting_damage": 412,  # scouting_damage（-3シフト）
+        "base_xp": 404,  # exp（表示用経験値）
+        "raw_xp": 403,  # raw_exp
+        # 戦闘成績・リボン（-3シフト）
+        "kills": 451,  # RIBBON_FRAG
+        "fires": 452,  # RIBBON_BURN
+        "floods": 453,  # RIBBON_FLOOD
+        "citadels": 454,  # RIBBON_CITADEL
+        "crits": 450,  # RIBBON_CRIT
         # 互換性のための計算用フィールド（実際の値はparse時に計算）
         "received_damage": None,  # 被ダメ合計（計算で算出）
         "potential_damage": None,  # 潜在合計（計算で算出）
     }
+
+    # 14.11.0以前のインデックスマッピング（配列長460以下）
+    INDICES_LEGACY = {
+        "account_db_id": 0,
+        "player_name": 1,
+        "clan_id": 2,
+        "clan_tag": 3,
+        "clan_color": 4,
+        "clan_league": 5,
+        "team_id": 6,
+        "ship_id": 7,
+        "realm": 9,
+        "max_health": 15,
+        "life_time_sec": 22,
+        "distance": 23,
+        "hits_ap": 66,
+        "hits_sap": 67,
+        "hits_he": 68,
+        "hits_secondaries_sap": 70,
+        "hits_secondaries": 71,
+        "hits": 68,
+        "damage_ap": 157,
+        "damage_sap": 158,
+        "damage_he": 159,
+        "damage_sap_secondaries": 161,
+        "damage_he_secondaries": 162,
+        "damage_torps": 166,
+        "damage_deep_water_torps": 167,
+        "damage_other": 178,
+        "damage_fire": 179,
+        "damage_flooding": 180,
+        "damage": 429,
+        "received_damage_ap": 202,
+        "received_damage_sap": 203,
+        "received_damage_he": 204,
+        "received_damage_torps": 205,
+        "received_damage_deep_water_torps": 206,
+        "received_damage_sap_secondaries": 218,
+        "received_damage_he_secondaries": 219,
+        "received_damage_fire": 223,
+        "received_damage_flood": 224,
+        "potential_damage_art": 419,
+        "potential_damage_tpd": 420,
+        "spotting_damage": 415,
+        "base_xp": 406,
+        "raw_xp": 405,
+        "kills": 454,
+        "fires": 455,
+        "floods": 456,
+        "citadels": 457,
+        "crits": 453,
+        "received_damage": None,
+        "potential_damage": None,
+    }
+
+    @classmethod
+    def _get_indices(cls, array_length: int) -> Dict[str, Any]:
+        """配列長に基づいて適切なインデックスマッピングを返す"""
+        if array_length >= 500:
+            return cls.INDICES
+        return cls.INDICES_LEGACY
 
     @classmethod
     def parse_player_stats(cls, player_data: List[Any]) -> Dict[str, Any]:
@@ -97,9 +158,10 @@ class BattleStatsParser:
                 f"got {type(player_data)} with {data_len} elements"
             )
 
+        indices = cls._get_indices(len(player_data))
         stats = {}
 
-        for key, index in cls.INDICES.items():
+        for key, index in indices.items():
             # 計算フィールドはスキップ（後で計算）
             if index is None:
                 continue
@@ -129,7 +191,7 @@ class BattleStatsParser:
                 stats.get("received_damage_he", 0) or 0,
                 stats.get("received_damage_torps", 0) or 0,
                 stats.get("received_damage_deep_water_torps", 0) or 0,
-                stats.get("received_damage_unknown_218", 0) or 0,
+                stats.get("received_damage_sap_secondaries", 0) or 0,
                 stats.get("received_damage_he_secondaries", 0) or 0,
                 stats.get("received_damage_fire", 0) or 0,
                 stats.get("received_damage_flood", 0) or 0,
