@@ -41,9 +41,13 @@ COPY minimap_renderer/generated/ships.json ./data/ships.json
 COPY rust/bin/wows-replay-tool /opt/bin/wows-replay-tool
 RUN chmod +x /opt/bin/wows-replay-tool
 
+# ゲームデータ（extraction用: entity_defs, game_params.rkyv, translations）
+COPY game-data/ /opt/game-data/
+
 # パーミッション設定
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
 
 ENV WOWS_REPLAY_TOOL_PATH=/opt/bin/wows-replay-tool
+ENV GAME_DATA_DIR=/opt/game-data
 
 CMD ["handlers.processing.battle_result_extractor.handle"]
