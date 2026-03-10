@@ -1,0 +1,36 @@
+[package]
+name = "wows-replay-tool"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+
+[dependencies]
+# wows-toolkit crates (local path for development, switch to git for CI)
+wows_replays = { path = "../../../wows-toolkit/crates/wows-replays", features = ["arc", "parsing"] }
+wowsunpack = { path = "../../../wows-toolkit/crates/wowsunpack", features = ["vfs", "json", "parsing", "rkyv"] }
+wows_minimap_renderer = { path = "../../../wows-toolkit/crates/minimap-renderer", default-features = false, features = ["rendering", "cpu"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+
+# rkyv for game data loading
+rkyv = { version = "0.8", features = ["bytecheck"] }
+
+# Translations
+gettext = "0.4"
+
+# Tracing
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true

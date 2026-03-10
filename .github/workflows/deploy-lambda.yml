@@ -90,21 +90,15 @@ jobs:
         run: |
           # Cargo.toml expects ../../../wows-toolkit relative to rust/wows-replay-tool/
           # That resolves to $GITHUB_WORKSPACE/../wows-toolkit
-          EXPECTED_DIR=$(cd rust/wows-replay-tool && realpath -m ../../../wows-toolkit)
+          EXPECTED_DIR="$GITHUB_WORKSPACE/../wows-toolkit"
           echo "Placing wows-toolkit at: $EXPECTED_DIR"
           mv wows-toolkit-src "$EXPECTED_DIR"
+          ls "$EXPECTED_DIR/Cargo.toml"
 
       - name: Apply wows-toolkit patches
         run: |
-          TOOLKIT_DIR=$(cd rust/wows-replay-tool && realpath ../../../wows-toolkit)
-          cd "$TOOLKIT_DIR"
+          cd "$GITHUB_WORKSPACE/../wows-toolkit"
           git apply $GITHUB_WORKSPACE/rust/wows-toolkit-patches.patch
-
-      - name: Verify wows-toolkit path
-        run: |
-          EXPECTED=$(cd rust/wows-replay-tool && realpath ../../../wows-toolkit)
-          echo "wows-toolkit path: $EXPECTED"
-          ls "$EXPECTED/Cargo.toml" || (echo "ERROR: wows-toolkit not found at expected path" && exit 1)
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
