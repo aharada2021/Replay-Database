@@ -44,8 +44,13 @@ COPY src/core/ ./core/
 COPY src/utils/ ./utils/
 COPY config/map_names.yaml ./config/
 
+# Rustバイナリ（wows-replay-tool）をコピー
+COPY rust/bin/wows-replay-tool /opt/bin/wows-replay-tool
+RUN chmod +x /opt/bin/wows-replay-tool
+
 # パーミッション設定と環境変数
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
 ENV IMAGEIO_FFMPEG_EXE=/usr/local/bin/ffmpeg
+ENV WOWS_REPLAY_TOOL_PATH=/opt/bin/wows-replay-tool
 
 CMD ["handlers.processing.video_generator.handle"]

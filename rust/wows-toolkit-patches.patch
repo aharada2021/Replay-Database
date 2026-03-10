@@ -1,0 +1,282 @@
+diff --git a/crates/wows-data-mgr/src/dump.rs b/crates/wows-data-mgr/src/dump.rs
+index 961e058..3869d78 100644
+--- a/crates/wows-data-mgr/src/dump.rs
++++ b/crates/wows-data-mgr/src/dump.rs
+@@ -1,3 +1,4 @@
++use std::fs::read_dir;
+ use std::io::Read;
+ use std::path::Path;
+ use std::sync::Arc;
+@@ -5,6 +6,10 @@ use std::sync::Arc;
+ use indicatif::ProgressBar;
+ use indicatif::ProgressStyle;
+ use rootcause::prelude::*;
++use wowsunpack::data::assets_bin_vfs::AssetsBinVfs;
++use wowsunpack::data::idx;
++use wowsunpack::data::idx_vfs::IdxVfs;
++use wowsunpack::data::wrappers::mmap::MmapPkgSource;
+ use wowsunpack::game_data;
+ use wowsunpack::game_params::provider::GameMetadataProvider;
+ use wowsunpack::game_params::types::GameParamProvider;
+@@ -37,6 +42,55 @@ const MAP_FILES_SPACES: &[&str] = &["minimap.png", "minimap_water.png", "space.s
+ /// Files to extract per map from `content/gameplay/<map>/`.
+ const MAP_FILES_GAMEPLAY: &[&str] = &["space.settings"];
+ 
++/// Build a VFS for a specific build number (not necessarily the latest).
++/// Unlike `game_data::build_game_vfs()` which always uses the latest build,
++/// this function uses the idx files from the specified build directory.
++fn build_game_vfs_for_build(game_dir: &Path, build: u32) -> Result<VfsPath, Report> {
++    let idx_dir = game_dir.join("bin").join(build.to_string()).join("idx");
++    if !idx_dir.exists() {
++        bail!("idx directory not found for build {build}: {}", idx_dir.display());
++    }
++
++    let mut idx_files = Vec::new();
++    for entry in read_dir(&idx_dir).attach_with(|| format!("Failed to read idx dir: {}", idx_dir.display()))? {
++        let entry = entry?;
++        if entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
++            let path = entry.path();
++            let data = std::fs::read(&path).attach_with(|| format!("path: {}", path.display()))?;
++            let parsed = idx::parse(&data).attach_with(|| format!("path: {}", path.display()))?;
++            idx_files.push(parsed);
++        }
++    }
++
++    let pkgs_dir = game_dir.join("res_packages");
++    if !pkgs_dir.exists() {
++        bail!("res_packages not found: {}", pkgs_dir.display());
++    }
++
++    let pkg_source = MmapPkgSource::new(&pkgs_dir);
++    let idx_vfs = IdxVfs::new(pkg_source, &idx_files);
++    let pkg_vfs = VfsPath::new(idx_vfs);
++
++    // Overlay assets.bin on top of the package VFS (same as build_game_vfs).
++    let mut assets_bin_data = Vec::new();
++    let assets_loaded = pkg_vfs
++        .join("content/assets.bin")
++        .and_then(|p| p.open_file())
++        .and_then(|mut f| {
++            f.read_to_end(&mut assets_bin_data)?;
++            Ok(())
++        })
++        .is_ok();
++
++    if assets_loaded && let Ok(assets_vfs) = AssetsBinVfs::new(assets_bin_data) {
++        let assets_layer = VfsPath::new(assets_vfs);
++        let overlay = wowsunpack::vfs::impls::overlay::OverlayFS::new(&[assets_layer, pkg_vfs]);
++        return Ok(VfsPath::new(overlay));
++    }
++
++    Ok(pkg_vfs)
++}
++
+ pub fn dump_renderer_data(game_dir: &Path, build: u32, version_str: &str, output_base: &Path) -> Result<(), Report> {
+     let output_dir = output_base.join(format!("{version_str}_{build}"));
+     let vfs_dir = output_dir.join("vfs");
+@@ -45,8 +99,8 @@ pub fn dump_renderer_data(game_dir: &Path, build: u32, version_str: &str, output
+         bail!("Output directory already exists: {}", output_dir.display());
+     }
+ 
+-    println!("Building VFS from game directory...");
+-    let vfs = game_data::build_game_vfs(game_dir).attach_with(|| "Failed to build game VFS")?;
++    println!("Building VFS from game directory (build {build})...");
++    let vfs = build_game_vfs_for_build(game_dir, build).attach_with(|| "Failed to build game VFS")?;
+ 
+     // Count files for progress bar
+     let mut total_files = 0u64;
+diff --git a/crates/wows-replays/src/packet2.rs b/crates/wows-replays/src/packet2.rs
+index 8173500..b2f9598 100644
+--- a/crates/wows-replays/src/packet2.rs
++++ b/crates/wows-replays/src/packet2.rs
+@@ -402,8 +402,29 @@ impl<'argtype> Parser<'argtype> {
+         let payload_length = le_u32.parse_next(i)?;
+         let payload: &'a [u8] = take(payload_length as usize).parse_next(i)?;
+ 
+-        let entity_type = self.entities.get(&entity_id).unwrap().entity_type;
+-        let spec = &self.specs[entity_type as usize - 1].properties[prop_id as usize];
++        let entity = self.entities.get(&entity_id).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: "EntityProperty".to_string(), argnum: 0, argtype: String::new(),
++                error: format!("unknown entity_id {}", entity_id),
++            })
++        })?;
++        let entity_type = entity.entity_type;
++        let entity_spec = self.specs.get(entity_type as usize - 1).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: format!("EntityProperty::entity_type_{}", entity_type),
++                argnum: 0,
++                argtype: String::new(),
++                error: format!("entity_type {} out of bounds (specs len {})", entity_type, self.specs.len()),
++            })
++        })?;
++        let spec = entity_spec.properties.get(prop_id as usize).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: format!("EntityProperty::{}::prop_{}", entity_spec.name, prop_id),
++                argnum: prop_id as usize,
++                argtype: String::new(),
++                error: format!("prop_id {} out of bounds (properties len {})", prop_id, entity_spec.properties.len()),
++            })
++        })?;
+ 
+         let pval = spec.prop_type.parse_value(&mut &*payload).unwrap();
+ 
+@@ -421,9 +442,22 @@ impl<'argtype> Parser<'argtype> {
+         let payload: &'a [u8] = take(payload_length as usize).parse_next(i)?;
+         assert!(i.is_empty());
+ 
+-        let entity_type = self.entities.get(&entity_id).unwrap().entity_type;
++        let entity = self.entities.get(&entity_id).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: "EntityMethod".to_string(), argnum: 0, argtype: String::new(),
++                error: format!("unknown entity_id {}", entity_id),
++            })
++        })?;
++        let entity_type = entity.entity_type;
+ 
+-        let methods = &self.specs[entity_type as usize - 1].client_methods;
++        let entity_spec = self.specs.get(entity_type as usize - 1).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: format!("EntityMethod::entity_type_{}", entity_type),
++                argnum: 0, argtype: String::new(),
++                error: format!("entity_type {} out of bounds (specs len {})", entity_type, self.specs.len()),
++            })
++        })?;
++        let methods = &entity_spec.client_methods;
+         if method_id as usize >= methods.len() {
+             return Ok(PacketType::Invalid(InvalidPacket {
+                 message: format!(
+@@ -480,10 +514,21 @@ impl<'argtype> Parser<'argtype> {
+         let payload: &[u8] = i;
+         assert_eq!(payload_size as usize, payload.len());
+ 
+-        let entity = self.entities.get_mut(&entity_id).unwrap();
++        let entity = self.entities.get_mut(&entity_id).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: "NestedProperty".to_string(), argnum: 0, argtype: String::new(),
++                error: format!("unknown entity_id {}", entity_id),
++            })
++        })?;
+         let entity_type = entity.entity_type;
+ 
+-        let spec = &self.specs[entity_type as usize - 1];
++        let spec = self.specs.get(entity_type as usize - 1).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: format!("NestedProperty::entity_type_{}", entity_type),
++                argnum: 0, argtype: String::new(),
++                error: format!("entity_type {} out of bounds (specs len {})", entity_type, self.specs.len()),
++            })
++        })?;
+ 
+         assert!(is_slice & 0xFE == 0);
+ 
+@@ -689,7 +734,13 @@ impl<'argtype> Parser<'argtype> {
+     fn parse_base_player_create<'a, 'b>(&'b mut self, i: &mut &'a [u8]) -> PResult<PacketType<'a, 'b>> {
+         let entity_id = le_u32.parse_next(i)?;
+         let entity_type = le_u16.parse_next(i)?;
+-        let spec = &self.specs[entity_type as usize - 1];
++        let spec = self.specs.get(entity_type as usize - 1).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: format!("BasePlayerCreate::entity_type_{}", entity_type),
++                argnum: 0, argtype: String::new(),
++                error: format!("entity_type {} out of bounds (specs len {})", entity_type, self.specs.len()),
++            })
++        })?;
+ 
+         let mut props: HashMap<&str, _> = HashMap::new();
+         let mut stored_props: Vec<_> = vec![];
+@@ -737,7 +788,13 @@ impl<'argtype> Parser<'argtype> {
+     fn parse_base_player_create_stub<'a, 'b>(&'b mut self, i: &mut &'a [u8]) -> PResult<PacketType<'a, 'b>> {
+         let entity_id = le_u32.parse_next(i)?;
+         let entity_type = le_u16.parse_next(i)?;
+-        let spec = &self.specs[entity_type as usize - 1];
++        let spec = self.specs.get(entity_type as usize - 1).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: format!("BasePlayerCreateStub::entity_type_{}", entity_type),
++                argnum: 0, argtype: String::new(),
++                error: format!("entity_type {} out of bounds (specs len {})", entity_type, self.specs.len()),
++            })
++        })?;
+ 
+         let component_data = i.to_vec();
+         *i = &[];
+@@ -764,13 +821,35 @@ impl<'argtype> Parser<'argtype> {
+             //println!("DBG: Entity {} got created twice!", entity_id);
+         }
+ 
++        let entity_spec = match self.specs.get(entity_type as usize - 1) {
++            Some(s) => s,
++            None => {
++                return Err(failure(ParseError::RpcValueParseFailed {
++                    method: format!("EntityCreate::entity_type_{}", entity_type),
++                    argnum: 0,
++                    argtype: String::new(),
++                    error: format!("entity_type {} out of bounds (specs len {})", entity_type, self.specs.len()),
++                }));
++            }
++        };
++
+         let mut sub = state;
+         let num_props = le_u8.parse_next(&mut sub)?;
+         let mut props: HashMap<&str, _> = HashMap::new();
+         let mut stored_props: Vec<_> = vec![];
+         for _ in 0..num_props {
+             let prop_id = le_u8.parse_next(&mut sub)?;
+-            let spec = &self.specs[entity_type as usize - 1].properties[prop_id as usize];
++            let spec = match entity_spec.properties.get(prop_id as usize) {
++                Some(s) => s,
++                None => {
++                    return Err(failure(ParseError::RpcValueParseFailed {
++                        method: format!("EntityCreate::{}::prop_{}", entity_spec.name, prop_id),
++                        argnum: prop_id as usize,
++                        argtype: String::new(),
++                        error: format!("prop_id {} out of bounds (properties len {})", prop_id, entity_spec.properties.len()),
++                    }));
++                }
++            };
+             let value = match spec.prop_type.parse_value(&mut sub) {
+                 Ok(x) => x,
+                 Err(e) => {
+@@ -791,7 +870,7 @@ impl<'argtype> Parser<'argtype> {
+         Ok(PacketType::EntityCreate(EntityCreatePacket {
+             entity_id: entity_id.into(),
+             spec_idx: entity_type as usize,
+-            entity_type: &self.specs[entity_type as usize - 1].name,
++            entity_type: &entity_spec.name,
+             space_id,
+             vehicle_id: vehicle_id.into(),
+             position,
+@@ -812,7 +891,10 @@ impl<'argtype> Parser<'argtype> {
+         let props_data: &'a [u8] = take(props_len as usize).parse_next(i)?;
+ 
+         if !self.entities.contains_key(&entity_id) {
+-            panic!("Cell player, entity id {}, was created before base player!", entity_id);
++            return Err(failure(ParseError::RpcValueParseFailed {
++                method: "CellPlayerCreate".to_string(), argnum: 0, argtype: String::new(),
++                error: format!("entity_id {} was not created before cell player create", entity_id),
++            }));
+         }
+ 
+         // The value can be parsed into all internal properties
+@@ -830,8 +912,19 @@ impl<'argtype> Parser<'argtype> {
+             dirz,
+             value.len()
+         );*/
+-        let entity_type = self.entities.get(&entity_id).unwrap().entity_type;
+-        let spec = &self.specs[entity_type as usize - 1];
++        let entity_type = self.entities.get(&entity_id).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: "CellPlayerCreate".to_string(), argnum: 0, argtype: String::new(),
++                error: format!("unknown entity_id {}", entity_id),
++            })
++        })?.entity_type;
++        let spec = self.specs.get(entity_type as usize - 1).ok_or_else(|| {
++            failure(ParseError::RpcValueParseFailed {
++                method: format!("CellPlayerCreate::entity_type_{}", entity_type),
++                argnum: 0, argtype: String::new(),
++                error: format!("entity_type {} out of bounds (specs len {})", entity_type, self.specs.len()),
++            })
++        })?;
+ 
+         let mut sub = props_data;
+         let mut props: HashMap<&str, _> = HashMap::new();
