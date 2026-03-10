@@ -84,17 +84,26 @@ jobs:
           repository: landaire/wows-toolkit
           # wows-toolkit main branch, includes WoWS 15.x replay parsing support
           ref: 46bcdb26f72a1e2b4bb36bc90126a0a3bdaea250
-          path: ../wows-toolkit
+          path: wows-toolkit-src
+
+      - name: Setup wows-toolkit at expected path
+        run: |
+          # Cargo.toml expects ../../../wows-toolkit relative to rust/wows-replay-tool/
+          # That resolves to $GITHUB_WORKSPACE/../wows-toolkit
+          EXPECTED_DIR=$(cd rust/wows-replay-tool && realpath -m ../../../wows-toolkit)
+          echo "Placing wows-toolkit at: $EXPECTED_DIR"
+          mv wows-toolkit-src "$EXPECTED_DIR"
 
       - name: Apply wows-toolkit patches
         run: |
-          cd ../wows-toolkit
+          TOOLKIT_DIR=$(cd rust/wows-replay-tool && realpath ../../../wows-toolkit)
+          cd "$TOOLKIT_DIR"
           git apply $GITHUB_WORKSPACE/rust/wows-toolkit-patches.patch
 
       - name: Verify wows-toolkit path
         run: |
-          EXPECTED=$(cd rust/wows-replay-tool && realpath ../../../wows-toolkit 2>/dev/null || echo "NOT_FOUND")
-          echo "Expected wows-toolkit path: $EXPECTED"
+          EXPECTED=$(cd rust/wows-replay-tool && realpath ../../../wows-toolkit)
+          echo "wows-toolkit path: $EXPECTED"
           ls "$EXPECTED/Cargo.toml" || (echo "ERROR: wows-toolkit not found at expected path" && exit 1)
 
       - name: Install Rust toolchain
