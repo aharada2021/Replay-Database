@@ -70,18 +70,89 @@ jobs:
           echo "stage=${STAGE}" >> $GITHUB_OUTPUT
           echo "Building for stage: ${STAGE}"
 
-  build-processor:
-    name: Build & Push Processor Image
+  build-rust:
+    name: Build Rust Binary (ARM64)
     runs-on: ubuntu-latest
-    needs: setup
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout wows-toolkit
+        uses: actions/checkout@v4
+        with:
+          repository: landaire/wows-toolkit
+          # wows-toolkit main branch, includes WoWS 15.x replay parsing support
+          ref: 46bcdb26f72a1e2b4bb36bc90126a0a3bdaea250
+          path: wows-toolkit-src
+
+      - name: Setup wows-toolkit at expected path
+        run: |
+          # Cargo.toml expects ../../../wows-toolkit relative to rust/wows-replay-tool/
+          # That resolves to $GITHUB_WORKSPACE/../wows-toolkit
+          EXPECTED_DIR="$GITHUB_WORKSPACE/../wows-toolkit"
+          echo "Placing wows-toolkit at: $EXPECTED_DIR"
+          mv wows-toolkit-src "$EXPECTED_DIR"
+          ls "$EXPECTED_DIR/Cargo.toml"
+
+      - name: Apply wows-toolkit patches
+        run: |
+          cd "$GITHUB_WORKSPACE/../wows-toolkit"
+          git apply $GITHUB_WORKSPACE/rust/wows-toolkit-patches.patch
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          pip install ziglang
+          cargo install cargo-zigbuild
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/wows-replay-tool -> target
+          cache-on-failure: true
+
+      - name: Build for aarch64
+        run: |
+          cd rust/wows-replay-tool
+          cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.26
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wows-replay-tool-aarch64
+          path: rust/wows-replay-tool/target/aarch64-unknown-linux-gnu/release/wows-replay-tool
+          retention-days: 1
+          if-no-files-found: error
+
+  build-image:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [setup, build-rust]
     outputs:
       image_uri: ${{ steps.set-output.outputs.image_uri }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download Rust binary
+        uses: actions/download-artifact@v4
         with:
-          submodules: recursive
+          name: wows-replay-tool-aarch64
+          path: rust/bin/
+
+      - name: Verify Rust binary
+        run: |
+          ls -la rust/bin/wows-replay-tool
+          file rust/bin/wows-replay-tool | grep -q "aarch64" || (echo "ERROR: Binary is not aarch64" && exit 1)
+          chmod +x rust/bin/wows-replay-tool
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -89,6 +160,12 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
+
+      - name: Download game data from S3
+        run: |
+          aws s3 sync s3://wows-replay-bot-dev-temp/game-data/ game-data/ --quiet
+          echo "Game data versions:"
+          ls game-data/
 
       - name: Login to Amazon ECR
         run: |
@@ -98,90 +175,38 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Processor Docker image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: deploy/Dockerfile.processor
+          file: deploy/Dockerfile.lambda
           platforms: linux/arm64
           push: true
           provenance: false
           tags: |
-            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-latest
-            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-${{ needs.setup.outputs.stage }}
-            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-${{ github.sha }}
-          cache-from: type=registry,ref=${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-buildcache
-          cache-to: type=registry,ref=${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-buildcache,mode=max
+            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:latest
+            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ needs.setup.outputs.stage }}
+            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ github.sha }}
+          cache-from: type=registry,ref=${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:buildcache
+          cache-to: type=registry,ref=${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:buildcache,mode=max
 
       - name: Set output
         id: set-output
         run: |
-          IMAGE_URI="${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:processor-${{ needs.setup.outputs.stage }}"
+          IMAGE_URI="${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ needs.setup.outputs.stage }}"
           echo "image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
-          echo "Processor Image URI: ${IMAGE_URI}"
-
-  build-extractor:
-    name: Build & Push Extractor Image
-    runs-on: ubuntu-latest
-    needs: setup
-    outputs:
-      image_uri: ${{ steps.set-output.outputs.image_uri }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-1
-
-      - name: Login to Amazon ECR
-        run: |
-          aws ecr get-login-password --region ap-northeast-1 | \
-            docker login --username AWS --password-stdin ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Extractor Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: deploy/Dockerfile.extractor
-          platforms: linux/arm64
-          push: true
-          provenance: false
-          tags: |
-            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-latest
-            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-${{ needs.setup.outputs.stage }}
-            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-${{ github.sha }}
-          cache-from: type=registry,ref=${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-buildcache
-          cache-to: type=registry,ref=${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-buildcache,mode=max
-
-      - name: Set output
-        id: set-output
-        run: |
-          IMAGE_URI="${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:extractor-${{ needs.setup.outputs.stage }}"
-          echo "image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
-          echo "Extractor Image URI: ${IMAGE_URI}"
+          echo "Image URI: ${IMAGE_URI}"
 
   deploy-dev:
     name: Deploy to Development
     runs-on: ubuntu-latest
-    needs: [build-processor, build-extractor]
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    needs: [build-image]
+    if: (github.ref == 'refs/heads/develop' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'development')
     environment: development
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -208,13 +233,9 @@ jobs:
 
       - name: Deploy to Lambda
         env:
-          ECR_PROCESSOR_IMAGE_URI: ${{ needs.build-processor.outputs.image_uri }}
-          ECR_EXTRACTOR_IMAGE_URI: ${{ needs.build-extractor.outputs.image_uri }}
-          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          ECR_IMAGE_URI: ${{ needs.build-image.outputs.image_uri }}
           DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-          INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
-          GUILD_ID: ${{ secrets.GUILD_ID }}
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
@@ -237,8 +258,7 @@ jobs:
         run: |
           echo "## Deployment Summary (Development)" >> $GITHUB_STEP_SUMMARY
           echo "- **Stage**: dev" >> $GITHUB_STEP_SUMMARY
-          echo "- **Processor Image**: ${{ needs.build-processor.outputs.image_uri }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Extractor Image**: ${{ needs.build-extractor.outputs.image_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ needs.build-image.outputs.image_uri }}" >> $GITHUB_STEP_SUMMARY
           echo "- **API Endpoint**: ${{ steps.get-endpoint.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
           echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
@@ -246,15 +266,13 @@ jobs:
   deploy-prod:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [build-processor, build-extractor]
+    needs: [build-image]
     if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
     environment: production
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -281,13 +299,9 @@ jobs:
 
       - name: Deploy to Lambda (prod)
         env:
-          ECR_PROCESSOR_IMAGE_URI: ${{ needs.build-processor.outputs.image_uri }}
-          ECR_EXTRACTOR_IMAGE_URI: ${{ needs.build-extractor.outputs.image_uri }}
-          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          ECR_IMAGE_URI: ${{ needs.build-image.outputs.image_uri }}
           DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-          INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
-          GUILD_ID: ${{ secrets.GUILD_ID }}
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
@@ -310,8 +324,7 @@ jobs:
         run: |
           echo "## Deployment Summary (Production)" >> $GITHUB_STEP_SUMMARY
           echo "- **Stage**: prod" >> $GITHUB_STEP_SUMMARY
-          echo "- **Processor Image**: ${{ needs.build-processor.outputs.image_uri }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Extractor Image**: ${{ needs.build-extractor.outputs.image_uri }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ needs.build-image.outputs.image_uri }}" >> $GITHUB_STEP_SUMMARY
           echo "- **API Endpoint**: ${{ steps.get-endpoint.outputs.endpoint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployed at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
           echo "- **Git SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

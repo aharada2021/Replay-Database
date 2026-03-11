@@ -54,9 +54,6 @@ def handle(event, context):
 
     GET /api/download?key=<s3Key>
     → リプレイファイルの署名付きURLにリダイレクト
-
-    GET /api/download?file=uploader
-    → クライアントツールのダウンロード用署名付きURLを返す
     """
     try:
         origin = event.get("headers", {}).get("origin") or event.get("headers", {}).get("Origin")
@@ -116,55 +113,10 @@ def handle(event, context):
                 "body": "",
             }
 
-        # クライアントツールのダウンロード（file=uploader）
-        file_type = query_params.get("file", "uploader")
-
-        # ファイルタイプに応じたS3キーを決定
-        file_mapping = {
-            "uploader": "downloads/wows_replay_uploader.zip",
-        }
-
-        s3_key = file_mapping.get(file_type)
-        if not s3_key:
-            return {
-                "statusCode": 400,
-                "headers": {**cors_headers, "Content-Type": "application/json"},
-                "body": json.dumps({"error": "Invalid file type"}),
-            }
-
-        # ファイルの存在確認
-        try:
-            s3_client.head_object(Bucket=TEMP_BUCKET, Key=s3_key)
-        except s3_client.exceptions.ClientError as e:
-            if e.response["Error"]["Code"] == "404":
-                return {
-                    "statusCode": 404,
-                    "headers": {**cors_headers, "Content-Type": "application/json"},
-                    "body": json.dumps({"error": "File not found"}),
-                }
-            raise
-
-        # 署名付きURLを生成
-        presigned_url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={
-                "Bucket": TEMP_BUCKET,
-                "Key": s3_key,
-                "ResponseContentDisposition": f'attachment; filename="{os.path.basename(s3_key)}"',
-            },
-            ExpiresIn=URL_EXPIRATION,
-        )
-
         return {
-            "statusCode": 200,
+            "statusCode": 400,
             "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": json.dumps(
-                {
-                    "url": presigned_url,
-                    "filename": os.path.basename(s3_key),
-                    "expiresIn": URL_EXPIRATION,
-                }
-            ),
+            "body": json.dumps({"error": "Missing 'key' parameter"}),
         }
 
     except Exception as e:

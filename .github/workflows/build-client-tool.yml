@@ -97,6 +97,13 @@ jobs:
             }
           }
 
+      - name: Generate SHA256 checksum
+        working-directory: client_tool
+        run: |
+          $hash = (Get-FileHash wows_replay_uploader.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  wows_replay_uploader.zip" | Out-File -FilePath SHA256SUMS.txt -Encoding utf8 -NoNewline
+          echo "SHA256: $hash"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -108,7 +115,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wows_replay_uploader-zip
-          path: client_tool/wows_replay_uploader.zip
+          path: |
+            client_tool/wows_replay_uploader.zip
+            client_tool/SHA256SUMS.txt
           retention-days: 30
 
   release:
@@ -177,6 +186,7 @@ jobs:
             - ゲームプレイ動画のキャプチャ・アップロード
           files: |
             wows_replay_uploader.zip
+            SHA256SUMS.txt
           draft: false
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
         env:

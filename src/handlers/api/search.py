@@ -25,32 +25,18 @@ def normalize_ship_name(name: str) -> str:
     """
     艦艇名を検索用に正規化
 
-    DynamoDBは完全一致検索のため、入力を正規化して
-    保存されている形式に合わせる
+    ship-indexテーブルのPKはUPPERCASEで統一されているため、
+    ユーザー入力を単純にUPPERCASEに変換する。
 
     Args:
         name: 入力された艦艇名
 
     Returns:
-        正規化された艦艇名
+        UPPERCASE艦艇名
     """
     if not name:
         return name
-
-    # 大文字のまま保持するプレフィックス（コラボ艦艇など）
-    uppercase_prefixes = ["AL ", "BA ", "GQ ", "STAR "]
-
-    # まずタイトルケースに変換
-    normalized = name.title()
-
-    # 大文字プレフィックスを復元
-    for prefix in uppercase_prefixes:
-        lower_prefix = prefix.title()  # "Al ", "Ba ", etc.
-        if normalized.startswith(lower_prefix):
-            normalized = prefix + normalized[len(prefix) :]
-            break
-
-    return normalized
+    return name.upper()
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -207,6 +193,34 @@ def search_matches(
     if has_more and paginated:
         next_cursor = paginated[-1].get("unixTime")
 
+    # ゲームプレイ動画情報をUPLOADレコードから補完
+    # MATCHレコードのuploadersにはgameplayVideoS3Keyが含まれないため、
+    # hasGameplayVideo=trueの試合のみUPLOADレコードから取得する
+    gameplay_video_map = {}  # {(arenaUniqueID, playerID): {s3Key, size}}
+    for item in paginated:
+        if not item.get("hasGameplayVideo"):
+            continue
+        arena_id = item.get("arenaUniqueID")
+        gt = item.get("gameType", "other")
+        uploaders = item.get("uploaders", [])
+        client = BattleTableClient(gt)
+        for uploader in uploaders:
+            pid = uploader.get("playerID")
+            if pid is None:
+                continue
+            try:
+                upload_record = client.table.get_item(
+                    Key={"arenaUniqueID": arena_id, "recordType": f"UPLOAD#{pid}"},
+                    ProjectionExpression="gameplayVideoS3Key,gameplayVideoSize",
+                ).get("Item", {})
+                if upload_record.get("gameplayVideoS3Key"):
+                    gameplay_video_map[(arena_id, pid)] = {
+                        "gameplayVideoS3Key": upload_record["gameplayVideoS3Key"],
+                        "gameplayVideoSize": upload_record.get("gameplayVideoSize"),
+                    }
+            except Exception:
+                pass
+
     # レスポンス形式に変換（旧形式との互換性）
     for item in paginated:
         # uploaders から代表リプレイ情報を設定
@@ -235,13 +249,18 @@ def search_matches(
         replays = []
         mp4_s3_key = item.get("mp4S3Key")
         dual_mp4_s3_key = item.get("dualMp4S3Key")
+        arena_id = item.get("arenaUniqueID")
         for uploader in uploaders:
+            pid = uploader.get("playerID")
+            video_info = gameplay_video_map.get((arena_id, pid), {})
             replay = {
-                "arenaUniqueID": item.get("arenaUniqueID"),
-                "playerID": uploader.get("playerID"),
+                "arenaUniqueID": arena_id,
+                "playerID": pid,
                 "playerName": uploader.get("playerName"),
                 "mp4S3Key": mp4_s3_key,
                 "dualMp4S3Key": dual_mp4_s3_key,
+                "gameplayVideoS3Key": video_info.get("gameplayVideoS3Key"),
+                "gameplayVideoSize": video_info.get("gameplayVideoSize"),
             }
             replays.append(replay)
         item["replays"] = replays

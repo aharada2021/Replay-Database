@@ -15,10 +15,8 @@ import logging
 import requests
 import multiprocessing
 import winreg
-import webbrowser
 import tempfile
 import subprocess
-import re
 import threading
 from pathlib import Path
 from datetime import datetime
@@ -27,6 +25,8 @@ from typing import Optional, Dict, Any, Tuple, Callable
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
 from watchdog.events import PatternMatchingEventHandler, FileCreatedEvent, FileDeletedEvent
+
+from updater import AutoUpdater
 
 # Capture module (optional - may not be available on non-Windows systems)
 try:
@@ -395,109 +395,6 @@ class Config:
     def update(self, new_config: Dict[str, Any]):
         """設定を更新"""
         self.config = {**self.DEFAULT_CONFIG, **new_config}
-
-
-# ========================================
-# 自動アップデート
-# ========================================
-
-class AutoUpdater:
-    """自動アップデートクラス"""
-
-    def __init__(self, api_base_url: str = ""):
-        self.current_version = VERSION
-        self.latest_version = None
-        self.download_url = None
-        self.api_base_url = api_base_url
-        self.version_url = f"{api_base_url}/api/download?file=uploader" if api_base_url else ""
-
-    @staticmethod
-    def parse_version(version_str: str) -> Tuple[int, ...]:
-        """バージョン文字列をタプルに変換（比較用）"""
-        try:
-            # "1.2.0" -> (1, 2, 0)
-            return tuple(int(x) for x in version_str.split('.'))
-        except (ValueError, AttributeError):
-            return (0, 0, 0)
-
-    @staticmethod
-    def extract_version_from_filename(filename: str) -> Optional[str]:
-        """ファイル名からバージョンを抽出"""
-        # 例: wows_replay_uploader-1.2.0.zip -> 1.2.0
-        match = re.search(r'-(\d+\.\d+\.\d+)\.', filename)
-        if match:
-            return match.group(1)
-        return None
-
-    def is_newer_version(self, latest: str, current: str) -> bool:
-        """最新バージョンが現在より新しいか確認"""
-        latest_tuple = self.parse_version(latest)
-        current_tuple = self.parse_version(current)
-        return latest_tuple > current_tuple
-
-    def check_for_updates(self) -> bool:
-        """アップデートを確認。新しいバージョンがあればTrueを返す"""
-        if not self.version_url:
-            if logger:
-                logger.debug("API base URL not configured, skipping update check")
-            return False
-
-        try:
-            response = requests.get(self.version_url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                download_url = data.get('url', '')
-                filename = data.get('filename', '')
-
-                # ファイル名からバージョンを抽出
-                latest_version = self.extract_version_from_filename(filename)
-
-                if latest_version:
-                    self.latest_version = latest_version
-                    self.download_url = download_url
-
-                    # バージョン比較
-                    if self.is_newer_version(latest_version, self.current_version):
-                        if logger:
-                            logger.info(f"新しいバージョンを検出: {latest_version} (現在: {self.current_version})")
-                        return True
-                    else:
-                        if logger:
-                            logger.debug(f"最新バージョンです: {self.current_version}")
-                        return False
-        except Exception as e:
-            if logger:
-                logger.debug(f"アップデート確認エラー: {e}")
-        return False
-
-    def prompt_update(self):
-        """アップデートを促す"""
-        print("\n" + "=" * 60)
-        print("  新しいバージョンが利用可能です！")
-        print("=" * 60)
-        print(f"\n現在のバージョン: {self.current_version}")
-        if self.latest_version:
-            print(f"最新バージョン:   {self.latest_version}")
-        print("\nアップデートをダウンロードしますか?")
-        choice = input("(Y/n): ").strip().lower()
-
-        if choice != 'n':
-            self._download_update()
-
-    def _download_update(self):
-        """アップデートをダウンロード"""
-        if not self.download_url:
-            print("ダウンロードURLが取得できませんでした。")
-            return
-
-        try:
-            print("\nブラウザでダウンロードページを開きます...")
-            # 署名付きURLで直接ダウンロード
-            webbrowser.open(self.download_url)
-            print("\nダウンロード完了後、現在のアプリを終了して新しいバージョンに置き換えてください。")
-        except Exception as e:
-            print(f"エラー: {e}")
-            print(f"\n手動でダウンロードしてください: {self.api_base_url}")
 
 
 # ========================================
@@ -1375,9 +1272,9 @@ def main():
         new_config = wizard.run()
         config.update(new_config)
 
-    # アップデート確認
-    api_base_url = config.get('api_base_url', '')
-    updater = AutoUpdater(api_base_url)
+    # アップデート確認（GitHub Releases ベース）
+    updater = AutoUpdater(VERSION)
+    updater.cleanup_old_backups()
     if updater.check_for_updates():
         updater.prompt_update()
 

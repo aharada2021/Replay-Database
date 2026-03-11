@@ -17,9 +17,11 @@ GAME_TYPE_MAP = {
     "clan": "clan",
     "ranked": "ranked",
     "pvp": "random",
+    "random": "random",
     "pve": "other",
     "cooperative": "other",
     "event": "other",
+    "other": "other",
 }
 
 

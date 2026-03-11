@@ -59,3 +59,10 @@ private/
 
 # Bot process ID
 bot.pid
+
+# Rust build artifacts
+rust/bin/
+rust/wows-replay-tool/target/
+
+# Game data (downloaded from S3 at build time)
+game-data/
