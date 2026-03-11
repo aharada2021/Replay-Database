@@ -242,6 +242,8 @@ def search_matches(
                 "playerName": uploader.get("playerName"),
                 "mp4S3Key": mp4_s3_key,
                 "dualMp4S3Key": dual_mp4_s3_key,
+                "gameplayVideoS3Key": uploader.get("gameplayVideoS3Key"),
+                "gameplayVideoSize": uploader.get("gameplayVideoSize"),
             }
             replays.append(replay)
         item["replays"] = replays
