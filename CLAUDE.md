@@ -102,7 +102,12 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
   - ~~`MapIdIndex`~~: 削除済み（2026-01-09）
 
 ### 検索機能
-- 艦艇名検索は `normalize_ship_name()` で正規化（大文字小文字対応）
+- 艦艇名検索は `normalize_ship_name()` で `.upper()` に変換してship-indexを検索
+- ship-indexテーブルのPKはUPPERCASE統一（Rust版 `localized_name_from_param` 形式）
+- バトルテーブル内のshipNameはRust版のTitle Case表示名（例: "A. Nevsky", "F. der Grosse"）
+- **艦名形式**: Rust版は短縮表示名を使用（"Alexander Nevsky" → "A. Nevsky"、"Friedrich der Grosse" → "F. der Grosse"）
+- `config/ship_name_mapping.json`: shipId→艦名のマッピング（バックフィル用）
+- `wows-replay-tool dump-ship-names --game-data <path>`: game-dataから全艦名マッピングをJSON出力
 - 日付フィルタはPython側で実行（DynamoDB形式との互換性のため）
 - カーソルベースページネーション（30件/ページ）
 - `matchKey`: 試合グループ化キー（事前計算）
@@ -148,6 +153,13 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **艦艇名統一バックフィル（2026-03-11）**:
+  - 問題: 旧Python版（フルネーム/Title Case）とRust版（短縮名/UPPERCASE）で艦名形式が不一致、検索がヒットしない
+  - `rust/wows-replay-tool/src/dump_ship_names.rs`: game-dataから全艦名マッピングJSON出力
+  - `scripts/backfill_ship_names.py`: ship-index(UPPERCASE化) + battles/replays(Title Case統一)
+  - `src/handlers/api/search.py`: `normalize_ship_name()`を単純な`.upper()`に簡素化
+  - `config/ship_name_mapping.json`: shipId→艦名マッピング（1174艦）
+  - prod実行結果: ship-index 2,964件、battles 1,250件、replays 530件 = 計4,744件更新
 - **クライアント自動アップデート機能（2026-03-11）**:
   - `client_tool/updater.py`: 新規作成（GitHub Releases APIベース）
   - 旧`AutoUpdater`クラスを削除（廃止済み`/api/download?file=uploader`エンドポイント使用）
