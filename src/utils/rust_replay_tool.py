@@ -9,7 +9,6 @@ import os
 import subprocess
 from typing import Optional
 
-
 # Rust field names (camelCase) → DynamoDB field names
 # Differences are mostly in abbreviation casing: damageAp → damageAP
 _STATS_FIELD_MAP = {
