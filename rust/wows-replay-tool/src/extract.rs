@@ -25,6 +25,9 @@ use wowsunpack::rpc::entitydefs::parse_scripts;
 use wowsunpack::vfs::VfsPath;
 use wowsunpack::vfs::impls::physical::PhysicalFS;
 
+use wowsunpack::data::ResourceLoader;
+use wowsunpack::game_params::translations::{translate_map_name, translate_module, translate_consumable};
+
 use crate::output::*;
 
 pub fn run(replay_path: &Path, game_data_dir: &Path) -> Result<()> {
@@ -177,9 +180,17 @@ fn load_extracted_game_data(
     let controller_game_params = GameMetadataProvider::from_params_no_specs(params)
         .map_err(|e| anyhow::anyhow!("Failed to build controller GameMetadataProvider: {e:?}"))?;
 
-    // Load translations
-    let mo_path = extracted_dir.join("translations/en/LC_MESSAGES/global.mo");
+    // Load translations (prefer ja, fallback to en)
+    let lang = std::env::var("WOWS_LANG").unwrap_or_else(|_| "ja".to_string());
+    let mo_path = extracted_dir.join(format!("translations/{lang}/LC_MESSAGES/global.mo"));
+    let mo_path = if mo_path.exists() {
+        mo_path
+    } else {
+        info!("Translation not found for '{lang}', falling back to 'en'");
+        extracted_dir.join("translations/en/LC_MESSAGES/global.mo")
+    };
     if mo_path.exists() {
+        info!("Loading translations from {}", mo_path.display());
         if let Ok(file) = std::fs::File::open(&mo_path) {
             if let Ok(catalog) = gettext::Catalog::parse(file) {
                 game_params.set_translations(catalog);
@@ -204,12 +215,15 @@ fn build_extraction_result(
     let meta = &replay.meta;
     let game_type = classify_game_type(&meta.matchGroup, &meta.gameType);
 
+    // Translate map display name (e.g. "20_NE_two_brothers" -> "二人の兄弟")
+    let map_display_name = translate_map_name(&format!("spaces/{}", meta.mapName), game_params);
+
     let metadata = ReplayMetadata {
         date_time: meta.dateTime.clone(),
         game_type: game_type.clone(),
         match_group: meta.matchGroup.clone(),
         map_id: meta.mapName.clone(),
-        map_display_name: meta.mapDisplayName.clone(),
+        map_display_name,
         client_version: meta.clientVersionFromExe.replace(',', "."),
         player_name: meta.playerName.clone(),
         player_id: meta.playerID.0,
@@ -282,9 +296,13 @@ fn build_player_data(
         let initial = player.initial_state();
         let vehicle = player.vehicle();
 
-        // Resolve ship name from GameParams
+        // Resolve ship name from GameParams (localized display name)
         let ship_name = GameParamProvider::game_param_by_id(game_params, vehicle.id())
-            .map(|p| p.name().to_string())
+            .map(|p| {
+                game_params
+                    .localized_name_from_param(&p)
+                    .unwrap_or_else(|| p.name().to_string())
+            })
             .unwrap_or_default();
 
         // Resolve ship class from species
@@ -356,12 +374,15 @@ fn extract_player_build(
         None => return build,
     };
 
-    // Captain skills
+    // Captain skills (translated display names)
     if let Some(sp) = species {
         if let Some(skills) = ve.commander_skills(sp) {
             build.captain_skills = skills
                 .iter()
-                .map(|s| s.internal_name().to_string())
+                .map(|s| {
+                    s.translated_name(game_params)
+                        .unwrap_or_else(|| s.internal_name().to_string())
+                })
                 .collect();
         }
     }
@@ -369,33 +390,40 @@ fn extract_player_build(
     // Ship config
     let config = ve.props().ship_config();
 
-    // Modernizations/upgrades
+    // Modernizations/upgrades (translated display names)
     build.upgrades = config
         .modernization()
         .iter()
         .filter_map(|id| {
-            GameParamProvider::game_param_by_id(game_params, *id)
-                .map(|p| p.name().to_string())
+            GameParamProvider::game_param_by_id(game_params, *id).map(|p| {
+                let (name, _desc) = translate_module(p.name(), game_params);
+                name.unwrap_or_else(|| p.name().to_string())
+            })
         })
         .collect();
 
-    // Consumables
+    // Consumables (translated display names)
     build.consumables = config
         .abilities()
         .iter()
         .filter_map(|id| {
-            GameParamProvider::game_param_by_id(game_params, *id)
-                .map(|p| p.name().to_string())
+            GameParamProvider::game_param_by_id(game_params, *id).map(|p| {
+                translate_consumable(p.name(), game_params)
+                    .unwrap_or_else(|| p.name().to_string())
+            })
         })
         .collect();
 
-    // Signals/exteriors
+    // Signals/exteriors (translated display names)
     build.signals = config
         .exteriors()
         .iter()
         .filter_map(|id| {
-            GameParamProvider::game_param_by_id(game_params, *id)
-                .map(|p| p.name().to_string())
+            GameParamProvider::game_param_by_id(game_params, *id).map(|p| {
+                game_params
+                    .localized_name_from_param(&p)
+                    .unwrap_or_else(|| p.name().to_string())
+            })
         })
         .collect();
 
