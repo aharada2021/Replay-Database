@@ -78,7 +78,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Cache Rust binary
+        id: cache-binary
+        uses: actions/cache@v4
+        with:
+          path: rust/bin/wows-replay-tool
+          # Cache key: Rust source + Cargo files + patches + wows-toolkit commit ref
+          key: rust-binary-aarch64-wt46bcdb2-${{ hashFiles('rust/wows-replay-tool/src/**', 'rust/wows-replay-tool/Cargo.toml', 'rust/wows-replay-tool/Cargo.lock', 'rust/wows-toolkit-patches.patch') }}
+
       - name: Checkout wows-toolkit
+        if: steps.cache-binary.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: landaire/wows-toolkit
@@ -87,6 +96,7 @@ jobs:
           path: wows-toolkit-src
 
       - name: Setup wows-toolkit at expected path
+        if: steps.cache-binary.outputs.cache-hit != 'true'
         run: |
           # Cargo.toml expects ../../../wows-toolkit relative to rust/wows-replay-tool/
           # That resolves to $GITHUB_WORKSPACE/../wows-toolkit
@@ -96,16 +106,19 @@ jobs:
           ls "$EXPECTED_DIR/Cargo.toml"
 
       - name: Apply wows-toolkit patches
+        if: steps.cache-binary.outputs.cache-hit != 'true'
         run: |
           cd "$GITHUB_WORKSPACE/../wows-toolkit"
           git apply $GITHUB_WORKSPACE/rust/wows-toolkit-patches.patch
 
       - name: Install Rust toolchain
+        if: steps.cache-binary.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-unknown-linux-gnu
 
       - name: Install cross-compilation tools
+        if: steps.cache-binary.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
@@ -113,21 +126,30 @@ jobs:
           cargo install cargo-zigbuild
 
       - name: Cache Rust dependencies
+        if: steps.cache-binary.outputs.cache-hit != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust/wows-replay-tool -> target
           cache-on-failure: true
 
       - name: Build for aarch64
+        if: steps.cache-binary.outputs.cache-hit != 'true'
         run: |
           cd rust/wows-replay-tool
           cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.26
+
+      - name: Copy binary to cache path
+        if: steps.cache-binary.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p rust/bin
+          cp rust/wows-replay-tool/target/aarch64-unknown-linux-gnu/release/wows-replay-tool rust/bin/wows-replay-tool
+          chmod +x rust/bin/wows-replay-tool
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: wows-replay-tool-aarch64
-          path: rust/wows-replay-tool/target/aarch64-unknown-linux-gnu/release/wows-replay-tool
+          path: rust/bin/wows-replay-tool
           retention-days: 1
           if-no-files-found: error
 
