@@ -629,6 +629,8 @@ def process_replay_with_rust(tmp_path: str, key: str) -> dict:
         f"players={len(all_players_stats)}, skills={skills_count}"
     )
 
+    metadata = rust_output.get("metadata", {})
+
     return {
         "arena_unique_id": arena_unique_id,
         "win_loss": rust_output.get("winLoss", "unknown"),
@@ -636,6 +638,7 @@ def process_replay_with_rust(tmp_path: str, key: str) -> dict:
         "players_info": players_info,
         "own_stats": own_stats,
         "all_players_stats": all_players_stats,
+        "map_display_name": metadata.get("mapDisplayName", ""),
     }
 
 
@@ -773,6 +776,9 @@ def handle(event, context):
                     players_info = extraction["players_info"]
                     own_stats = extraction["own_stats"]
                     all_players_stats = extraction["all_players_stats"]
+                    # Rustから翻訳済みマップ表示名を取得
+                    if extraction.get("map_display_name"):
+                        old_record["mapDisplayName"] = extraction["map_display_name"]
                 else:
                     extraction = process_replay_with_python(tmp_path, key)
                     arena_unique_id = extraction["arena_unique_id"]
