@@ -2,7 +2,7 @@
 バトル結果抽出ハンドラー
 
 S3にリプレイファイルがアップロードされた時にトリガーされ、
-BattleStatsパケットから勝敗情報を抽出してDynamoDBを更新
+Rust wows-replay-toolでリプレイを解析しDynamoDBを更新
 """
 
 import json
@@ -22,240 +22,16 @@ from utils.dynamodb_tables import (
 )
 from utils.match_key import generate_match_key, format_sortable_datetime
 from utils.dual_render import are_opposing_teams
-
-# Feature flag: USE_RUST_EXTRACTOR=true enables Rust-based extraction
-USE_RUST_EXTRACTOR = os.environ.get("USE_RUST_EXTRACTOR", "").lower() == "true"
-
-if USE_RUST_EXTRACTOR:
-    from utils.rust_replay_tool import (
-        extract_replay,
-        build_players_info_from_rust,
-        build_all_players_stats_from_rust,
-        get_own_player_stats,
-    )
-else:
-    from parsers.battle_stats_extractor import (
-        extract_battle_stats,
-        extract_hidden_data,
-        get_win_loss_clan_battle,
-        get_win_loss_from_hidden,
-        get_experience_earned,
-        get_arena_unique_id,
-    )
-    from parsers.battlestats_parser import BattleStatsParser
-    from utils.captain_skills import (
-        map_player_to_skills,
-        get_ship_class_from_params_id,
-        get_ship_name_from_params_id,
-    )
-    from utils.upgrades import map_player_to_upgrades
-    from core.replay_metadata import ReplayMetadataParser
+from utils.rust_replay_tool import (
+    extract_replay,
+    build_players_info_from_rust,
+    build_all_players_stats_from_rust,
+    get_own_player_stats,
+)
 
 # S3クライアント
 s3_client = boto3.client("s3")
 lambda_client = boto3.client("lambda")
-
-
-def extract_players_info_from_metadata(metadata: dict) -> dict:
-    """
-    リプレイメタデータからプレイヤー情報を抽出（API呼び出しなし）
-
-    Args:
-        metadata: リプレイメタデータ
-
-    Returns:
-        {
-            'own': [{'name': str, 'shipId': int, 'shipName': str}, ...],
-            'allies': [{'name': str, 'shipId': int, 'shipName': str}, ...],
-            'enemies': [{'name': str, 'shipId': int, 'shipName': str}, ...]
-        }
-    """
-    players_info = {"own": [], "allies": [], "enemies": []}
-
-    try:
-        vehicles = metadata.get("vehicles", [])
-
-        for player in vehicles:
-            ship_id = player.get("shipId", 0)
-            player_name = player.get("name", "Unknown")
-
-            # ships.jsonから艦艇名を取得（見つからない場合は空文字）
-            ship_name = get_ship_name_from_params_id(ship_id) or ""
-
-            player_data = {
-                "name": player_name,
-                "shipId": ship_id,
-                "shipName": ship_name,
-            }
-
-            relation = player.get("relation", 2)
-
-            if relation == 0:
-                players_info["own"].append(player_data)
-            elif relation == 1:
-                players_info["allies"].append(player_data)
-            else:
-                players_info["enemies"].append(player_data)
-
-        print(
-            f"Extracted players info: own={len(players_info['own'])}, "
-            f"allies={len(players_info['allies'])}, enemies={len(players_info['enemies'])}"
-        )
-
-    except Exception as e:
-        print(f"Error extracting players info: {e}")
-
-    return players_info
-
-
-def enrich_players_with_clan_tags(players_info: dict, hidden_data: dict) -> dict:
-    """
-    hidden_dataからクランタグを抽出してプレイヤー情報に追加
-
-    Args:
-        players_info: プレイヤー情報 {'own': [...], 'allies': [...], 'enemies': [...]}
-        hidden_data: リプレイのhiddenデータ
-
-    Returns:
-        クランタグが追加されたプレイヤー情報
-    """
-    if not hidden_data:
-        return players_info
-
-    # hidden_dataからプレイヤー名→クランタグのマップを作成
-    clan_tag_map = {}
-    players_data = hidden_data.get("players", {})
-    for player_id, player_info in players_data.items():
-        player_name = player_info.get("name", "")
-        clan_tag = player_info.get("clanTag", "")
-        if player_name and clan_tag:
-            clan_tag_map[player_name] = clan_tag
-
-    # 各プレイヤーにクランタグを追加
-    for category in ["own", "allies", "enemies"]:
-        for player in players_info.get(category, []):
-            player_name = player.get("name", "")
-            if player_name in clan_tag_map:
-                player["clanTag"] = clan_tag_map[player_name]
-
-    return players_info
-
-
-def build_all_players_stats(
-    all_stats: dict,
-    record: dict,
-    hidden_data: dict = None,
-) -> list:
-    """
-    全プレイヤーの統計情報をチーム情報と紐付けて配列で返す
-
-    Args:
-        all_stats: BattleStatsParser.parse_all_players()の結果
-        record: DynamoDBレコード（allies, enemies, ownPlayerを含む）
-        hidden_data: リプレイのhiddenデータ（艦長スキル用）
-
-    Returns:
-        全プレイヤーの統計情報リスト（チーム、艦船情報付き）
-    """
-    # プレイヤー名からチーム情報と艦船情報をマッピング
-    player_team_map = {}  # player_name -> {"team": str, "shipId": int, "shipName": str}
-
-    # ownPlayer
-    own_player = record.get("ownPlayer", {})
-    if isinstance(own_player, list):
-        own_player = own_player[0] if own_player else {}
-    if own_player and own_player.get("name"):
-        player_team_map[own_player["name"]] = {
-            "team": "ally",  # 自分は味方チーム
-            "shipId": own_player.get("shipId", 0),
-            "shipName": own_player.get("shipName", ""),
-            "isOwn": True,
-        }
-
-    # allies
-    for ally in record.get("allies", []):
-        if ally.get("name"):
-            player_team_map[ally["name"]] = {
-                "team": "ally",
-                "shipId": ally.get("shipId", 0),
-                "shipName": ally.get("shipName", ""),
-                "isOwn": False,
-            }
-
-    # enemies
-    for enemy in record.get("enemies", []):
-        if enemy.get("name"):
-            player_team_map[enemy["name"]] = {
-                "team": "enemy",
-                "shipId": enemy.get("shipId", 0),
-                "shipName": enemy.get("shipName", ""),
-                "isOwn": False,
-            }
-
-    # hiddenデータから艦長スキルとアップグレードを抽出
-    player_skills_map = {}
-    player_skills_raw_map = {}  # 生データ用
-    player_upgrades_map = {}
-    # 環境変数でデバッグモードを制御
-    debug_skills = os.environ.get("DEBUG_CAPTAIN_SKILLS", "").lower() == "true"
-    if hidden_data:
-        try:
-            # デバッグモードの場合は生データも取得
-            if debug_skills:
-                skills_result = map_player_to_skills(hidden_data, debug=True, include_raw=True)
-                # include_raw=Trueの場合、{player_name: {"skills": [...], "raw": {...}}}
-                for pn, data in skills_result.items():
-                    player_skills_map[pn] = data["skills"]
-                    player_skills_raw_map[pn] = data["raw"]
-            else:
-                player_skills_map = map_player_to_skills(hidden_data, debug=False)
-        except Exception as e:
-            print(f"Warning: Failed to extract captain skills: {e}")
-
-        try:
-            player_upgrades_map = map_player_to_upgrades(hidden_data)
-        except Exception as e:
-            print(f"Warning: Failed to extract upgrades: {e}")
-
-    # 全プレイヤーの統計を作成
-    result = []
-    for player_id, stats in all_stats.items():
-        player_name = stats.get("player_name", "")
-        team_info = player_team_map.get(player_name, {"team": "unknown", "shipId": 0, "shipName": ""})
-
-        # DynamoDB形式に変換
-        stats_data = BattleStatsParser.to_dynamodb_format(stats)
-
-        # チーム情報と艦船情報を追加
-        stats_data["team"] = team_info["team"]
-        ship_id = team_info.get("shipId", 0)
-        stats_data["shipId"] = ship_id
-        stats_data["shipName"] = team_info.get("shipName", "")
-        stats_data["isOwn"] = team_info.get("isOwn", False)
-
-        # 艦種を追加（shipParamsIdから取得）
-        if ship_id:
-            ship_class = get_ship_class_from_params_id(ship_id)
-            if ship_class:
-                stats_data["shipClass"] = ship_class
-
-        # 艦長スキルを追加（味方のみ利用可能）
-        if player_name in player_skills_map:
-            stats_data["captainSkills"] = player_skills_map[player_name]
-            # デバッグモードの場合、生データも追加
-            if player_name in player_skills_raw_map:
-                stats_data["captainSkillsRaw"] = player_skills_raw_map[player_name]
-
-        # アップグレードを追加（味方のみ利用可能）
-        if player_name in player_upgrades_map:
-            stats_data["upgrades"] = player_upgrades_map[player_name]
-
-        result.append(stats_data)
-
-    # ダメージ降順でソート
-    result.sort(key=lambda x: x.get("damage", 0), reverse=True)
-
-    return result
 
 
 def save_to_new_tables(old_record: dict, all_players_stats: list) -> None:
@@ -642,78 +418,6 @@ def process_replay_with_rust(tmp_path: str, key: str) -> dict:
     }
 
 
-def process_replay_with_python(tmp_path, key: str) -> dict:
-    """
-    Python パーサーでリプレイを処理（従来のフロー）。
-
-    Returns:
-        Same structure as process_replay_with_rust()
-    """
-    # メタデータ抽出
-    metadata = ReplayMetadataParser.parse_replay_metadata(tmp_path)
-    players_info = {"own": [], "allies": [], "enemies": []}
-    if metadata:
-        players_info = extract_players_info_from_metadata(metadata)
-
-    # BattleStatsパケット抽出
-    battle_results = extract_battle_stats(str(tmp_path))
-    if not battle_results:
-        raise ValueError(f"No battle results found in {key}")
-
-    # hiddenデータ抽出
-    hidden_data = None
-    try:
-        hidden_data = extract_hidden_data(str(tmp_path))
-    except Exception as hidden_err:
-        print(f"Warning: Failed to extract hidden data: {hidden_err}")
-
-    # クランタグ追加
-    if hidden_data:
-        players_info = enrich_players_with_clan_tags(players_info, hidden_data)
-
-    # Arena ID
-    arena_unique_id = get_arena_unique_id(battle_results)
-    if not arena_unique_id:
-        raise ValueError(f"No arenaUniqueID found in {key}")
-
-    # 勝敗
-    win_loss = "unknown"
-    if hidden_data:
-        win_loss = get_win_loss_from_hidden(hidden_data)
-    if win_loss == "unknown":
-        win_loss = get_win_loss_clan_battle(battle_results)
-
-    experience_earned = get_experience_earned(battle_results)
-
-    # 統計情報
-    own_stats = None
-    all_players_stats = []
-    players_public_info = battle_results.get("playersPublicInfo", {})
-    if players_public_info:
-        all_stats = BattleStatsParser.parse_all_players(players_public_info)
-
-        # 自分の統計を取得
-        for pid, stats in all_stats.items():
-            if stats.get("account_db_id") == 0:
-                continue
-            # player_nameは後でマッチングに使うのでここではスキップ
-            pass
-
-        own_stats_raw = None
-        # Note: player_name matching is done in handle() after old_record is available
-
-    return {
-        "arena_unique_id": arena_unique_id,
-        "win_loss": win_loss,
-        "experience_earned": experience_earned,
-        "players_info": players_info,
-        "own_stats": None,  # Will be populated later for Python path
-        "all_players_stats": [],  # Will be populated later for Python path
-        "_battle_results": battle_results,  # Pass through for Python-specific processing
-        "_hidden_data": hidden_data,
-    }
-
-
 def handle(event, context):
     """
     S3イベントハンドラー
@@ -725,8 +429,6 @@ def handle(event, context):
     Returns:
         処理結果
     """
-    print(f"Extraction mode: {'Rust' if USE_RUST_EXTRACTOR else 'Python'}")
-
     try:
         # S3イベントから情報を取得
         for record in event.get("Records", []):
@@ -767,24 +469,16 @@ def handle(event, context):
                     print(f"No record found for temp_arena_id: {temp_arena_id}, player_id: {player_id}")
                     continue
 
-                # リプレイ解析（Rust or Python）
-                if USE_RUST_EXTRACTOR:
-                    extraction = process_replay_with_rust(tmp_path, key)
-                    arena_unique_id = extraction["arena_unique_id"]
-                    win_loss = extraction["win_loss"]
-                    experience_earned = extraction["experience_earned"]
-                    players_info = extraction["players_info"]
-                    own_stats = extraction["own_stats"]
-                    all_players_stats = extraction["all_players_stats"]
-                    # Rustから翻訳済みマップ表示名を取得
-                    if extraction.get("map_display_name"):
-                        old_record["mapDisplayName"] = extraction["map_display_name"]
-                else:
-                    extraction = process_replay_with_python(tmp_path, key)
-                    arena_unique_id = extraction["arena_unique_id"]
-                    win_loss = extraction["win_loss"]
-                    experience_earned = extraction["experience_earned"]
-                    players_info = extraction["players_info"]
+                # Rustでリプレイを解析
+                extraction = process_replay_with_rust(tmp_path, key)
+                arena_unique_id = extraction["arena_unique_id"]
+                win_loss = extraction["win_loss"]
+                experience_earned = extraction["experience_earned"]
+                players_info = extraction["players_info"]
+                own_stats = extraction["own_stats"]
+                all_players_stats = extraction["all_players_stats"]
+                if extraction.get("map_display_name"):
+                    old_record["mapDisplayName"] = extraction["map_display_name"]
 
                 print(f"Arena ID: {arena_unique_id}, Win/Loss: {win_loss}, Exp: {experience_earned}")
 
@@ -824,66 +518,14 @@ def handle(event, context):
                     )
 
                 # 統計情報をレコードに追加
-                if USE_RUST_EXTRACTOR:
-                    # Rust: stats already mapped to DynamoDB format
-                    if own_stats:
-                        old_record.update(own_stats)
-                        print(f"Added battle stats: damage={own_stats.get('damage')}, kills={own_stats.get('kills')}")
+                if own_stats:
+                    old_record.update(own_stats)
+                    print(f"Added battle stats: damage={own_stats.get('damage')}, kills={own_stats.get('kills')}")
 
-                    if all_players_stats:
-                        old_record["allPlayersStats"] = all_players_stats
-                        skills_count = sum(1 for p in all_players_stats if p.get("captainSkills"))
-                        print(f"Added all players stats: {len(all_players_stats)} players, {skills_count} with skills")
-                else:
-                    # Python: legacy stats extraction
-                    battle_results = extraction.get("_battle_results", {})
-                    hidden_data = extraction.get("_hidden_data")
-                    players_public_info = battle_results.get("playersPublicInfo", {})
-                    if players_public_info:
-                        all_stats = BattleStatsParser.parse_all_players(players_public_info)
-
-                        player_name = old_record.get("playerName", "")
-                        own_stats_raw = None
-                        for pid, stats in all_stats.items():
-                            if stats.get("player_name") == player_name:
-                                own_stats_raw = stats
-                                break
-
-                        if own_stats_raw:
-                            stats_data = BattleStatsParser.to_dynamodb_format(own_stats_raw)
-                            old_record["damage"] = stats_data.get("damage", 0)
-                            old_record["receivedDamage"] = stats_data.get("receivedDamage", 0)
-                            old_record["spottingDamage"] = stats_data.get("spottingDamage", 0)
-                            old_record["potentialDamage"] = stats_data.get("potentialDamage", 0)
-                            old_record["kills"] = stats_data.get("kills", 0)
-                            old_record["fires"] = stats_data.get("fires", 0)
-                            old_record["floods"] = stats_data.get("floods", 0)
-                            old_record["baseXP"] = stats_data.get("baseXP", 0)
-                            old_record["hitsAP"] = stats_data.get("hitsAP", 0)
-                            old_record["hitsHE"] = stats_data.get("hitsHE", 0)
-                            old_record["hitsSecondaries"] = stats_data.get("hitsSecondaries", 0)
-                            old_record["damageAP"] = stats_data.get("damageAP", 0)
-                            old_record["damageHE"] = stats_data.get("damageHE", 0)
-                            old_record["damageHESecondaries"] = stats_data.get("damageHESecondaries", 0)
-                            old_record["damageTorps"] = stats_data.get("damageTorps", 0)
-                            old_record["damageDeepWaterTorps"] = stats_data.get("damageDeepWaterTorps", 0)
-                            old_record["damageOther"] = stats_data.get("damageOther", 0)
-                            old_record["damageFire"] = stats_data.get("damageFire", 0)
-                            old_record["damageFlooding"] = stats_data.get("damageFlooding", 0)
-                            old_record["citadels"] = stats_data.get("citadels", 0)
-                            print(
-                                f"Added battle stats for {player_name}: "
-                                f"damage={stats_data.get('damage')}, kills={stats_data.get('kills')}"
-                            )
-
-                        all_players_stats = build_all_players_stats(all_stats, old_record, hidden_data)
-                        if all_players_stats:
-                            old_record["allPlayersStats"] = all_players_stats
-                            skills_count = sum(1 for p in all_players_stats if p.get("captainSkills"))
-                            print(
-                                f"Added all players stats: {len(all_players_stats)} players, "
-                                f"{skills_count} with captain skills"
-                            )
+                if all_players_stats:
+                    old_record["allPlayersStats"] = all_players_stats
+                    skills_count = sum(1 for p in all_players_stats if p.get("captainSkills"))
+                    print(f"Added all players stats: {len(all_players_stats)} players, {skills_count} with skills")
 
                 # 検索最適化用フィールドを事前計算
                 # matchKey: 試合グループ化に使用（検索時の計算を省略）

@@ -129,10 +129,6 @@ custom:
   debugCaptainSkills:
     dev: 'true'
     prod: 'false'
-  # Rust extractorの有効化（Phase 2: dev環境で検証後にprodも有効化）
-  useRustExtractor:
-    dev: 'true'
-    prod: 'false'
   # Dockerイメージを使用するため、pythonRequirementsは不要
   # pythonRequirements:
   #   dockerizePip: true
@@ -317,7 +313,6 @@ functions:
       CLAN_INDEX_TABLE: ${self:custom.clanIndexTable}
       STAGE: ${self:provider.stage}
       DEBUG_CAPTAIN_SKILLS: ${self:custom.debugCaptainSkills.${self:provider.stage}, 'false'}
-      USE_RUST_EXTRACTOR: ${self:custom.useRustExtractor.${self:provider.stage}, 'false'}
       GAME_DATA_DIR: /opt/game-data
 
   # 検索API

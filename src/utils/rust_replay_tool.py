@@ -1,8 +1,7 @@
 """
 Rust wows-replay-tool subprocess wrapper.
 
-Calls the pre-built wows-replay-tool binary for replay extraction and rendering,
-replacing the Python-based replay_unpack parsing pipeline.
+Calls the pre-built wows-replay-tool binary for replay extraction and rendering.
 """
 
 import json

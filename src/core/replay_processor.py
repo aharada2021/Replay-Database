@@ -8,7 +8,6 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -29,7 +28,6 @@ class ReplayProcessor:
     def generate_minimap_video(
         replay_path: Path,
         output_path: Path,
-        minimap_renderer_path: Optional[str] = None,
     ) -> bool:
         """
         Rust wows-replay-tool を使用してミニマップMP4動画を生成
@@ -37,7 +35,6 @@ class ReplayProcessor:
         Args:
             replay_path: リプレイファイルのパス
             output_path: 出力MP4ファイルのパス
-            minimap_renderer_path: 未使用（後方互換性のため維持）
 
         Returns:
             成功した場合True、失敗した場合False

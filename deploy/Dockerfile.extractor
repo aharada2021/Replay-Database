@@ -18,24 +18,11 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY config/requirements_lambda.txt .
 RUN pip install --no-cache-dir -r requirements_lambda.txt
 
-# replays_unpack_upstreamをコピーしてパッチ適用（変更頻度: 低）
-COPY replays_unpack_upstream/ ./replays_unpack_upstream/
-
-# 追加のWoWSバージョンサポートをコピー（サブモジュール更新待ちの間の対応）
-COPY src/replay_versions/ ./replays_unpack_upstream/replay_unpack/clients/wows/versions/
-
-RUN sed -i "/__all__ = \[/a\    'BattleStats'," \
-    ./replays_unpack_upstream/replay_unpack/clients/wows/network/packets/__init__.py
-
-# アプリケーションコードをまとめてコピー（変更頻度: 高）
+# アプリケーションコードをコピー（変更頻度: 高）
 COPY src/handlers/ ./handlers/
 COPY src/core/ ./core/
-COPY src/parsers/ ./parsers/
 COPY src/utils/ ./utils/
 COPY config/map_names.yaml ./config/
-
-# 艦艇データ（ships.json）をコピー
-COPY minimap_renderer/generated/ships.json ./data/ships.json
 
 # Rustバイナリ（wows-replay-tool）をコピー
 COPY rust/bin/wows-replay-tool /opt/bin/wows-replay-tool

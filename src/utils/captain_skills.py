@@ -3,107 +3,12 @@
 
 内部スキル名から人間が読める表示名へのマッピングと、
 リプレイデータからスキル情報を抽出する機能を提供
+
+Note: ships.json依存の艦艇データ参照はRust extractorに移行済み。
+      このモジュールはPython hiddenデータパース用に残存（レガシー互換）。
 """
 
-import json
-import os
-from pathlib import Path
 from typing import Dict, List, Optional, Any
-
-# 艦艇データのキャッシュ（遅延ロード）
-_ship_data_cache: Optional[Dict[str, Dict]] = None
-
-
-def _get_ship_data() -> Dict[str, Dict]:
-    """
-    ships.jsonから艦艇データをロード（キャッシュ付き）
-
-    Returns:
-        {shipParamsId: {"species": "Destroyer", "name": "...", ...}}
-    """
-    global _ship_data_cache
-
-    if _ship_data_cache is not None:
-        return _ship_data_cache
-
-    # ships.jsonのパスを特定
-    task_root = os.environ.get("LAMBDA_TASK_ROOT", "")
-
-    # 試行するパスのリスト（優先順）
-    paths_to_try = []
-
-    if task_root:
-        # Lambda環境: /var/task/data/ships.json (新しいパス)
-        paths_to_try.append(Path(task_root) / "data" / "ships.json")
-        # フォールバック: 旧パス
-        paths_to_try.append(
-            Path(task_root)
-            / "minimap_renderer"
-            / "src"
-            / "renderer"
-            / "versions"
-            / "14_11_0"
-            / "resources"
-            / "ships.json"
-        )
-    else:
-        # ローカル開発環境
-        project_root = Path(__file__).parent.parent.parent
-        paths_to_try.append(project_root / "minimap_renderer" / "generated" / "ships.json")
-        paths_to_try.append(
-            project_root / "minimap_renderer" / "src" / "renderer" / "versions" / "14_11_0" / "resources" / "ships.json"
-        )
-
-    for ships_json_path in paths_to_try:
-        try:
-            with open(ships_json_path, "r", encoding="utf-8") as f:
-                _ship_data_cache = json.load(f)
-                print(f"Loaded ships.json from {ships_json_path}: {len(_ship_data_cache)} ships")
-                return _ship_data_cache
-        except FileNotFoundError:
-            continue
-        except Exception as e:
-            print(f"Warning: Failed to load ships.json from {ships_json_path}: {e}")
-            continue
-
-    print("Warning: ships.json not found in any of the expected locations")
-    _ship_data_cache = {}
-    return _ship_data_cache
-
-
-def get_ship_class_from_params_id(ship_params_id: int) -> Optional[str]:
-    """
-    shipParamsIdから艦種（species）を取得
-
-    Args:
-        ship_params_id: 艦艇パラメータID
-
-    Returns:
-        艦種名（"Destroyer", "Cruiser", "Battleship", "AirCarrier", "Submarine"）
-        または None（見つからない場合）
-    """
-    ship_data = _get_ship_data()
-    ship_info = ship_data.get(str(ship_params_id))
-    if ship_info:
-        return ship_info.get("species")
-    return None
-
-
-def get_ship_name_from_params_id(ship_params_id: int) -> Optional[str]:
-    """
-    shipParamsIdから艦艇名を取得
-
-    Args:
-        ship_params_id: 艦艇パラメータID
-
-    Returns:
-        艦艇名、または None（見つからない場合）
-    """
-    ship_data = _get_ship_data()
-    ship_info = ship_data.get(str(ship_params_id))
-    if ship_info:
-        return ship_info.get("name")
-    return None
 
 
 # 内部スキル名 → 表示名（英語）のマッピング
