@@ -11,6 +11,7 @@ Web UIからの検索リクエストを処理
 """
 
 import json
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from utils.dynamodb_tables import (
@@ -57,6 +58,9 @@ def search_matches(
     clan_tag: str = None,
     ally_clan_tag: str = None,
     enemy_clan_tag: str = None,
+    date_from: str = None,
+    date_to: str = None,
+    win_loss: str = None,
     limit: int = 30,
     cursor_unix_time: int = None,
 ) -> dict:
@@ -126,6 +130,37 @@ def search_matches(
             filtered_arena_ids = clan_arena_ids
         print(f"Clan filter: {clan_tag} found {len(clan_arena_ids)} matches")
 
+    # 日付文字列をUnix時間に変換（YYYY-MM-DD → unixTime）
+    unix_time_from = None
+    unix_time_to = None
+    if date_from:
+        try:
+            dt = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            unix_time_from = int(dt.timestamp())
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            # 日付の終わり（23:59:59）まで含める
+            dt = datetime.strptime(date_to, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+            unix_time_to = int(dt.timestamp())
+        except ValueError:
+            pass
+
+    # カーソルがある場合、unix_time_toをカーソルに制限
+    effective_unix_time_to = unix_time_to
+    if cursor_unix_time:
+        cursor_limit = cursor_unix_time - 1  # カーソル位置を含めない
+        if effective_unix_time_to is None or cursor_limit < effective_unix_time_to:
+            effective_unix_time_to = cursor_limit
+
+    # 複合フィルタがあるか判定
+    has_post_filter = bool(
+        filtered_arena_ids is not None or ally_clan_tag or enemy_clan_tag or win_loss
+    )
+
     # gameType指定の場合は単一テーブルをクエリ
     # 指定なしの場合は全テーブルをクエリしてマージ
     game_types_to_query = []
@@ -137,35 +172,57 @@ def search_matches(
     all_items = []
     for gt in game_types_to_query:
         battle_client = BattleTableClient(gt)
-        query_result = battle_client.list_matches(
-            limit=limit * 3,  # 余裕を持って取得
-            map_id=map_id,
-        )
 
-        # GSIからフィルタリングしてarenaUniqueIDを収集
+        # 複合フィルタがある場合はページネーションループで十分な結果を取得
         filtered_items = []
         arena_ids_to_fetch = []
+        last_key = None
+        max_queries = 10  # 無限ループ防止
+        query_count = 0
 
-        for item in query_result.get("items", []):
-            # インデックスフィルタ
-            if filtered_arena_ids is not None:
-                if item.get("arenaUniqueID") not in filtered_arena_ids:
+        while query_count < max_queries:
+            query_count += 1
+            fetch_limit = limit * 3 if has_post_filter else limit * 2
+
+            query_result = battle_client.list_matches(
+                limit=fetch_limit,
+                last_evaluated_key=last_key,
+                map_id=map_id,
+                unix_time_from=unix_time_from,
+                unix_time_to=effective_unix_time_to,
+            )
+
+            for item in query_result.get("items", []):
+                # インデックスフィルタ
+                if filtered_arena_ids is not None:
+                    if item.get("arenaUniqueID") not in filtered_arena_ids:
+                        continue
+
+                # クランタグフィルタ
+                if ally_clan_tag and item.get("allyMainClanTag") != ally_clan_tag:
+                    continue
+                if enemy_clan_tag and item.get("enemyMainClanTag") != enemy_clan_tag:
                     continue
 
-            # クランタグフィルタ
-            if ally_clan_tag and item.get("allyMainClanTag") != ally_clan_tag:
-                continue
-            if enemy_clan_tag and item.get("enemyMainClanTag") != enemy_clan_tag:
-                continue
+                # 勝敗フィルタ（"loss"/"lose"の表記揺れに対応）
+                if win_loss:
+                    item_wl = item.get("winLoss", "")
+                    if win_loss == "loss":
+                        if item_wl not in ("loss", "lose"):
+                            continue
+                    elif item_wl != win_loss:
+                        continue
 
-            # カーソルフィルタ（Unix時間）
-            if cursor_unix_time and item.get("unixTime", 0) >= cursor_unix_time:
-                continue
+                arena_id = item.get("arenaUniqueID")
+                if arena_id:
+                    filtered_items.append(item)
+                    arena_ids_to_fetch.append(arena_id)
 
-            arena_id = item.get("arenaUniqueID")
-            if arena_id:
-                filtered_items.append(item)
-                arena_ids_to_fetch.append(arena_id)
+            last_key = query_result.get("lastEvaluatedKey")
+
+            # 十分な結果が集まったかDynamoDBの結果が尽きたら終了
+            if len(filtered_items) >= limit + 1 or not last_key:
+                break
 
         # BatchGetItemで完全なMATCHレコードを一括取得
         if arena_ids_to_fetch:
@@ -292,7 +349,9 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
+            "http", {}
+        ).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
@@ -314,6 +373,9 @@ def handle(event, context):
         ship_team = params.get("shipTeam")  # "ally", "enemy", or None
         player_name = params.get("playerName")  # プレイヤー名検索
         clan_tag = params.get("clanTag")  # クラン検索
+        date_from = params.get("dateFrom")  # YYYY-MM-DD
+        date_to = params.get("dateTo")  # YYYY-MM-DD
+        win_loss = params.get("winLoss")  # "win", "loss", "draw", or None
         limit = params.get("limit", 30)
         cursor_unix_time = params.get("cursorUnixTime")
 
@@ -327,6 +389,9 @@ def handle(event, context):
             clan_tag=clan_tag,
             ally_clan_tag=ally_clan_tag,
             enemy_clan_tag=enemy_clan_tag,
+            date_from=date_from,
+            date_to=date_to,
+            win_loss=win_loss,
             limit=limit,
             cursor_unix_time=cursor_unix_time,
         )
