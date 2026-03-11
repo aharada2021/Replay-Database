@@ -8,6 +8,16 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 - **Auto Uploader**: Windowsクライアント常駐ツールで自動アップロード（ゲームプレイ録画機能付き）
 - **Discord連携**: OAuth認証、クラン戦通知
 
+## スクリーンショット
+
+| 検索結果一覧 | 検索結果 + 試合詳細展開 |
+|:--------:|:--------:|
+| ![検索結果一覧](docs/images/search.jpg) | ![検索結果 + 試合詳細展開](docs/images/search-detail.jpg) |
+
+| 試合詳細（ミニマップ動画） | 試合詳細（ゲームプレイ動画） |
+|:--------------:|:----------------:|
+| ![ミニマップ動画](docs/images/match-minimap.jpg) | ![ゲームプレイ動画](docs/images/match-gameplay.jpg) |
+
 ## 技術スタック
 
 | コンポーネント | 技術 |
