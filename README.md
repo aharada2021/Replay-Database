@@ -35,4 +35,4 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 
 ## ライセンス
 
-Private
+[MIT License](LICENSE)
