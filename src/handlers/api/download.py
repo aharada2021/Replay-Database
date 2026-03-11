@@ -11,7 +11,7 @@ import boto3
 from botocore.config import Config
 
 # 環境変数
-TEMP_BUCKET = os.environ.get("TEMP_BUCKET")  # serverless.ymlから設定される
+REPLAYS_BUCKET = os.environ.get("REPLAYS_BUCKET")  # serverless.ymlから設定される
 FRONTEND_URL = os.environ.get("FRONTEND_URL")  # serverless.ymlから設定される
 
 # S3クライアント（署名付きURL用に署名バージョンを指定）
@@ -80,7 +80,7 @@ def handle(event, context):
 
             # ファイルの存在確認
             try:
-                s3_client.head_object(Bucket=TEMP_BUCKET, Key=s3_key)
+                s3_client.head_object(Bucket=REPLAYS_BUCKET, Key=s3_key)
             except Exception as e:
                 error_code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
                 if error_code == "404":
@@ -96,7 +96,7 @@ def handle(event, context):
             presigned_url = s3_client.generate_presigned_url(
                 "get_object",
                 Params={
-                    "Bucket": TEMP_BUCKET,
+                    "Bucket": REPLAYS_BUCKET,
                     "Key": s3_key,
                     "ResponseContentDisposition": f'attachment; filename="{filename}"',
                 },
