@@ -215,8 +215,16 @@ fn build_extraction_result(
     let meta = &replay.meta;
     let game_type = classify_game_type(&meta.matchGroup, &meta.gameType);
 
-    // Translate map display name (e.g. "20_NE_two_brothers" -> "二人の兄弟")
-    let map_display_name = translate_map_name(&format!("spaces/{}", meta.mapName), game_params);
+    // Translate map display name (e.g. "spaces/20_NE_two_brothers" -> "Two Brothers")
+    // translate_map_name expects "spaces/{mapName}" format for IDS key lookup
+    let map_key = format!("spaces/{}", meta.mapName);
+    let translated = translate_map_name(&map_key, game_params);
+    // If translation fails, fallback returns the key as-is; use original mapDisplayName instead
+    let map_display_name = if translated == map_key {
+        meta.mapDisplayName.clone()
+    } else {
+        translated
+    };
 
     let metadata = ReplayMetadata {
         date_time: meta.dateTime.clone(),
