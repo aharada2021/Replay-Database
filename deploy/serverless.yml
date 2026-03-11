@@ -583,7 +583,18 @@ resources:
               - AttributeName: unixTime
                 KeyType: RANGE
             Projection:
-              ProjectionType: KEYS_ONLY
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - arenaUniqueID
+                - dateTime
+                - mapDisplayName
+                - winLoss
+                - allyMainClanTag
+                - enemyMainClanTag
+                - uploaders
+                - commentCount
+                - dualRendererAvailable
+                - listingKey
 
     # ランク戦テーブル
     RankedBattlesTable:
@@ -634,7 +645,18 @@ resources:
               - AttributeName: unixTime
                 KeyType: RANGE
             Projection:
-              ProjectionType: KEYS_ONLY
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - arenaUniqueID
+                - dateTime
+                - mapDisplayName
+                - winLoss
+                - allyMainClanTag
+                - enemyMainClanTag
+                - uploaders
+                - commentCount
+                - dualRendererAvailable
+                - listingKey
 
     # ランダム戦テーブル
     RandomBattlesTable:
@@ -685,7 +707,18 @@ resources:
               - AttributeName: unixTime
                 KeyType: RANGE
             Projection:
-              ProjectionType: KEYS_ONLY
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - arenaUniqueID
+                - dateTime
+                - mapDisplayName
+                - winLoss
+                - allyMainClanTag
+                - enemyMainClanTag
+                - uploaders
+                - commentCount
+                - dualRendererAvailable
+                - listingKey
 
     # その他バトルテーブル
     OtherBattlesTable:
@@ -736,7 +769,18 @@ resources:
               - AttributeName: unixTime
                 KeyType: RANGE
             Projection:
-              ProjectionType: KEYS_ONLY
+              ProjectionType: INCLUDE
+              NonKeyAttributes:
+                - arenaUniqueID
+                - dateTime
+                - mapDisplayName
+                - winLoss
+                - allyMainClanTag
+                - enemyMainClanTag
+                - uploaders
+                - commentCount
+                - dualRendererAvailable
+                - listingKey
 
     # ========================================
     # 新インデックステーブル
