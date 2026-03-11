@@ -105,11 +105,7 @@ def map_stats_to_dynamodb(rust_stats: dict) -> dict:
     Returns:
         Stats dict with DynamoDB field names
     """
-    return {
-        _STATS_FIELD_MAP.get(k, k): v
-        for k, v in rust_stats.items()
-        if k in _STATS_FIELD_MAP
-    }
+    return {_STATS_FIELD_MAP.get(k, k): v for k, v in rust_stats.items() if k in _STATS_FIELD_MAP}
 
 
 def build_players_info_from_rust(rust_output: dict) -> dict:
