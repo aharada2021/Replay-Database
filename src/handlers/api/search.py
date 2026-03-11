@@ -25,32 +25,18 @@ def normalize_ship_name(name: str) -> str:
     """
     艦艇名を検索用に正規化
 
-    DynamoDBは完全一致検索のため、入力を正規化して
-    保存されている形式に合わせる
+    ship-indexテーブルのPKはUPPERCASEで統一されているため、
+    ユーザー入力を単純にUPPERCASEに変換する。
 
     Args:
         name: 入力された艦艇名
 
     Returns:
-        正規化された艦艇名
+        UPPERCASE艦艇名
     """
     if not name:
         return name
-
-    # 大文字のまま保持するプレフィックス（コラボ艦艇など）
-    uppercase_prefixes = ["AL ", "BA ", "GQ ", "STAR "]
-
-    # まずタイトルケースに変換
-    normalized = name.title()
-
-    # 大文字プレフィックスを復元
-    for prefix in uppercase_prefixes:
-        lower_prefix = prefix.title()  # "Al ", "Ba ", etc.
-        if normalized.startswith(lower_prefix):
-            normalized = prefix + normalized[len(prefix) :]
-            break
-
-    return normalized
+    return name.upper()
 
 
 class DecimalEncoder(json.JSONEncoder):

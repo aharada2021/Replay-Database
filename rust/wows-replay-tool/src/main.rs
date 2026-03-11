@@ -1,3 +1,4 @@
+mod dump_ship_names;
 mod extract;
 mod output;
 mod render;
@@ -40,6 +41,13 @@ enum Commands {
         output: PathBuf,
     },
 
+    /// Dump all ship names from game data as JSON mapping { shipId: localizedName }
+    DumpShipNames {
+        /// Path to pre-extracted game data directory
+        #[arg(short, long)]
+        game_data: PathBuf,
+    },
+
     /// Print version and check encoder availability
     Check,
 }
@@ -62,6 +70,9 @@ fn main() -> anyhow::Result<()> {
             output,
         } => {
             render::run(&replay, &game_data, &output)?;
+        }
+        Commands::DumpShipNames { game_data } => {
+            dump_ship_names::run(&game_data)?;
         }
         Commands::Check => {
             println!("wows-replay-tool v{}", env!("CARGO_PKG_VERSION"));
