@@ -28,11 +28,20 @@ provider:
         - OPTIONS
       allowCredentials: true
 
-  # 環境変数
+  # 環境変数（全Lambda関数共通）
   environment:
-    DISCORD_APPLICATION_ID: ${env:DISCORD_APPLICATION_ID}
-    DISCORD_BOT_TOKEN: ${env:DISCORD_BOT_TOKEN}
     STAGE: ${self:provider.stage}
+    DISCORD_BOT_TOKEN: ${env:DISCORD_BOT_TOKEN}
+    # DynamoDBテーブル名（共通）
+    REPLAYS_TABLE: ${self:custom.replaysTable}
+    CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
+    RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
+    RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
+    OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
+    SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
+    SHIP_INDEX_TABLE: ${self:custom.shipIndexTable}
+    PLAYER_INDEX_TABLE: ${self:custom.playerIndexTable}
+    CLAN_INDEX_TABLE: ${self:custom.clanIndexTable}
 
   # IAMロール
   iam:
@@ -118,10 +127,6 @@ custom:
   # その他テーブル
   sessionsTable: wows-sessions-${self:provider.stage}
   commentsTable: wows-comments-${self:provider.stage}
-  # 開発環境でのみ艦長スキルデバッグを有効化
-  debugCaptainSkills:
-    dev: 'true'
-    prod: 'false'
   # Dockerイメージを使用するため、pythonRequirementsは不要
   # pythonRequirements:
   #   dockerizePip: true
@@ -149,13 +154,6 @@ functions:
     environment:
       REPLAYS_BUCKET: ${self:custom.bucketName}
       GAME_DATA_DIR: /opt/game-data
-      # 旧テーブル（移行完了後に削除予定）
-      REPLAYS_TABLE: ${self:custom.replaysTable}
-      # 新バトルテーブル
-      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
-      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
-      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
-      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
       NOTIFICATION_CHANNEL_ID: ${env:NOTIFICATION_CHANNEL_ID, ''}
 
   # リプレイアップロードAPI
@@ -173,7 +171,6 @@ functions:
           method: post
     environment:
       REPLAYS_BUCKET: ${self:custom.bucketName}
-      REPLAYS_TABLE: ${self:custom.replaysTable}
       UPLOAD_API_KEY: ${env:UPLOAD_API_KEY}
 
   # ゲームプレイ動画アップロード用Presigned URL生成API
@@ -246,20 +243,6 @@ functions:
           existing: true
     environment:
       REPLAYS_BUCKET: ${self:custom.bucketName}
-      # 旧テーブル（移行完了後に削除予定）
-      REPLAYS_TABLE: ${self:custom.replaysTable}
-      SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
-      # 新バトルテーブル
-      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
-      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
-      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
-      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
-      # 新インデックステーブル
-      SHIP_INDEX_TABLE: ${self:custom.shipIndexTable}
-      PLAYER_INDEX_TABLE: ${self:custom.playerIndexTable}
-      CLAN_INDEX_TABLE: ${self:custom.clanIndexTable}
-      STAGE: ${self:provider.stage}
-      DEBUG_CAPTAIN_SKILLS: ${self:custom.debugCaptainSkills.${self:provider.stage}, 'false'}
       GAME_DATA_DIR: /opt/game-data
 
   # 検索API
@@ -275,19 +258,6 @@ functions:
       - httpApi:
           path: /api/search
           method: post
-    environment:
-      # 旧テーブル（移行完了後に削除予定）
-      REPLAYS_TABLE: ${self:custom.replaysTable}
-      SHIP_MATCH_INDEX_TABLE: ${self:custom.shipMatchIndexTable}
-      # 新バトルテーブル
-      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
-      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
-      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
-      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
-      # 新インデックステーブル
-      SHIP_INDEX_TABLE: ${self:custom.shipIndexTable}
-      PLAYER_INDEX_TABLE: ${self:custom.playerIndexTable}
-      CLAN_INDEX_TABLE: ${self:custom.clanIndexTable}
 
   # 試合詳細API
   match-detail-api:
@@ -305,14 +275,6 @@ functions:
       - httpApi:
           path: /api/match/{arenaUniqueID}/stats
           method: get
-    environment:
-      # 旧テーブル（移行完了後に削除予定）
-      REPLAYS_TABLE: ${self:custom.replaysTable}
-      # 新バトルテーブル
-      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
-      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
-      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
-      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
 
   # ========================================
   # 認証API
@@ -425,7 +387,7 @@ functions:
           path: /api/download
           method: get
     environment:
-      TEMP_BUCKET: ${self:custom.bucketName}
+      REPLAYS_BUCKET: ${self:custom.bucketName}
       FRONTEND_URL: ${env:FRONTEND_URL}
 
   # ========================================
@@ -460,13 +422,6 @@ functions:
     environment:
       COMMENTS_TABLE: ${self:custom.commentsTable}
       SESSIONS_TABLE: ${self:custom.sessionsTable}
-      # 旧テーブル（移行完了後に削除予定）
-      REPLAYS_TABLE: ${self:custom.replaysTable}
-      # 新バトルテーブル（コメント数更新用）
-      CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}
-      RANKED_BATTLES_TABLE: ${self:custom.rankedBattlesTable}
-      RANDOM_BATTLES_TABLE: ${self:custom.randomBattlesTable}
-      OTHER_BATTLES_TABLE: ${self:custom.otherBattlesTable}
 
 # S3バケットは手動で作成済み（wows-replay-bot-dev-temp）
 resources:
@@ -841,10 +796,3 @@ resources:
 # Dockerイメージを使用するため、pluginsは不要
 # plugins:
 #   - serverless-python-requirements
-
-# Outputs
-outputs:
-  InteractionsEndpoint:
-    Description: Discord Interactions Webhook URL
-    Value:
-      Fn::Sub: https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/interactions
