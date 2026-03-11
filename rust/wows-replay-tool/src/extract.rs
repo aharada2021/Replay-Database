@@ -26,7 +26,6 @@ use wowsunpack::vfs::VfsPath;
 use wowsunpack::vfs::impls::physical::PhysicalFS;
 
 use wowsunpack::data::ResourceLoader;
-use wowsunpack::game_params::translations::{translate_map_name, translate_module, translate_consumable};
 
 use crate::output::*;
 
@@ -180,15 +179,9 @@ fn load_extracted_game_data(
     let controller_game_params = GameMetadataProvider::from_params_no_specs(params)
         .map_err(|e| anyhow::anyhow!("Failed to build controller GameMetadataProvider: {e:?}"))?;
 
-    // Load translations (prefer ja, fallback to en)
-    let lang = std::env::var("WOWS_LANG").unwrap_or_else(|_| "ja".to_string());
-    let mo_path = extracted_dir.join(format!("translations/{lang}/LC_MESSAGES/global.mo"));
-    let mo_path = if mo_path.exists() {
-        mo_path
-    } else {
-        info!("Translation not found for '{lang}', falling back to 'en'");
-        extracted_dir.join("translations/en/LC_MESSAGES/global.mo")
-    };
+    // Load English translations (used only for ship name resolution)
+    // Skills, upgrades, maps etc. are stored as internal IDs and translated by the frontend
+    let mo_path = extracted_dir.join("translations/en/LC_MESSAGES/global.mo");
     if mo_path.exists() {
         info!("Loading translations from {}", mo_path.display());
         if let Ok(file) = std::fs::File::open(&mo_path) {
@@ -215,16 +208,8 @@ fn build_extraction_result(
     let meta = &replay.meta;
     let game_type = classify_game_type(&meta.matchGroup, &meta.gameType);
 
-    // Translate map display name (e.g. "spaces/20_NE_two_brothers" -> "Two Brothers")
-    // translate_map_name expects "spaces/{mapName}" format for IDS key lookup
-    let map_key = format!("spaces/{}", meta.mapName);
-    let translated = translate_map_name(&map_key, game_params);
-    // If translation fails, fallback returns the key as-is; use original mapDisplayName instead
-    let map_display_name = if translated == map_key {
-        meta.mapDisplayName.clone()
-    } else {
-        translated
-    };
+    // Store map internal ID; frontend handles display name translation
+    let map_display_name = meta.mapDisplayName.clone();
 
     let metadata = ReplayMetadata {
         date_time: meta.dateTime.clone(),
@@ -382,15 +367,12 @@ fn extract_player_build(
         None => return build,
     };
 
-    // Captain skills (translated display names)
+    // Captain skills (internal names; frontend handles translation)
     if let Some(sp) = species {
         if let Some(skills) = ve.commander_skills(sp) {
             build.captain_skills = skills
                 .iter()
-                .map(|s| {
-                    s.translated_name(game_params)
-                        .unwrap_or_else(|| s.internal_name().to_string())
-                })
+                .map(|s| s.internal_name().to_string())
                 .collect();
         }
     }
@@ -398,40 +380,33 @@ fn extract_player_build(
     // Ship config
     let config = ve.props().ship_config();
 
-    // Modernizations/upgrades (translated display names)
+    // Modernizations/upgrades (internal names; frontend handles translation)
     build.upgrades = config
         .modernization()
         .iter()
         .filter_map(|id| {
-            GameParamProvider::game_param_by_id(game_params, *id).map(|p| {
-                let (name, _desc) = translate_module(p.name(), game_params);
-                name.unwrap_or_else(|| p.name().to_string())
-            })
+            GameParamProvider::game_param_by_id(game_params, *id)
+                .map(|p| p.name().to_string())
         })
         .collect();
 
-    // Consumables (translated display names)
+    // Consumables (internal names; frontend handles translation)
     build.consumables = config
         .abilities()
         .iter()
         .filter_map(|id| {
-            GameParamProvider::game_param_by_id(game_params, *id).map(|p| {
-                translate_consumable(p.name(), game_params)
-                    .unwrap_or_else(|| p.name().to_string())
-            })
+            GameParamProvider::game_param_by_id(game_params, *id)
+                .map(|p| p.name().to_string())
         })
         .collect();
 
-    // Signals/exteriors (translated display names)
+    // Signals/exteriors (internal names; frontend handles translation)
     build.signals = config
         .exteriors()
         .iter()
         .filter_map(|id| {
-            GameParamProvider::game_param_by_id(game_params, *id).map(|p| {
-                game_params
-                    .localized_name_from_param(&p)
-                    .unwrap_or_else(|| p.name().to_string())
-            })
+            GameParamProvider::game_param_by_id(game_params, *id)
+                .map(|p| p.name().to_string())
         })
         .collect();
 

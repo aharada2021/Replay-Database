@@ -64,7 +64,7 @@
                   </div>
                   <div class="upgrades-list">
                     <span v-for="(upgrade, idx) in item.upgrades" :key="idx" class="upgrade-chip">
-                      {{ upgrade }}
+                      {{ getUpgradeName(upgrade) }}
                     </span>
                   </div>
                 </div>
@@ -76,7 +76,7 @@
                   </div>
                   <div class="captain-skills">
                     <span v-for="(skill, idx) in item.captainSkills" :key="idx" class="skill-chip">
-                      {{ skill }}
+                      {{ getSkillName(skill) }}
                     </span>
                   </div>
                 </div>
@@ -800,6 +800,8 @@ const api = useApi()
 // デバッグモード（URLに?debug=trueがある場合に有効）
 const isDebugMode = computed(() => route.query.debug === 'true')
 const { getShipClassShortLabel, getShipClassIcon } = useShipClass()
+const { getSkillName } = useCaptainSkills()
+const { getUpgradeName } = useUpgrades()
 const config = useRuntimeConfig()
 
 // Stats取得用のstate
