@@ -1,13 +1,6 @@
 # AWS Lambda Python 3.10 base image
 FROM public.ecr.aws/lambda/python:3.10
 
-# システムパッケージ（変更頻度: 低）
-RUN yum update -y && \
-    yum install -y \
-    gcc gcc-c++ make \
-    libxml2-devel libxslt-devel python3-devel \
-    && yum clean all
-
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
 
