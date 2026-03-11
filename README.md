@@ -33,6 +33,10 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 
 サードパーティライセンスの全文は [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) を参照してください。
 
+## Disclaimer
+
+This project is not affiliated with or endorsed by Wargaming.net. "World of Warships" and related names, logos, and assets are trademarks or registered trademarks of Wargaming.net. All game-related content and intellectual property belong to their respective owners.
+
 ## ライセンス
 
 [MIT License](LICENSE)
