@@ -26,10 +26,12 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 
 ## Acknowledgments
 
-- **[wows-toolkit](https://github.com/landaire/wows-toolkit)** by [@landaire](https://github.com/landaire)
+- **[wows-toolkit](https://github.com/landaire/wows-toolkit)** by [@landaire](https://github.com/landaire) (MIT License)
   - リプレイ解析・ミニマップレンダリングのコアエンジンとして使用
   - 使用crate: `wows_replays`（リプレイパース）, `wowsunpack`（ゲームデータ抽出）, `wows_minimap_renderer`（動画レンダリング）
   - ゲームデータ抽出CLI `wows-data-mgr` を使用
+
+サードパーティライセンスの全文は [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md) を参照してください。
 
 ## ライセンス
 
