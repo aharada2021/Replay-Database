@@ -5,6 +5,7 @@ GitHub Releases APIから最新バージョンを取得し、
 自動的にダウンロード・適用する。
 """
 
+import hashlib
 import logging
 import shutil
 import subprocess
@@ -56,6 +57,7 @@ class AutoUpdater:
         self.current_version = current_version
         self.latest_version: Optional[str] = None
         self.download_url: Optional[str] = None
+        self.checksum_url: Optional[str] = None
         self.release_name: Optional[str] = None
 
     def cleanup_old_backups(self):
@@ -100,11 +102,14 @@ class AutoUpdater:
             self.latest_version = latest_version
             self.release_name = release.get("name", "")
 
-            # ZIPアセットのダウンロードURLを取得
+            # ZIPアセットとチェックサムのダウンロードURLを取得
             for asset in release.get("assets", []):
-                if asset.get("name", "").endswith(".zip"):
-                    self.download_url = asset.get("browser_download_url")
-                    break
+                name = asset.get("name", "")
+                url = asset.get("browser_download_url")
+                if name.endswith(".zip"):
+                    self.download_url = url
+                elif name == "SHA256SUMS.txt":
+                    self.checksum_url = url
 
             if parse_version(latest_version) > parse_version(self.current_version):
                 logger.info(
@@ -198,6 +203,10 @@ class AutoUpdater:
                         pct = int(downloaded * 100 / total_size)
                         print(f"\r  ダウンロード: {pct}%", end="", flush=True)
 
+            # SHA256チェックサム検証
+            if not self._verify_checksum(zip_path):
+                return False
+
             print("\n  展開中...")
 
             # ZIP展開（Zip Slip対策: パスがextract_dir内に収まることを検証）
@@ -256,6 +265,56 @@ del "%~f0"
             else 0x08000000,
         )
         sys.exit(0)
+
+    def _verify_checksum(self, zip_path: Path) -> bool:
+        """
+        SHA256SUMSファイルをダウンロードしてZIPのチェックサムを検証
+
+        Returns:
+            検証成功またはチェックサム未提供の場合True、不一致の場合False
+        """
+        if not self.checksum_url:
+            logger.debug("SHA256SUMSアセットなし、チェックサム検証をスキップ")
+            return True
+
+        try:
+            print("\n  チェックサム検証中...")
+            response = requests.get(self.checksum_url, timeout=10)
+            response.raise_for_status()
+
+            # "sha256hash  filename" 形式をパース
+            expected_hash = None
+            for line in response.text.strip().splitlines():
+                parts = line.split()
+                if len(parts) >= 2 and parts[1].endswith(".zip"):
+                    expected_hash = parts[0].lower()
+                    break
+
+            if not expected_hash:
+                logger.warning("SHA256SUMSにZIPのハッシュが見つかりません")
+                return True
+
+            # 実際のハッシュを計算
+            sha256 = hashlib.sha256()
+            with open(zip_path, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    sha256.update(chunk)
+            actual_hash = sha256.hexdigest().lower()
+
+            if actual_hash != expected_hash:
+                logger.error(
+                    f"チェックサム不一致: expected={expected_hash}, actual={actual_hash}"
+                )
+                print("  チェックサム検証に失敗しました。ダウンロードが破損している可能性があります。")
+                return False
+
+            logger.info("チェックサム検証OK")
+            print("  チェックサム検証OK")
+            return True
+
+        except requests.RequestException as e:
+            logger.warning(f"チェックサムダウンロード失敗: {e}")
+            return True
 
     def _rollback(self, exe_path: Path):
         """アップデート失敗時のロールバック"""
