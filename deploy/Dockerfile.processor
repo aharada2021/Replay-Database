@@ -1,20 +1,12 @@
 # AWS Lambda Python 3.10 base image
 FROM public.ecr.aws/lambda/python:3.10
 
-# システムパッケージ + FFmpegを1つのレイヤーに統合（変更頻度: 低）
-# これにより、どちらかが変更されても1回のキャッシュ無効化で済む
+# システムパッケージ（変更頻度: 低）
 RUN yum update -y && \
     yum install -y \
-    git gcc gcc-c++ make \
+    gcc gcc-c++ make \
     libxml2-devel libxslt-devel python3-devel \
-    wget tar xz \
-    && yum clean all && \
-    cd /tmp && \
-    wget -q -O ffmpeg-release-arm64-static.tar.xz "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz" && \
-    tar xf ffmpeg-release-arm64-static.tar.xz && \
-    mv $(find . -type f -name "ffmpeg" | head -n 1) /usr/local/bin/ffmpeg && \
-    chmod +x /usr/local/bin/ffmpeg && \
-    rm -rf /tmp/*
+    && yum clean all
 
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}
@@ -26,19 +18,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY config/requirements_lambda.txt .
 RUN pip install --no-cache-dir -r requirements_lambda.txt
 
-# minimap_renderer をインストール（変更頻度: 低〜中）
-# requirements.txtを先にコピーしてキャッシュ効率を上げる
-COPY minimap_renderer/requirements.txt ./minimap_renderer/requirements.txt
-RUN pip install --no-cache-dir -r ./minimap_renderer/requirements.txt
-
-COPY minimap_renderer/ ./minimap_renderer/
-
-# ship.pyの型変換パッチを適用（整数キーと文字列キーの両方に対応）
-COPY src/minimap_renderer_patches/ship.py ./minimap_renderer/src/renderer/layers/ship.py
-
-RUN pip install --no-cache-dir ./minimap_renderer/
-
-# アプリケーションコードをまとめてコピー（変更頻度: 高）
+# アプリケーションコードをコピー（変更頻度: 高）
 COPY src/handlers/ ./handlers/
 COPY src/core/ ./core/
 COPY src/utils/ ./utils/
@@ -48,9 +28,12 @@ COPY config/map_names.yaml ./config/
 COPY rust/bin/wows-replay-tool /opt/bin/wows-replay-tool
 RUN chmod +x /opt/bin/wows-replay-tool
 
+# ゲームデータをコピー（レンダリングに必要）
+COPY game-data/ /opt/game-data/
+
 # パーミッション設定と環境変数
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
-ENV IMAGEIO_FFMPEG_EXE=/usr/local/bin/ffmpeg
 ENV WOWS_REPLAY_TOOL_PATH=/opt/bin/wows-replay-tool
+ENV GAME_DATA_DIR=/opt/game-data
 
 CMD ["handlers.processing.video_generator.handle"]

@@ -163,6 +163,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
 
+      - name: Download game data from S3
+        run: |
+          aws s3 sync s3://wows-replay-bot-dev-temp/game-data/ game-data/ --quiet
+          echo "Game data versions:"
+          ls game-data/
+
       - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region ap-northeast-1 | \
