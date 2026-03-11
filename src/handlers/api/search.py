@@ -173,9 +173,8 @@ def search_matches(
     for gt in game_types_to_query:
         battle_client = BattleTableClient(gt)
 
-        # 複合フィルタがある場合はページネーションループで十分な結果を取得
+        # ページネーションループで十分な結果を取得
         filtered_items = []
-        arena_ids_to_fetch = []
         last_key = None
         max_queries = 10  # 無限ループ防止
         query_count = 0
@@ -192,31 +191,47 @@ def search_matches(
                 unix_time_to=effective_unix_time_to,
             )
 
+            # GSIから arenaUniqueID を収集（テーブルPKなので常に射影される）
+            # インデックスフィルタ（事前計算済みセット）はGSI段階で適用
+            arena_ids_to_fetch = []
             for item in query_result.get("items", []):
-                # インデックスフィルタ
-                if filtered_arena_ids is not None:
-                    if item.get("arenaUniqueID") not in filtered_arena_ids:
-                        continue
-
-                # クランタグフィルタ
-                if ally_clan_tag and item.get("allyMainClanTag") != ally_clan_tag:
-                    continue
-                if enemy_clan_tag and item.get("enemyMainClanTag") != enemy_clan_tag:
-                    continue
-
-                # 勝敗フィルタ（"loss"/"lose"の表記揺れに対応）
-                if win_loss:
-                    item_wl = item.get("winLoss", "")
-                    if win_loss == "loss":
-                        if item_wl not in ("loss", "lose"):
-                            continue
-                    elif item_wl != win_loss:
-                        continue
-
                 arena_id = item.get("arenaUniqueID")
-                if arena_id:
-                    filtered_items.append(item)
-                    arena_ids_to_fetch.append(arena_id)
+                if not arena_id:
+                    continue
+                if filtered_arena_ids is not None:
+                    if arena_id not in filtered_arena_ids:
+                        continue
+                arena_ids_to_fetch.append(arena_id)
+
+            # BatchGetItemでフルレコードを取得してからポストフィルタ
+            if arena_ids_to_fetch:
+                full_matches = battle_client.batch_get_matches(arena_ids_to_fetch)
+
+                for arena_id in arena_ids_to_fetch:
+                    match = full_matches.get(arena_id)
+                    if not match:
+                        continue
+
+                    # クランタグフィルタ
+                    if ally_clan_tag and match.get("allyMainClanTag") != ally_clan_tag:
+                        continue
+                    if (
+                        enemy_clan_tag
+                        and match.get("enemyMainClanTag") != enemy_clan_tag
+                    ):
+                        continue
+
+                    # 勝敗フィルタ（"loss"/"lose"の表記揺れに対応）
+                    if win_loss:
+                        match_wl = match.get("winLoss", "")
+                        if win_loss == "loss":
+                            if match_wl not in ("loss", "lose"):
+                                continue
+                        elif match_wl != win_loss:
+                            continue
+
+                    match["gameType"] = gt
+                    filtered_items.append(match)
 
             last_key = query_result.get("lastEvaluatedKey")
 
@@ -224,19 +239,7 @@ def search_matches(
             if len(filtered_items) >= limit + 1 or not last_key:
                 break
 
-        # BatchGetItemで完全なMATCHレコードを一括取得
-        if arena_ids_to_fetch:
-            full_matches = battle_client.batch_get_matches(arena_ids_to_fetch)
-
-            for item in filtered_items:
-                arena_id = item.get("arenaUniqueID")
-                full_match = full_matches.get(arena_id)
-                if full_match:
-                    item = full_match
-
-                # gameTypeを追加（テーブルから判断）
-                item["gameType"] = gt
-                all_items.append(item)
+        all_items.extend(filtered_items)
 
     # unixTime降順でソート
     all_items.sort(key=lambda x: x.get("unixTime", 0), reverse=True)
