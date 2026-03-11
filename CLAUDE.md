@@ -39,6 +39,7 @@ World of Warshipsのリプレイファイルを管理・分析するWebアプリ
 /config          - 設定ファイル
 /client_tool     - Windows用リプレイアップローダークライアント
   /capture       - ゲームキャプチャモジュール（screen, audio, video encoder）
+  updater.py     - GitHub Releases自動アップデーター
 /rust            - Rust wows-replay-tool ソース
 ```
 
@@ -147,6 +148,20 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **クライアント自動アップデート機能（2026-03-11）**:
+  - `client_tool/updater.py`: 新規作成（GitHub Releases APIベース）
+  - 旧`AutoUpdater`クラスを削除（廃止済み`/api/download?file=uploader`エンドポイント使用）
+  - 機能: バージョン確認→ZIP自動ダウンロード→exe置換→バッチスクリプト再起動
+  - セキュリティ: Zip Slip対策、ダウンロードサイズ制限（200MB）、期待exeファイル名検証
+  - ロールバック: exe置換失敗時に`.bak`から自動復元
+- **検索API ゲームプレイ動画修正（2026-03-11）**:
+  - `src/handlers/api/search.py`: MATCHレコードのuploadersにはgameplayVideoS3Keyが含まれないため、UPLOADレコードから補完するロジック追加
+  - `hasGameplayVideo=true`の試合のみUPLOAD#レコードをGetItemで取得
+  - 検索結果展開でゲームプレイ動画トグルボタンが有効になることを確認
+- **CloudFront/S3 ゲームプレイ動画配信修正（2026-03-11）**:
+  - CloudFront: `/gameplay-videos/*` ビヘイビア追加（S3オリジン）
+  - S3: バケットポリシーに`/gameplay-videos/*`のPublicRead追加
+  - 注意: CloudFrontカスタムエラーレスポンス（403→index.html 200）がS3エラーを隠蔽する
 - **コードベースクリーンアップ（2026-03-11）**:
   - Discord Botスラッシュコマンド機能削除: `src/handlers/discord/`, `replay_analyzer.py`, `video_generator.py`, `src/scripts/`
   - serverless.yml: `interactions`, `replay-analyzer`, `video-generator` Lambda関数削除
@@ -187,3 +202,4 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 - 各種FAQ追加
 - dynamodbのデータの中身についてclaudeに質問する機能の追加
 - 本サービスのランディングページ追加
+- CloudFront IaC化（Serverless Frameworkは不適、CloudFormation/CDK検討）
