@@ -54,9 +54,12 @@ class ReplayProcessor:
             cmd = [
                 tool_path,
                 "render",
-                "--replay", str(replay_path),
-                "--game-data", game_data,
-                "--output", str(output_path),
+                "--replay",
+                str(replay_path),
+                "--game-data",
+                game_data,
+                "--output",
+                str(output_path),
             ]
 
             logger.info(f"Rust render 実行: {' '.join(cmd)}")
