@@ -1,5 +1,5 @@
-# AWS Lambda Python 3.10 base image
-FROM public.ecr.aws/lambda/python:3.10
+# AWS Lambda Python 3.12 base image
+FROM public.ecr.aws/lambda/python:3.12
 
 # 作業ディレクトリ
 WORKDIR ${LAMBDA_TASK_ROOT}

@@ -234,11 +234,8 @@ jobs:
       - name: Deploy to Lambda
         env:
           ECR_IMAGE_URI: ${{ needs.build-image.outputs.image_uri }}
-          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
           DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-          INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
-          GUILD_ID: ${{ secrets.GUILD_ID }}
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
@@ -303,11 +300,8 @@ jobs:
       - name: Deploy to Lambda (prod)
         env:
           ECR_IMAGE_URI: ${{ needs.build-image.outputs.image_uri }}
-          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
           DISCORD_APPLICATION_ID: ${{ secrets.DISCORD_APPLICATION_ID }}
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-          INPUT_CHANNEL_ID: ${{ secrets.INPUT_CHANNEL_ID }}
-          GUILD_ID: ${{ secrets.GUILD_ID }}
           UPLOAD_API_KEY: ${{ secrets.UPLOAD_API_KEY }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
