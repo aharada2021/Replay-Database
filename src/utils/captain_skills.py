@@ -348,10 +348,8 @@ def map_player_to_skills(
         if not crew_id:
             continue
 
-        # shipParamsIdから艦艇タイプを取得（ships.jsonを使用）
+        # shipParamsIdからの艦艇タイプ取得はRust extractorに移行済み
         ship_class = None
-        if ship_params_id:
-            ship_class = get_ship_class_from_params_id(ship_params_id)
 
         for c_id, c_info in crew_data.items():
             if isinstance(c_info, dict) and c_info.get("crew_id") == crew_id:
