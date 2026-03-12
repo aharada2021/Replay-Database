@@ -277,11 +277,14 @@
         <template v-slot:item.actions="{ item }">
           <v-btn
             size="x-small"
-            variant="text"
-            icon="mdi-open-in-new"
+            variant="outlined"
+            color="primary"
             :to="`/match/${item?.arenaUniqueID || item?.raw?.arenaUniqueID}`"
             @click.stop
-          ></v-btn>
+          >
+            <v-icon size="x-small" class="mr-1">mdi-open-in-new</v-icon>
+            詳細
+          </v-btn>
         </template>
 
         <!-- 展開時の詳細表示 -->
@@ -440,7 +443,7 @@ const headers = [
   { title: '味方艦艇', key: 'allyShips', sortable: false },
   { title: '敵艦艇', key: 'enemyShips', sortable: false },
   { title: 'コメント', key: 'commentCount', sortable: true, width: '80px' },
-  { title: '', key: 'actions', sortable: false, width: '50px' },
+  { title: '操作', key: 'actions', sortable: false, width: '80px' },
 ]
 
 // ハンドラー
