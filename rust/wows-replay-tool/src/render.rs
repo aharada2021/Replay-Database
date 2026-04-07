@@ -104,7 +104,7 @@ pub fn run(replay_path: &Path, game_data_dir: &Path, output_path: &Path) -> Resu
     let output_str = output_path
         .to_str()
         .context("Output path must be valid UTF-8")?;
-    let mut encoder = VideoEncoder::new(output_str, None, game_duration, cw, ch);
+    let mut encoder = VideoEncoder::new(Some(output_str), None, false, game_duration, cw, ch);
     encoder.set_prefer_cpu(true); // Use CPU encoder for compatibility
     encoder.init().map_err(|e| anyhow::anyhow!("Encoder init failed: {e}"))?;
 
