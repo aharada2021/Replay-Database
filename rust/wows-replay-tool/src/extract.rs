@@ -88,7 +88,7 @@ pub fn run(replay_path: &Path, game_data_dir: &Path) -> Result<()> {
     let report = controller.build_report();
 
     // 6. Build output from report
-    let result = build_extraction_result(&replay, &report, &game_params)?;
+    let result = build_extraction_result(&replay, &report, &game_params, replay_version.build)?;
 
     // 7. Write JSON to stdout
     serde_json::to_writer(std::io::stdout().lock(), &result)?;
@@ -204,6 +204,7 @@ fn build_extraction_result(
     replay: &ReplayFile,
     report: &wows_replays::analyzer::battle_controller::BattleReport,
     game_params: &GameMetadataProvider,
+    build: u32,
 ) -> Result<ExtractionResult> {
     let meta = &replay.meta;
     let game_type = classify_game_type(&meta.matchGroup, &meta.gameType);
@@ -252,7 +253,7 @@ fn build_extraction_result(
         .unwrap_or(0);
 
     // Parse playersPublicInfo for all player stats
-    let public_stats = parse_players_public_info(&battle_results_json);
+    let public_stats = parse_players_public_info(&battle_results_json, build);
 
     // Build player data from report + battle_results stats
     let players = build_player_data(report, game_params, &public_stats)?;
@@ -504,11 +505,37 @@ fn categorize_potential_damage(stats: &mut PlayerStats, weapon: &Recognized<Dama
     }
 }
 
+/// Ribbon index offsets vary by game version.
+/// WoWS 15.3.0 (build 12267945) added 35 victory_points_* fields before the ribbon block.
+/// Build numbers: 15.2 = 12116141, 15.3 = 12267945
+struct RibbonIndices {
+    crit: usize,
+    frag: usize,
+    burn: usize,
+    flood: usize,
+    citadel: usize,
+    min_array_len: usize,
+}
+
+impl RibbonIndices {
+    fn for_build(build: u32) -> Self {
+        if build >= 12267945 {
+            // WoWS 15.3.0+: victory_points fields added, ribbons shifted +35
+            Self { crit: 485, frag: 486, burn: 487, flood: 488, citadel: 489, min_array_len: 490 }
+        } else {
+            // WoWS up to 15.2.x
+            Self { crit: 450, frag: 451, burn: 452, flood: 453, citadel: 454, min_array_len: 460 }
+        }
+    }
+}
+
 /// Parse playersPublicInfo from battle_results JSON into per-player stats.
-/// Each player's data is an array of 460+ elements with stats at fixed indices.
+/// Each player's data is an array with stats at fixed indices (version-dependent).
 fn parse_players_public_info(
     battle_results: &Option<serde_json::Value>,
+    build: u32,
 ) -> HashMap<i64, PlayerStats> {
+    let ribbons = RibbonIndices::for_build(build);
     let mut result = HashMap::new();
 
     let players_info = match battle_results
@@ -522,7 +549,7 @@ fn parse_players_public_info(
 
     for (_player_id, player_data) in players_info {
         let arr = match player_data.as_array() {
-            Some(a) if a.len() >= 460 => a,
+            Some(a) if a.len() >= ribbons.min_array_len => a,
             _ => continue,
         };
 
@@ -531,8 +558,8 @@ fn parse_players_public_info(
             continue;
         }
 
-        // Index mapping from wows-toolkit/embedded_resources/constants.json
-        // CLIENT_PUBLIC_RESULTS_INDICES (15.x format)
+        // Index mapping from padtrack/wows-constants CLIENT_PUBLIC_RESULTS_INDICES
+        // Most indices are stable; ribbon indices are version-dependent (see RibbonIndices)
         let received_damage_ap = val_i64(arr, 199);       // received_damage_main_ap
         let received_damage_sap = val_i64(arr, 200);      // received_damage_main_cs
         let received_damage_he = val_i64(arr, 201);       // received_damage_main_he
@@ -592,12 +619,12 @@ fn parse_players_public_info(
             potential_damage_tpd,
             // Spotting
             spotting_damage: val_i64(arr, 412),            // scouting_damage
-            // Ribbons
-            kills: val_i64(arr, 451),                      // RIBBON_FRAG
-            fires: val_i64(arr, 452),                      // RIBBON_BURN
-            floods: val_i64(arr, 453),                     // RIBBON_FLOOD
-            citadels: val_i64(arr, 454),                   // RIBBON_CITADEL
-            crits: val_i64(arr, 450),                      // RIBBON_CRIT
+            // Ribbons (indices are version-dependent; see RibbonIndices::for_build)
+            kills: val_i64(arr, ribbons.frag),             // RIBBON_FRAG
+            fires: val_i64(arr, ribbons.burn),             // RIBBON_BURN
+            floods: val_i64(arr, ribbons.flood),           // RIBBON_FLOOD
+            citadels: val_i64(arr, ribbons.citadel),       // RIBBON_CITADEL
+            crits: val_i64(arr, ribbons.crit),             // RIBBON_CRIT
             // XP
             base_xp: val_i64(arr, 404),                   // exp
             // Survival
