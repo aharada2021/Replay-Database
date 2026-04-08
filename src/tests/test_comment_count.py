@@ -51,9 +51,7 @@ class TestBattleTableClientUpdateCommentCount(unittest.TestCase):
                 "Message": "Condition not met",
             }
         }
-        client.table.update_item.side_effect = ClientError(
-            error_response, "UpdateItem"
-        )
+        client.table.update_item.side_effect = ClientError(error_response, "UpdateItem")
 
         result = client.update_comment_count("arena-missing", delta=1)
 
@@ -68,9 +66,7 @@ class TestBattleTableClientUpdateCommentCount(unittest.TestCase):
                 "Message": "Rate exceeded",
             }
         }
-        client.table.update_item.side_effect = ClientError(
-            error_response, "UpdateItem"
-        )
+        client.table.update_item.side_effect = ClientError(error_response, "UpdateItem")
 
         with self.assertRaises(ClientError) as ctx:
             client.update_comment_count("arena-123", delta=1)
