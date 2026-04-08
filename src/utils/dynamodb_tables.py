@@ -229,15 +229,27 @@ class BattleTableClient:
         item["recordType"] = f"UPLOAD#{player_id}"
         self.table.put_item(Item=item)
 
-    def update_comment_count(self, arena_unique_id: str, delta: int):
+    def update_comment_count(self, arena_unique_id: str, delta: int) -> bool:
         """
-        コメント数を更新
+        コメント数を更新。MATCHレコードが存在する場合のみ更新する。
+
+        Returns:
+            True if updated, False if MATCH record not found in this table
         """
-        self.table.update_item(
-            Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"},
-            UpdateExpression="SET commentCount = if_not_exists(commentCount, :zero) + :delta",
-            ExpressionAttributeValues={":zero": 0, ":delta": delta},
-        )
+        from botocore.exceptions import ClientError
+
+        try:
+            self.table.update_item(
+                Key={"arenaUniqueID": arena_unique_id, "recordType": "MATCH"},
+                UpdateExpression="SET commentCount = if_not_exists(commentCount, :zero) + :delta",
+                ExpressionAttributeValues={":zero": 0, ":delta": delta},
+                ConditionExpression="attribute_exists(arenaUniqueID)",
+            )
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                return False
+            raise
 
     def update_video_info(self, arena_unique_id: str, mp4_s3_key: str, generated_at: int):
         """
