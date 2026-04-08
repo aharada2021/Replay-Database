@@ -142,9 +142,7 @@ def search_matches(
     if date_to:
         try:
             # 日付の終わり（23:59:59）まで含める
-            dt = datetime.strptime(date_to, "%Y-%m-%d").replace(
-                hour=23, minute=59, second=59, tzinfo=timezone.utc
-            )
+            dt = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
             unix_time_to = int(dt.timestamp())
         except ValueError:
             pass
@@ -157,9 +155,7 @@ def search_matches(
             effective_unix_time_to = cursor_limit
 
     # 複合フィルタがあるか判定
-    has_post_filter = bool(
-        filtered_arena_ids is not None or ally_clan_tag or enemy_clan_tag or win_loss
-    )
+    has_post_filter = bool(filtered_arena_ids is not None or ally_clan_tag or enemy_clan_tag or win_loss)
 
     # gameType指定の場合は単一テーブルをクエリ
     # 指定なしの場合は全テーブルをクエリしてマージ
@@ -215,10 +211,7 @@ def search_matches(
                     # クランタグフィルタ
                     if ally_clan_tag and match.get("allyMainClanTag") != ally_clan_tag:
                         continue
-                    if (
-                        enemy_clan_tag
-                        and match.get("enemyMainClanTag") != enemy_clan_tag
-                    ):
+                    if enemy_clan_tag and match.get("enemyMainClanTag") != enemy_clan_tag:
                         continue
 
                     # 勝敗フィルタ（"loss"/"lose"の表記揺れに対応）
@@ -352,9 +345,7 @@ def handle(event, context):
         }
 
         # OPTIONS request (preflight)
-        http_method = event.get("httpMethod") or event.get("requestContext", {}).get(
-            "http", {}
-        ).get("method")
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method")
         if http_method == "OPTIONS":
             return {"statusCode": 200, "headers": cors_headers, "body": ""}
 

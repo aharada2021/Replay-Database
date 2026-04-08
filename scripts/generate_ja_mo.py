@@ -1,8 +1,13 @@
 """
 日本語MO翻訳ファイル生成スクリプト
 
-英語MOファイルのIDS_*キーを元に、既存のPythonマッピング（captain_skills.py,
-upgrades.py, map_names.yaml）から日本語翻訳を作成し、MOファイルを生成する。
+英語MOファイルのIDS_*キーを元に、スキル・アップグレード・マップの日本語翻訳を
+作成し、MOファイルを生成する。
+
+翻訳マッピングのマスターデータ:
+  - スキル: web-ui/app/composables/useCaptainSkills.ts
+  - アップグレード: web-ui/app/composables/useUpgrades.ts
+  - マップ: config/map_names.yaml
 
 使用方法:
     python3 scripts/generate_ja_mo.py
@@ -19,19 +24,221 @@ import re
 import subprocess
 import tempfile
 
-# プロジェクトルートをパスに追加
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.utils.captain_skills import SKILL_INTERNAL_TO_DISPLAY, SKILL_DISPLAY_TO_JAPANESE
-from src.utils.upgrades import UPGRADE_NAMES_JA
-
-# Python既存マッピングにない追加スキル翻訳
-ADDITIONAL_SKILL_JA = {
+# 英語表示名 → 日本語名（useCaptainSkills.tsのSKILLS_EN/SKILLS_JAから生成）
+SKILL_EN_TO_JA = {
+    "Gun Feeder": "装填手",
+    "Basics of Survivability": "応急対応の基本",
+    "Grease the Gears": "歯車のグリスアップ",
+    "Fill the Tubes": "魚雷装填手",
+    "Emergency Repair Specialist": "緊急修理技術者",
+    "Consumable Enhancements": "消耗品強化",
+    "Vigilance": "警戒",
+    "Demolition Expert": "爆発物専門家",
+    "Main Battery and AA Specialist": "主砲・対空兵装専門家",
+    "Main Battery and AA Expert": "主砲・対空兵装専門家",
+    "Aircraft Armor": "航空機装甲",
+    "Improved Engine Boost": "エンジンブースト改良",
+    "Concealment Expert": "隠蔽処理専門家",
+    "Consumable Specialist": "消耗品技術者",
+    "Fire Prevention Expert": "防火処理専門家",
+    "Aiming Facility Maintenance": "照準安定化",
+    "Sight Stabilization": "照準安定化",
+    "Improved Engines": "エンジン改良",
+    "Superintendent": "管理",
+    "Preventive Maintenance": "予防整備",
+    "Priority Target": "危険察知",
+    "Last Stand": "最後の抵抗",
+    "Expert Loader": "装填手",
+    "Search and Destroy": "索敵掃討",
+    "Adrenaline Rush": "アドレナリン・ラッシュ",
+    "Swift Fish": "高速魚雷",
+    "Survivability Expert": "抗堪専門家",
+    "Manual Secondary Battery Aiming": "副砲の手動照準",
+    "Focus Fire Training": "集中砲火訓練",
+    "Incoming Fire Alert": "敵弾接近警報",
+    "Watchful": "警戒態勢",
+    "Air Supremacy": "制空権",
+    "Pack A Punch": "強烈な打撃力",
+    "Direction Center for Fighters": "戦闘機指揮所",
+    "Engine Techie": "エンジン技師",
+    "Inertia Fuse for HE Shells": "榴弾用慣性信管",
+    "Radio Location": "無線方向探知",
+    "AA Defense and ASW Expert": "対空・対潜専門家",
+    "Secondary Armament Expert": "副砲専門家",
+    "Super-Heavy AP Shells": "超重徹甲弾",
+    "Heavy AP Shells": "重徹甲弾",
+    "Extra-Heavy Ammunition": "特重弾薬",
+    "Long-Range Secondary Battery Shells": "長射程副砲弾",
+    "Improved Secondary Battery Aiming": "副砲照準改良",
+    "Improved Repair Party Readiness": "改良型修理班準備",
+    "Eye in the Sky": "上空の眼",
+    "Emergency Repair Expert": "緊急修理専門家",
+    "Hidden Menace": "隠れた脅威",
+    "Pyrotechnician": "爆発物専門家",
+    "Heavy HE and SAP Shells": "重榴弾・SAP弾",
+    "Enhanced Armor-Piercing Ammunition": "強化型徹甲弾",
+    "Patrol Group Leader": "偵察隊リーダー",
+    "Enhanced Reactions": "強化型反応速度",
+    "Interceptor": "迎撃機",
+    "Repair Specialist": "修理技術者",
+    "Enhanced Aircraft Armor": "強化型航空機装甲",
+    "Bomber Flight Control": "爆撃機の飛行制御",
+    "Last Gasp": "最後の奮闘",
+    "Torpedo Bomber": "雷撃機",
+    "Torpedo Bomber Acceleration": "高速航空魚雷",
+    "Proximity Fuze": "近接信管",
+    "Liquidator": "水浸し",
+    "Brisk": "活発",
+    "Close Quarters Expert": "接近戦",
+    "Top Grade Gunner": "最上級砲手",
+    "Fearless Brawler": "恐れ知らずの喧嘩屋",
+    "Swift in Silence": "素早く静かに",
+    "Outnumbered": "数的劣勢",
+    "Dazzle": "幻惑",
+    "Enhanced Sonar": "強化型ソナー",
+    "Enhanced Impulse Generator": "強化型インパルス発生器",
+    "Sonar Operator": "ソナー操作員",
+    "Sonarman": "ソナー操作員",
+    "Torpedo Crew Training": "魚雷員訓練",
+    "Homing Torpedo Expert": "魚雷誘導マスター",
+    "Torpedo Aiming Master": "魚雷誘導マスター",
+    "Helmsman": "操舵手",
+    "Improved Battery Capacity": "改良型バッテリー容量",
+    "Improved Battery Efficiency": "改良型バッテリー効率",
+    "Enlarged Propeller Shaft": "大型プロペラ・シャフト",
+    "Improved Consumables": "消耗品技術者",
+    "Extended Consumables": "消耗品強化",
+    "Furious": "猛烈",
+    "Submarine Adrenaline Rush": "アドレナリン・ラッシュ",
+    # 追加スキル（composable未収録）
     "Defensive Fire Expert": "防御射撃専門家",
     "Combat Maneuver Specialist": "戦闘機動専門家",
     "Swift Flying Fish": "高速飛魚",
     "Pack a Punch": "強烈な打撃力",
     "Alt Torpedoes 2": "代替魚雷2",
+}
+
+# PCMコード → 日本語名（useUpgrades.tsから生成）
+UPGRADE_NAMES_JA = {
+    "PCM001": "主砲改良1",
+    "PCM002": "副兵装改良1",
+    "PCM003": "航空機改良1",
+    "PCM004": "対空兵装改良1",
+    "PCM005": "副砲改良1",
+    "PCM006": "主砲改良2",
+    "PCM007": "魚雷発射管改良1",
+    "PCM008": "射撃システム改良1",
+    "PCM009": "飛行制御改良1",
+    "PCM010": "戦闘機改良1",
+    "PCM011": "対空兵装改良2",
+    "PCM012": "副砲改良2",
+    "PCM013": "主砲改良3",
+    "PCM014": "魚雷発射管改良2",
+    "PCM015": "射撃管制システム改良2",
+    "PCM016": "飛行制御改良2",
+    "PCM017": "航空機改良2",
+    "PCM018": "対空砲改良1",
+    "PCM019": "副砲改良3",
+    "PCM020": "ダメージコントロールシステム改良1",
+    "PCM021": "推進システム改良1",
+    "PCM022": "操舵システム改良1",
+    "PCM023": "ダメージコントロールシステム改良2",
+    "PCM024": "推進システム改良1",
+    "PCM025": "操舵システム改良1",
+    "PCM026": "魚雷警戒システム",
+    "PCM027": "隠蔽システム改良1",
+    "PCM028": "射撃管制室改良1",
+    "PCM029": "射撃管制室改良2",
+    "PCM030": "主兵装改良1",
+    "PCM031": "補助兵装改良1",
+    "PCM032": "特殊改良（空）",
+    "PCM033": "照準システム改良1",
+    "PCM034": "照準システム改良0",
+    "PCM035": "操舵システム改良2",
+    "PCM036": "エンジンブースト改良1",
+    "PCM037": "発煙装置改良1",
+    "PCM038": "水上機改良1",
+    "PCM039": "応急工作班改良1",
+    "PCM040": "対空防御砲火改良1",
+    "PCM041": "水中聴音改良1",
+    "PCM042": "レーダー改良1",
+    "PCM043": "主砲装填ブースター改良1",
+    "PCM044": "主砲装填ブースター改良2",
+    "PCM045": "主砲装填ブースター改良3",
+    "PCM046": "主砲射撃装置改良1",
+    "PCM047": "ダメコン改良特殊1",
+    "PCM048": "照準改良特殊1",
+    "PCM049": "ダメコン改良特殊2",
+    "PCM050": "主砲改良特殊1",
+    "PCM051": "隠蔽改良特殊1",
+    "PCM052": "推進改良特殊1",
+    "PCM053": "消耗品改良特殊1",
+    "PCM054": "主砲射撃改良1",
+    "PCM055": "主砲射撃改良2",
+    "PCM056": "魚雷改良特殊1",
+    "PCM057": "魚雷改良特殊2",
+    "PCM058": "隠蔽改良特殊2",
+    "PCM059": "煙幕改良特殊1",
+    "PCM060": "装填改良特殊1",
+    "PCM061": "爆撃機改良特殊1",
+    "PCM062": "航空機速度改良1",
+    "PCM063": "攻撃機改良2",
+    "PCM064": "雷撃機改良2",
+    "PCM065": "爆撃機改良1",
+    "PCM066": "雷撃機改良1",
+    "PCM067": "攻撃機改良1",
+    "PCM068": "航空機エンジン改良1",
+    "PCM069": "機関室防護",
+    "PCM070": "魚雷発射管改良1",
+    "PCM071": "航空魚雷改良1",
+    "PCM072": "艦艇消耗品改良1",
+    "PCM073": "航空隊消耗品改良1",
+    "PCM074": "補助兵装改良2",
+    "PCM075": "魚雷改良特殊3",
+    "PCM076": "隠蔽改良特殊3",
+    "PCM077": "煙幕改良特殊2",
+    "PCM078": "主砲改良特殊2",
+    "PCM079": "推進・隠蔽改良1",
+    "PCM080": "主砲射撃改良3",
+    "PCM081": "スキップボマー改良2",
+    "PCM082": "潜航容量改良1",
+    "PCM083": "聴音改良特殊1",
+    "PCM084": "ソナー改良1",
+    "PCM085": "ソナー改良2",
+    "PCM086": "潜航容量改良2",
+    "PCM087": "航空攻撃改良1",
+    "PCM088": "爆雷改良特殊1",
+    "PCM089": "爆雷改良1",
+    "PCM090": "潜水艦操舵システム",
+    "PCM091": "潜水艦操舵改良1",
+    "PCM092": "スキップボマー改良1",
+    "PCM093": "航空機改良3",
+    "PCM094": "特殊改良1",
+    "PCM095": "煙幕改良特殊3",
+    "PCM096": "主砲改良特殊3",
+    "PCM097": "雷撃機改良特殊1",
+    "PCM098": "駆逐艦改良特殊1",
+    "PCM099": "爆雷改良特殊2",
+    "PCM100": "ダメコンシステム改良3",
+    "PCM101": "魚雷発射管改良3",
+    "PCM102": "強化隔壁",
+    "PCM103": "潜水艦改良特殊1",
+    "PCM104": "潜水艦探知改良1",
+    "PCM105": "対空・爆雷改良1",
+    "PCM106": "主砲改良特殊4",
+    "PCM107": "装填改良特殊2",
+    "PCM108": "魚雷改良特殊4",
+    "PCM109": "火災改良特殊1",
+    "PCM110": "ミサイル改良1",
+    "PCM111": "船体改良特殊1",
+    "PCM112": "速度改良特殊1",
+    "PCM113": "消耗品改良特殊2",
+    "PCM114": "速度改良特殊2",
+    "PCM115": "隠蔽改良特殊4",
+    "PCM116": "操舵改良特殊1",
+    "PCM117": "装填改良特殊3",
+    "PCM118": "魚雷改良特殊5",
 }
 
 
@@ -121,8 +328,8 @@ def generate_ja_translations(en_mo_path):
     ja_translations = {}
 
     # === スキル翻訳 ===
-    # 英語表示名 → 日本語名のマップ構築
-    en_to_ja_skill = {**SKILL_DISPLAY_TO_JAPANESE, **ADDITIONAL_SKILL_JA}
+    # 英語表示名 → 日本語名のマップ
+    en_to_ja_skill = SKILL_EN_TO_JA
 
     # IDS_SKILL_* キーと英語名を取得
     skill_en_map = build_skill_key_map(en_entries)
@@ -250,6 +457,7 @@ def write_po_file(po_path, ja_translations, en_entries):
 
 def compile_mo(po_path, mo_path):
     """POファイルをMOファイルにコンパイル"""
+    # まずmsgfmtを試行、なければpolibにフォールバック
     try:
         subprocess.run(
             ["msgfmt", "-o", mo_path, po_path],
@@ -257,17 +465,28 @@ def compile_mo(po_path, mo_path):
             capture_output=True,
             text=True,
         )
-        print(f"Compiled MO: {mo_path}")
+        print(f"Compiled MO (msgfmt): {mo_path}")
         mo_size = os.path.getsize(mo_path)
         print(f"MO file size: {mo_size:,} bytes")
         return True
     except FileNotFoundError:
-        print("ERROR: msgfmt not found. Install gettext:")
-        print("  brew install gettext  # macOS")
-        print("  apt install gettext   # Linux")
-        return False
+        pass
     except subprocess.CalledProcessError as e:
         print(f"ERROR: msgfmt failed: {e.stderr}")
+        return False
+
+    # polib fallback
+    try:
+        import polib
+        po = polib.pofile(po_path)
+        po.save_as_mofile(mo_path)
+        print(f"Compiled MO (polib): {mo_path}")
+        mo_size = os.path.getsize(mo_path)
+        print(f"MO file size: {mo_size:,} bytes")
+        return True
+    except ImportError:
+        print("ERROR: Neither msgfmt nor polib available.")
+        print("  pip install polib  # or install gettext")
         return False
 
 
@@ -297,21 +516,41 @@ def upload_to_s3(mo_path, versions=None):
 
 
 def main():
-    en_mo_path = "/tmp/en_global.mo"
+    tmp_dir = tempfile.gettempdir()
+    en_mo_path = os.path.join(tmp_dir, "en_global.mo")
 
-    if not os.path.exists(en_mo_path):
+    # ローカルのrenderer_dataから英語MOを探す
+    local_en_mo = None
+    for search_dir in [
+        os.path.join(os.path.dirname(__file__), "..", "..", "wows-toolkit", "renderer_data"),
+        os.path.join("C:\\Users\\family\\workdir\\wows-toolkit\\renderer_data"),
+    ]:
+        if os.path.isdir(search_dir):
+            for d in sorted(os.listdir(search_dir), reverse=True):
+                candidate = os.path.join(search_dir, d, "translations", "en", "LC_MESSAGES", "global.mo")
+                if os.path.exists(candidate):
+                    local_en_mo = candidate
+                    break
+        if local_en_mo:
+            break
+
+    if local_en_mo and not os.path.exists(en_mo_path):
+        import shutil
+        print(f"Copying English MO from {local_en_mo}")
+        shutil.copy2(local_en_mo, en_mo_path)
+    elif not os.path.exists(en_mo_path):
         print("Downloading English MO from S3...")
         os.system(
-            "aws s3 cp s3://wows-replay-bot-dev-temp/game-data/15.2.0_12116141/"
-            "translations/en/LC_MESSAGES/global.mo /tmp/en_global.mo"
+            "aws s3 cp s3://wows-replay-bot-dev-temp/game-data/15.3.0_12267945/"
+            "translations/en/LC_MESSAGES/global.mo " + en_mo_path
         )
 
     print("=== Generating Japanese MO translation file ===\n")
 
     ja_translations, en_entries = generate_ja_translations(en_mo_path)
 
-    po_path = "/tmp/ja_global.po"
-    mo_path = "/tmp/ja_global.mo"
+    po_path = os.path.join(tmp_dir, "ja_global.po")
+    mo_path = os.path.join(tmp_dir, "ja_global.mo")
 
     print(f"\nWriting PO: {po_path}")
     write_po_file(po_path, ja_translations, en_entries)

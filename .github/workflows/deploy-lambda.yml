@@ -84,15 +84,15 @@ jobs:
         with:
           path: rust/bin/wows-replay-tool
           # Cache key: Rust source + Cargo files + patches + wows-toolkit commit ref
-          key: rust-binary-aarch64-wt46bcdb2-${{ hashFiles('rust/wows-replay-tool/src/**', 'rust/wows-replay-tool/Cargo.toml', 'rust/wows-replay-tool/Cargo.lock', 'rust/wows-toolkit-patches.patch') }}
+          key: rust-binary-aarch64-wt04059aa-${{ hashFiles('rust/wows-replay-tool/src/**', 'rust/wows-replay-tool/Cargo.toml', 'rust/wows-replay-tool/Cargo.lock', 'rust/wows-toolkit-patches.patch') }}
 
       - name: Checkout wows-toolkit
         if: steps.cache-binary.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: landaire/wows-toolkit
-          # wows-toolkit main branch, includes WoWS 15.x replay parsing support
-          ref: 46bcdb26f72a1e2b4bb36bc90126a0a3bdaea250
+          # wows-toolkit main branch, includes WoWS 15.3 pickle protocol 2 fix
+          ref: 04059aaf19908edb8141f2efdea1297e29e0fabd
           path: wows-toolkit-src
 
       - name: Setup wows-toolkit at expected path
