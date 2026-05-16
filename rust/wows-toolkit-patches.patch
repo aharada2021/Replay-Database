@@ -1,13 +1,14 @@
 diff --git a/crates/wows-data-mgr/src/dump.rs b/crates/wows-data-mgr/src/dump.rs
-index 98d5d06..efe02f9 100644
+index 7d5b11a..0b71ef4 100644
 --- a/crates/wows-data-mgr/src/dump.rs
 +++ b/crates/wows-data-mgr/src/dump.rs
-@@ -1,3 +1,4 @@
+@@ -1,4 +1,5 @@
+ use std::collections::BTreeMap;
 +use std::fs::read_dir;
  use std::io::Read;
  use std::path::Path;
  use std::sync::Arc;
-@@ -5,6 +6,10 @@ use std::sync::Arc;
+@@ -6,6 +7,10 @@ use std::sync::Arc;
  use indicatif::ProgressBar;
  use indicatif::ProgressStyle;
  use rootcause::prelude::*;
@@ -18,10 +19,10 @@ index 98d5d06..efe02f9 100644
  use wowsunpack::game_data;
  use wowsunpack::game_params::provider::GameMetadataProvider;
  use wowsunpack::game_params::types::GameParamProvider;
-@@ -38,6 +43,53 @@ const MAP_FILES_SPACES: &[&str] = &["minimap.png", "minimap_water.png", "space.s
- /// Files to extract per map from `content/gameplay/<map>/`.
- const MAP_FILES_GAMEPLAY: &[&str] = &["space.settings"];
- 
+@@ -60,6 +65,53 @@ pub fn dump_exists(output_base: &Path, version_str: &str, build: u32) -> bool {
+ ///
+ /// When `progress` is `Some`, a CLI progress bar is updated during extraction.
+ /// When `allow_existing` is true and a complete dump already exists, returns immediately.
 +/// Build a VFS for a specific build number (not just the latest).
 +fn build_game_vfs_for_build(game_dir: &Path, build: u32) -> Result<VfsPath, Report> {
 +    let idx_dir = game_dir.join("bin").join(build.to_string()).join("idx");
@@ -69,22 +70,20 @@ index 98d5d06..efe02f9 100644
 +    Ok(pkg_vfs)
 +}
 +
- pub fn dump_renderer_data(game_dir: &Path, build: u32, version_str: &str, output_base: &Path) -> Result<(), Report> {
-     let output_dir = output_base.join(format!("{version_str}_{build}"));
-     let vfs_dir = output_dir.join("vfs");
-@@ -46,8 +98,8 @@ pub fn dump_renderer_data(game_dir: &Path, build: u32, version_str: &str, output
-         bail!("Output directory already exists: {}", output_dir.display());
+ pub fn dump_renderer_data(
+     game_dir: &Path,
+     build: u32,
+@@ -85,7 +137,7 @@ pub fn dump_renderer_data(
+             .attach_with(|| format!("Failed to clean up partial dump at {}", output_dir.display()))?;
      }
  
--    println!("Building VFS from game directory...");
 -    let vfs = game_data::build_game_vfs(game_dir).attach_with(|| "Failed to build game VFS")?;
-+    println!("Building VFS from game directory (build {build})...");
 +    let vfs = build_game_vfs_for_build(game_dir, build).attach_with(|| "Failed to build game VFS")?;
  
-     // Count files for progress bar
-     let mut total_files = 0u64;
+     // Extract VFS files through CAS
+     let mut file_hashes: BTreeMap<String, String> = BTreeMap::new();
 diff --git a/crates/wows-replays/src/packet2.rs b/crates/wows-replays/src/packet2.rs
-index 8173500..7ffa0c0 100644
+index 8173500..8e09519 100644
 --- a/crates/wows-replays/src/packet2.rs
 +++ b/crates/wows-replays/src/packet2.rs
 @@ -402,10 +402,40 @@ impl<'argtype> Parser<'argtype> {
@@ -259,13 +258,23 @@ index 8173500..7ffa0c0 100644
              space_id,
              vehicle_id: vehicle_id.into(),
              position,
-@@ -811,27 +901,24 @@ impl<'argtype> Parser<'argtype> {
+@@ -811,10 +901,6 @@ impl<'argtype> Parser<'argtype> {
          let props_len = le_u32.parse_next(i)?;
          let props_data: &'a [u8] = take(props_len as usize).parse_next(i)?;
  
 -        if !self.entities.contains_key(&entity_id) {
 -            panic!("Cell player, entity id {}, was created before base player!", entity_id);
 -        }
+-
+         // The value can be parsed into all internal properties
+         /*println!(
+             "{} {} {} {} {},{},{} {},{},{} value.len()={}",
+@@ -830,8 +916,24 @@ impl<'argtype> Parser<'argtype> {
+             dirz,
+             value.len()
+         );*/
+-        let entity_type = self.entities.get(&entity_id).unwrap().entity_type;
+-        let spec = &self.specs[entity_type as usize - 1];
 +        let entity = self.entities.get(&entity_id).ok_or_else(|| {
 +            failure(ParseError::RpcValueParseFailed {
 +                method: "CellPlayerCreate".to_string(),
@@ -275,24 +284,7 @@ index 8173500..7ffa0c0 100644
 +            })
 +        })?;
 +        let entity_type = entity.entity_type;
- 
--        // The value can be parsed into all internal properties
--        /*println!(
--            "{} {} {} {} {},{},{} {},{},{} value.len()={}",
--            entity_id,
--            space_id,
--            5, //unknown,
--            vehicle_id,
--            posx,
--            posy,
--            posz,
--            dirx,
--            diry,
--            dirz,
--            value.len()
--        );*/
--        let entity_type = self.entities.get(&entity_id).unwrap().entity_type;
--        let spec = &self.specs[entity_type as usize - 1];
++
 +        let spec = self.specs.get(entity_type as usize - 1).ok_or_else(|| {
 +            failure(ParseError::RpcValueParseFailed {
 +                method: format!("CellPlayerCreate::entity_type_{}", entity_type),
