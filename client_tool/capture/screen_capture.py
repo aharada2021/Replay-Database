@@ -251,6 +251,42 @@ class ScreenCapture:
             # windows-capture 1.5.0: use frame_buffer instead of raw_frame
             frame_data = frame.frame_buffer
 
+            # Adjust frame dimensions to match the window's actual client area.
+            #
+            # In windowed mode, Windows Graphics Capture API may return frames that
+            # are slightly wider/taller than the window due to GPU texture alignment
+            # (stride padding). For example, a 1366px-wide window may produce a
+            # 1368px-wide frame buffer. If the extra bytes are sent to FFmpeg, which
+            # expects exactly 1366px per row, the rows become misaligned and the video
+            # appears to continuously scroll vertically.
+            #
+            # Two cases are handled:
+            #   1. Small difference (≤10%): stride/alignment padding → crop
+            #   2. Large difference (>10%): DPI scaling → resize with cv2
+            if self._window_info is not None:
+                win_w = self._window_info.width
+                win_h = self._window_info.height
+                actual_h, actual_w = frame_data.shape[:2]
+                if actual_w != win_w or actual_h != win_h:
+                    if actual_w > win_w * 1.1 or actual_h > win_h * 1.1:
+                        # Significant size difference (e.g. DPI scaling) – resize
+                        import cv2
+                        frame_data = cv2.resize(
+                            frame_data, (win_w, win_h), interpolation=cv2.INTER_AREA
+                        )
+                        logger.debug(
+                            f"Frame resized: {actual_w}x{actual_h} -> {win_w}x{win_h}"
+                        )
+                    else:
+                        # Small size difference (stride padding) – crop
+                        crop_w = min(actual_w, win_w)
+                        crop_h = min(actual_h, win_h)
+                        frame_data = np.ascontiguousarray(frame_data[:crop_h, :crop_w])
+                        logger.debug(
+                            f"Frame cropped: {actual_w}x{actual_h} -> {crop_w}x{crop_h} "
+                            f"(stride padding detected)"
+                        )
+
             # Scale down frame if configured (reduces raw file size)
             if self.config.capture_scale < 1.0:
                 import cv2
