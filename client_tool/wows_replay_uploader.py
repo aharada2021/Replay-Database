@@ -50,7 +50,7 @@ DEFAULT_API_BASE_URL = ""  # 例: "https://your-server.example.com"
 DEFAULT_MAX_UPLOAD_SIZE_MB = 500  # デフォルト最大アップロードサイズ(MB)
 
 # バージョン情報
-VERSION = "1.3.1"
+VERSION = "1.3.2"
 
 # デフォルトのリプレイフォルダ
 DEFAULT_REPLAYS_FOLDER = os.path.expandvars('%APPDATA%\\Wargaming.net\\WorldOfWarships\\replays')
