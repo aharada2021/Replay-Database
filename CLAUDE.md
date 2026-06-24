@@ -153,6 +153,22 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **WoWS 15.5.0 ゲームバージョン更新（2026-06-24）**:
+  - 新バージョン: 15.5.0 / build 12668706（`game_info.xml` の client installed から特定）
+  - `wows-data-mgr dump-renderer-data --build 12668706` で抽出 → S3 `game-data/15.5.0_12668706/` へアップロード（247MB、en/ja翻訳・game_params.rkyv・vfs一式同梱）
+  - `generate_ja_mo.py`: スキル71・アップグレード118 全一致、新バトルマップなし（`map_names.yaml` 変更不要）
+  - 抽出は wows-toolkit 868c346 のバイナリで実施（レンダラーと同一バージョン → rkyv互換保証）
+- **wows-toolkit ピン更新 868c346（2026-06-24）**:
+  - 問題: CI が pickled を alpha3→alpha6 に自動更新し API 変更（`__reduce__`/`as_any`）でビルド失敗
+  - 対処: コミットピンを 04059aa→868c346（pickled alpha6 対応の 5cf5d85 を含む最新main）に更新
+  - `rust/wows-toolkit-patches.patch` を 868c346 向けに再生成（packet2.rs境界チェック + dump.rs build_game_vfs_for_build）
+  - ローカル抽出用に `cas.rs` へ symlink失敗時のコピーフォールバック追加（Windows Dev Mode無効でも抽出可能）。CIはwows-data-mgrをビルドしないためパッチには含めない
+  - PR #62 でマージ・prodデプロイ成功
+- **ウィンドウモード動画の縦スクロール修正（2026-06-24、client v1.3.2）**:
+  - 問題: ウィンドウモードのキャプチャ動画が縦スクロールし続ける
+  - 原因: Windows Graphics Capture API のフレームバッファがGPUテクスチャアライメントでウィンドウ幅より広くなる（ストライドパディング）。FFmpegに渡す幅とずれて毎行ずれが蓄積
+  - 修正: `client_tool/capture/screen_capture.py` `_handle_frame()` で実フレームサイズとウィンドウサイズを比較し、差が小さければクロップ（パディング）、大きければリサイズ（DPIスケーリング）
+  - PR #61 でマージ、client v1.3.2 として自動リリース
 - **艦艇名統一バックフィル（2026-03-11）**:
   - 問題: 旧Python版（フルネーム/Title Case）とRust版（短縮名/UPPERCASE）で艦名形式が不一致、検索がヒットしない
   - `rust/wows-replay-tool/src/dump_ship_names.rs`: game-dataから全艦名マッピングJSON出力
