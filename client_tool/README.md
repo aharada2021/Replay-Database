@@ -82,8 +82,8 @@ World of Warshipsのリプレイファイルを自動的にアップロードす
 # API認証キー（必須）
 api_key: YOUR_API_KEY_HERE
 
-# サーバーURL
-api_base_url: https://wows-replay.mirage0926.com
+# サーバーURL（クランのDiscordで共有されたURLを設定してください）
+api_base_url: https://<サーバーURL>
 
 # 監視するリプレイフォルダ
 replays_folder: '%APPDATA%\Wargaming.net\WorldOfWarships\replays'
@@ -120,7 +120,7 @@ capture:
 | 項目 | 説明 | デフォルト値 |
 |------|------|--------------|
 | `api_key` | API認証キー（必須） | - |
-| `api_base_url` | サーバーURL | `https://wows-replay.mirage0926.com` |
+| `api_base_url` | サーバーURL（クランのDiscordで共有） | - |
 | `replays_folder` | リプレイフォルダのパス | 自動検出 |
 | `discord_user_id` | Discord User ID（オプション） | （空） |
 | `retry_count` | リトライ回数 | `3` |
