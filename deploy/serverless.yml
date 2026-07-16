@@ -32,6 +32,7 @@ provider:
   environment:
     STAGE: ${self:provider.stage}
     DISCORD_BOT_TOKEN: ${env:DISCORD_BOT_TOKEN}
+    FRONTEND_URL: ${env:FRONTEND_URL, ''}
     # DynamoDBテーブル名（共通）
     REPLAYS_TABLE: ${self:custom.replaysTable}
     CLAN_BATTLES_TABLE: ${self:custom.clanBattlesTable}

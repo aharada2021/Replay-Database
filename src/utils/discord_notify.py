@@ -175,15 +175,18 @@ def send_replay_notification(
         embed["fields"].append({"name": "🔵 味方", "value": ally_list, "inline": True})
         embed["fields"].append({"name": "🔴 敵", "value": enemy_list, "inline": True})
 
-        # 詳細リンク
-        detail_url = f"{web_ui_base_url}/match/{arena_unique_id}"
-        embed["fields"].append(
-            {
-                "name": "📊 詳細",
-                "value": f"[Web UIで見る]({detail_url})",
-                "inline": False,
-            }
-        )
+        # 詳細リンク（FRONTEND_URL未設定時は壊れたリンクを出さない）
+        if web_ui_base_url:
+            detail_url = f"{web_ui_base_url.rstrip('/')}/match/{arena_unique_id}"
+            embed["fields"].append(
+                {
+                    "name": "📊 詳細",
+                    "value": f"[Web UIで見る]({detail_url})",
+                    "inline": False,
+                }
+            )
+        else:
+            print("Discord notification: FRONTEND_URL not set, skipping detail link")
 
         embeds = [embed]
 
