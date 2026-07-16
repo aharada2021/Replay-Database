@@ -153,6 +153,13 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 4. Cloudformationの状態を確認
 
 ## 完了したタスク
+- **WoWS 15.6.0 ゲームバージョン更新（2026-07-17）**:
+  - 新バージョン: 15.6.0 / build 12830008
+  - wows-toolkit 868c346 の既存バイナリで抽出成功（pickled問題なし、レンダラー更新・パッチ再生成とも不要）
+  - S3 `game-data/15.6.0_12830008/` へアップロード（249MB、en/ja翻訳・game_params.rkyv・vfs一式）
+  - 日本語MO: スキル71・UG118 一致（欠落1件 `IDS_SKILL_LEVEL_ACTIVATION_SUBHEADER` はHUD UI文字列で対象外）
+  - 新バトルマップなし（`map_names.yaml` 変更不要）
+  - ローカルで 15.6.0 リプレイ（Faroe）レンダリング検証済み
 - **WoWS 15.5.0 ゲームバージョン更新（2026-06-24）**:
   - 新バージョン: 15.5.0 / build 12668706（`game_info.xml` の client installed から特定）
   - `wows-data-mgr dump-renderer-data --build 12668706` で抽出 → S3 `game-data/15.5.0_12668706/` へアップロード（247MB、en/ja翻訳・game_params.rkyv・vfs一式同梱）
