@@ -208,14 +208,18 @@ jobs:
           tags: |
             ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:latest
             ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ needs.setup.outputs.stage }}
-            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ github.sha }}
+            ${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:sha-${{ github.sha }}
           cache-from: type=registry,ref=${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:buildcache
           cache-to: type=registry,ref=${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:buildcache,mode=max
 
       - name: Set output
         id: set-output
         run: |
-          IMAGE_URI="${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:${{ needs.setup.outputs.stage }}"
+          # Deploy by immutable sha- tag: stage tags (dev/prod) are moved on every push, which leaves the
+          # previously deployed digest untagged; the ECR lifecycle policy then deletes it within a day
+          # and CloudFormation rollbacks fail with ImageDeleted. The sha- prefix lets the lifecycle
+          # policy keep only the most recent N of these.
+          IMAGE_URI="${{ needs.setup.outputs.account_id }}.dkr.ecr.ap-northeast-1.amazonaws.com/wows-replay-bot:sha-${{ github.sha }}"
           echo "image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
           echo "Image URI: ${IMAGE_URI}"
 

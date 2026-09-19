@@ -152,6 +152,11 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 3. Serverless Frameworkのエラーメッセージを確認
 4. Cloudformationの状態を確認
 
+### Lambda が `ImageDeleted` / スタックが `UPDATE_ROLLBACK_FAILED`（2026-09-20 に dev で発生）
+- 原因: デプロイが可変タグ（`:dev`/`:prod`）を参照していたため、タグ付け替えで旧ダイジェストが untagged になり、ECR ライフサイクル（untagged は1日で削除）で消えた。ロールバック先が無くなる
+- 対策済み: `ECR_IMAGE_URI` は `sha-<commit>` タグを参照。ライフサイクルは `sha-` プレフィックスで直近10個保持
+- 復旧: `aws cloudformation continue-update-rollback --stack-name <stack> --resources-to-skip <壊れた関数のLogicalId>` で `UPDATE_ROLLBACK_COMPLETE` に戻してから再デプロイ
+
 ## 完了したタスク
 - **WoWS 15.8.0 対応 Mac側作業（2026-09-20）**:
   - 新バージョン: 15.8.0 / build 13187581（15.7.0 / 13015811 は意図的にスキップ、game-data未投入のため prod で「No game data matches replay build 13015811」が出ているのは既知）
