@@ -76,8 +76,17 @@ cargo run --bin wows-data-mgr --release -- \
 
 ```bash
 git apply --include='crates/wowsunpack/*' path/to/rust/wows-toolkit-patches.patch
-cargo build --release --bin wows-data-mgr
+cargo build --release -p wows-data-mgr --no-default-features
 ```
+
+ビルド時の注意（2026-09-20 の 15.8 作業で判明）:
+- `--no-default-features` を付ける。デフォルトの `constants` 機能は dump 時に GitHub から `constants.json` を取得するが、
+  data-mgr 単体ビルドでは rustls の CryptoProvider が確定せず実行時パニックする。`constants.json` は wows-toolkit GUI 用で
+  当プロジェクトは使わない（`wows-replay-tool` は `vfs/gui/data/constants` を読む）。構成を揃えたければ
+  `https://raw.githubusercontent.com/padtrack/wows-constants/main/data/versions/<build>.json` を手で置く
+- GNU ツールチェーンで `dlltool.exe: program not found` が出たら MinGW が PATH に無い:
+  `$env:PATH = "C:\msys64\mingw64\bin;$env:PATH"`
+- PowerShell では `& .\target\release\wows-data-mgr.exe ...` のように呼び出し演算子が必要（引用符付きパスの場合）
 
 出力ディレクトリ構成:
 ```

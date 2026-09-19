@@ -158,13 +158,21 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 - 復旧: `aws cloudformation continue-update-rollback --stack-name <stack> --resources-to-skip <壊れた関数のLogicalId>` で `UPDATE_ROLLBACK_COMPLETE` に戻してから再デプロイ
 
 ## 完了したタスク
-- **WoWS 15.8.0 対応 Mac側作業（2026-09-20）**:
+- **WoWS 15.8.0 ゲームバージョン更新（2026-09-20、dev 検証済み）**:
   - 新バージョン: 15.8.0 / build 13187581（15.7.0 / 13015811 は意図的にスキップ、game-data未投入のため prod で「No game data matches replay build 13015811」が出ているのは既知）
+  - S3 `game-data/15.8.0_13187581/` へアップロード（260MB、`--full`）、`generate_ja_mo.py --upload` で ja MO を全6バージョンに配置
+  - dev で 15.8 リプレイ（Shoreside、Random）の抽出・動画生成とも成功。統計値（撃沈/火災/浸水/ダメージ/XP）妥当、24人分の allPlayersStats も正常
+  - `generate_ja_mo.py`: スキル71・UG118 一致、マップは 15.6 と同一（追加・改名なし）
+  - 新艦49隻（Marlborough B / Chikuma Shō-Gō / Friedrich Carl / Kurama 等）・表示名変更4件あり。`config/ship_name_mapping.json` は `backfill_ship_names.py` 専用で実行時には未使用のため未反映（バックフィル再実行時に `dump-ship-names` で再生成）
+  - Windows `wows-data-mgr` は FLOAT64 パッチ適用後 `--no-default-features` で再ビルドが必要だった（詳細は `docs/game-version-update.md`）
+- **dev スタック復旧 + ECR タグ運用変更（2026-09-20）**:
+  - dev の全 Lambda が 4月のイメージ（ECR から削除済み）を参照して `Inactive`、デプロイは `did not stabilize`、ロールバックも `ImageDeleted` で `UPDATE_ROLLBACK_FAILED`
+  - 復旧: `aws lambda update-function-code` で全関数を新イメージへ直接更新 → `continue-update-rollback --resources-to-skip` → 再デプロイ成功
+  - 再発防止: `ECR_IMAGE_URI` を `sha-<commit>` タグに変更、ECR ライフサイクルを「`sha-` 直近10個保持 + untagged 1日削除」に更新済み
   - `rust/wows-toolkit-patches.patch` に upstream `25d96db6`（15.7 で追加された `FLOAT64` 型のパース、`wowsunpack/src/rpc/typedefs.rs` 2行）を hunk 追加。wows-toolkit ピンは `868c346` のまま
   - `extract.rs`: `parser.parse_packet()` も `catch_unwind` で保護（15.8 リプレイを 15.6 定義で読むと `nested_property_path.rs:142` の `unwrap()` でプロセスごと落ちた。パケット単位で切り出し済みなので継続可能）
   - 検証: 15.1 リプレイ3本で出力が変更前と同一。15.8 リプレイは game-data 未投入のため定義ミスマッチ止まり（`could not find self_player`）→ 15.8 データ投入後に再検証
   - 戦闘結果インデックス（`CLIENT_PUBLIC_RESULTS_INDICES`）は padtrack/wows-constants で 15.3〜15.8 全538項目一致を確認。`RibbonIndices` 変更不要
-  - **未完了**: Windows で `wows-data-mgr register/dump-renderer-data --build 13187581` → `upload_game_data.py --full` → dev で 15.8 リプレイ検証 → main マージ。新艦（Friedrich Carl / Marlborough B / Chikuma Shō-Gō）・新低ティアOps3種の `ship_name_mapping.json` / `map_names.yaml` 反映は別PR
   - 注意: upstream `landaire/wows-toolkit` は 2026-08 に履歴書き換え＋Buck2移行済み。現ピンと `main` に共通祖先なし。ピン更新は独立タスク（`docs/game-version-update.md` 参照）
 - **WoWS 15.6.0 ゲームバージョン更新（2026-07-17）**:
   - 新バージョン: 15.6.0 / build 12830008
@@ -241,7 +249,8 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 - **Dual Render機能（2026-01-10）**
 
 ## 今後の予定
-- **WoWS 15.8.0 対応の残り**: 15.8 game-data 抽出・S3投入 → dev 検証 → prod、その後 15.8 新コンテンツ（新艦・新Opsマップ）の名称マッピング反映
+- **WoWS 15.8.0 の prod 反映**: develop → main の PR マージ（dev 検証済み）
+- `config/ship_name_mapping.json` の再生成（15.8 で新艦49隻・改名4件。バックフィル再実行時に `wows-replay-tool dump-ship-names` で更新）
 - **wows-toolkit 最新版（Buck2/動的インデックス解決）への追従**: 現ピン `868c346` と共通祖先なし。`rust/wows-replay-tool` 全体の再統合として計画
 - **Dual Render Rust再実装**: wows-replay-toolにdual renderサブコマンド追加
 - wows-toolkitパッチのupstream PR提出
