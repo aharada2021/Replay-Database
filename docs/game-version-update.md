@@ -68,8 +68,16 @@ cargo run --bin wows-data-mgr --release -- \
   dump-renderer-data --build <build> --output path/to/renderer_data
 ```
 
-`dump-renderer-data` はファイルをコピーするだけでエンティティ定義をパースしないため、
-新バージョン固有のパース問題（後述の FLOAT64 など）はここでは表面化せず、Lambda側の `extract` で初めて発生する。
+`register` / `dump-renderer-data` はバージョン検出のためにゲームディレクトリの `entity_defs` を全てパースする
+（`detect_version_at_path` → `game_data::load_game_resources` → `parse_scripts`）。
+そのため新バージョンで型が追加された場合（15.7 の `FLOAT64` など）は **Windows 側の `wows-data-mgr` も
+パッチ適用後に再ビルド**しないと `Unrecognized type FLOAT64` でパニックする。
+既にパッチ済みのツリーに typedefs の hunk だけ追加で当てる場合:
+
+```bash
+git apply --include='crates/wowsunpack/*' path/to/rust/wows-toolkit-patches.patch
+cargo build --release --bin wows-data-mgr
+```
 
 出力ディレクトリ構成:
 ```
