@@ -59,22 +59,46 @@ pub fn run(replay_path: &Path, game_data_dir: &Path) -> Result<()> {
     let mut packet_count = 0u64;
     let mut error_count = 0u64;
 
+    enum Step {
+        Processed { process_panicked: bool },
+        ParseError,
+    }
+
     while !remaining.is_empty() {
-        match parser.parse_packet(&mut remaining) {
-            Ok(packet) => {
-                // controller.process() may panic on unexpected data formats
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    controller.process(&packet);
-                }));
-                if result.is_err() {
+        // parse_packet slices the whole packet before decoding its payload, so a panic
+        // inside the decoder (e.g. nested property updates) leaves `remaining` at the next packet.
+        let before = remaining.len();
+        let step = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            match parser.parse_packet(&mut remaining) {
+                Ok(packet) => {
+                    // controller.process() may panic on unexpected data formats
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        controller.process(&packet);
+                    }));
+                    Step::Processed {
+                        process_panicked: result.is_err(),
+                    }
+                }
+                Err(_) => Step::ParseError,
+            }
+        }));
+        match step {
+            Ok(Step::Processed { process_panicked }) => {
+                if process_panicked {
                     error_count += 1;
                     // Continue processing remaining packets
                 }
                 packet_count += 1;
             }
-            Err(_) => {
+            Ok(Step::ParseError) => {
                 error_count += 1;
                 break;
+            }
+            Err(_) => {
+                error_count += 1;
+                if remaining.len() == before {
+                    break;
+                }
             }
         }
     }

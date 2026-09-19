@@ -44,17 +44,32 @@ CIではコミットをピン留めし、カスタムパッチを適用してビ
 
 ### 2. ゲームデータ抽出（Windows作業）
 
-Windows PCにWoWSがインストールされた環境で実行:
+Windows PCにWoWSがインストールされた環境で実行。`wows-data-mgr` は**CIと同じピン留めコミット + パッチ**からビルドすること
+（`rust/wows-toolkit-patches.patch` の `dump.rs` 修正がないと、指定ビルドではなく最新ビルドの `idx` が使われる）:
 
 ```bash
-# wows-data-mgr を使用してゲームデータを抽出
 cd path/to/wows-toolkit
-cargo run --bin wows-data-mgr --release -- \
-  dump-renderer-data \
-  "C:\Games\World_of_Warships" \
-  <major> <minor> <patch> \
-  output_directory
+git fetch origin
+git checkout <deploy-lambda.yml の ref のコミット>
+git apply path/to/rust/wows-toolkit-patches.patch
 ```
+
+ビルド番号はゲームディレクトリの `bin/` 配下のフォルダ名（例: `bin/13187581`）。
+`--version` 指定は同梱の `game_versions.toml` に載っている版しか解決できないため、**`--build` を使う**:
+
+```bash
+# 1. インストール済みのゲームを登録（cwd は wows-toolkit リポジトリ内で実行する。
+#    レジストリは <repo>/game_data/versions.toml に保存される。別の場所にしたい場合は --data-dir を指定）
+cargo run --bin wows-data-mgr --release -- \
+  register --path "C:\Games\World_of_Warships" --build <build>
+
+# 2. レンダラー用データを抽出（--output 直下に <version>_<build>/ が作られる）
+cargo run --bin wows-data-mgr --release -- \
+  dump-renderer-data --build <build> --output path/to/renderer_data
+```
+
+`dump-renderer-data` はファイルをコピーするだけでエンティティ定義をパースしないため、
+新バージョン固有のパース問題（後述の FLOAT64 など）はここでは表面化せず、Lambda側の `extract` で初めて発生する。
 
 出力ディレクトリ構成:
 ```
@@ -153,6 +168,22 @@ S3にアップロードしたゲームデータのビルド番号がリプレイ
 新バージョンでエンティティ定義が変更された。
 - wows-toolkit upstream の対応を待つか、`packet2.rs` のパッチを更新
 - `rust/wows-toolkit-patches.patch` のエラーハンドリングがパニックを防止
+
+### エンティティ定義に新しい型が追加された（例: 15.7 の `FLOAT64`）
+
+`vfs/scripts/entity_defs/*.def` に `wowsunpack/src/rpc/typedefs.rs::parse_type` が知らない型名が現れると、
+その版のゲームデータを読み込んだ時点でクラッシュする（リプレイ側ではなくゲームデータ側の問題）。
+- upstream の修正コミットが小さければ `rust/wows-toolkit-patches.patch` に hunk を追加する（15.7 の FLOAT64 対応は2行）
+- ゲームデータをS3に上げる前にパッチを含むバイナリをデプロイしておくこと。順序が逆だと
+  「game data なし」エラーが「クラッシュ」に変わるだけで復旧しない
+
+### 本家 (landaire/wows-toolkit) のピン更新について
+
+2026-08 に upstream は履歴を書き換え、Buck2 ビルド・CAS 化・戦闘結果インデックスの動的解決化を行った。
+現在のピン留めコミットと `main` に共通祖先はなく、「少しだけ進める」ことはできない。
+ピンを更新する場合は `rust/wows-replay-tool` 全体の再統合作業になるため、ゲームバージョン対応とは分けて計画すること。
+インデックス（`CLIENT_PUBLIC_RESULTS_INDICES`）の変化は [padtrack/wows-constants](https://github.com/padtrack/wows-constants) の
+`data/versions/<build>.json` を版間で diff して確認できる（15.3〜15.8 は変化なし）。
 
 ### 日本語名が表示されない
 
