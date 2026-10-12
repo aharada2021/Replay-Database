@@ -158,6 +158,12 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 - 復旧: `aws cloudformation continue-update-rollback --stack-name <stack> --resources-to-skip <壊れた関数のLogicalId>` で `UPDATE_ROLLBACK_COMPLETE` に戻してから再デプロイ
 
 ## 完了したタスク
+- **WoWS 15.9.0 ゲームバージョン更新（2026-10-08、ローカル検証済み・dev 未確認）**:
+  - 新バージョン: 15.9.0 / build 13357625。S3 `game-data/15.9.0_13357625/` へアップロード済み、`generate_ja_mo.py --upload` で ja MO を全7バージョンに配置
+  - Windows `wows-data-mgr` は `--no-default-features` で再ビルドが必要（デフォルトの `constants` 機能が rustls CryptoProvider 未確定で `dump-renderer-data` 時にパニック。15.8 で判明済みの注意点を再発）
+  - `generate_ja_mo.py`: 15.9 で `Direction Center for Fighters` → `Direction Center for Interceptors`（迎撃機指揮所）に改名されたため対応表に追加。スキル71一致（欠落1件はHUD UI文字列で対象外）・UG118一致、マップ変更なし
+  - ローカル検証（2026-10-12、dev 環境なしのため疑似確認）: 15.9 リプレイ（Daring、Zigzag、Arms Race）を `wows-replay-tool extract`/`render` で処理。パケット236,155件・エラー0、統計値妥当（damage/kills/fires/floods）、MP4（h264, 1048x800）生成成功。ビルドは toolkit `868c346` をクリーン clone してパッチ適用（`~/git/wows-toolkit` は最新main＋pickled API変更でビルド不可）
+  - 英語MOの基準が S3 の 15.3 固定のため、新バージョン時は 15.N の en MO を `$TMPDIR/en_global.mo` に置いてから実行すると新規スキル名を検出できる
 - **WoWS 15.8.0 ゲームバージョン更新（2026-09-20、dev 検証済み）**:
   - 新バージョン: 15.8.0 / build 13187581（15.7.0 / 13015811 は意図的にスキップ、game-data未投入のため prod で「No game data matches replay build 13015811」が出ているのは既知）
   - S3 `game-data/15.8.0_13187581/` へアップロード（260MB、`--full`）、`generate_ja_mo.py --upload` で ja MO を全6バージョンに配置
@@ -249,6 +255,7 @@ python3 scripts/migrate_to_new_schema.py # スキーマ移行
 - **Dual Render機能（2026-01-10）**
 
 ## 今後の予定
+- **WoWS 15.9.0 の dev 検証**: ローカル疑似検証は完了。dev デプロイ後にアップロード経由で最終確認
 - **WoWS 15.8.0 の prod 反映**: develop → main の PR マージ（dev 検証済み）
 - `config/ship_name_mapping.json` の再生成（15.8 で新艦49隻・改名4件。バックフィル再実行時に `wows-replay-tool dump-ship-names` で更新）
 - **wows-toolkit 最新版（Buck2/動的インデックス解決）への追従**: 現ピン `868c346` と共通祖先なし。`rust/wows-replay-tool` 全体の再統合として計画
