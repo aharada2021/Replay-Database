@@ -296,3 +296,16 @@ index 8173500..8e09519 100644
  
          let mut sub = props_data;
          let mut props: HashMap<&str, _> = HashMap::new();
+diff --git a/crates/wowsunpack/src/rpc/typedefs.rs b/crates/wowsunpack/src/rpc/typedefs.rs
+--- a/crates/wowsunpack/src/rpc/typedefs.rs
++++ b/crates/wowsunpack/src/rpc/typedefs.rs
+@@ -429,6 +429,8 @@ pub fn parse_type(arg: &roxmltree::Node, aliases: &HashMap<String, ArgType>) ->
+     } else if t == "INT32" {
+         ArgType::Primitive(PrimitiveType::Int32)
+     } else if t == "INT64" {
+         ArgType::Primitive(PrimitiveType::Int64)
++    } else if t == "FLOAT64" {
++        ArgType::Primitive(PrimitiveType::Float64)
+     } else if t == "FLOAT32" {
+         ArgType::Primitive(PrimitiveType::Float32)
+     } else if t == "FLOAT" {

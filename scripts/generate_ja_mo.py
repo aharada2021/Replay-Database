@@ -61,6 +61,7 @@ SKILL_EN_TO_JA = {
     "Air Supremacy": "制空権",
     "Pack A Punch": "強烈な打撃力",
     "Direction Center for Fighters": "戦闘機指揮所",
+    "Direction Center for Interceptors": "迎撃機指揮所",
     "Engine Techie": "エンジン技師",
     "Inertia Fuse for HE Shells": "榴弾用慣性信管",
     "Radio Location": "無線方向探知",
